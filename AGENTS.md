@@ -3,7 +3,7 @@
 ## What this is
 
 A strictly read-only Cloudflare account configuration review tool: collectors
-(TS client — also compiled as the Mode B single binary — and a bash script) emit a zod-validated JSON "collection"; an analyzer
+(one TypeScript collector, run directly in Mode A and compiled as the Mode B single binary) emits a zod-validated JSON "collection"; an analyzer
 evaluates a YAML findings rulebook against it and renders a Markdown report.
 
 ## Hard rules — do not violate these when editing
@@ -13,11 +13,11 @@ evaluates a YAML findings rulebook against it and renders a Markdown report.
    enforces this and must stay in place. If a feature seems to need a write,
    stop — the tool is read-only by design.
 2. **One outbound host.** All API calls go to `https://api.cloudflare.com/client/v4`
-   (pinned in `src/cf/client.ts` and `collectors/sh/collect-config.sh`).
+   (pinned in `src/cf/client.ts`).
    No telemetry, uploads, or third-party HTTP.
 3. **Data policy.** Any new collected field must follow `docs/data-policy.md`:
    IDs hashed, DNS contents redacted, identities never exported, token material
-   never present. Update the zod schema, both shell collectors, and the policy
+   never present. Update the zod schema, `src/summarize.ts`, and the policy
    doc together. The pre-write secret scan must stay fail-closed.
 4. **Fail-closed verdicts.** Unreadable evidence → `manual`, never `pass`.
    Out-of-plan checks → `na`. Never turn a data gap into a pass.
@@ -36,15 +36,13 @@ evaluates a YAML findings rulebook against it and renders a Markdown report.
    an evaluator (only if not declarative), a `citation` to Cloudflare docs, a
    plan-tier, a `scope` if account-level, a domain that belongs to a profile, and
    a fixture-based test in `tests/engine.test.ts` or `tests/web-security.test.ts`.
-7. **One contract, two implementations.** The Mode B single binary
-   (`src/bin/collect.ts`, built with `scripts/build-binaries.sh`) IS the Mode A
-   collector compiled with Bun — it is authoritative, nothing to mirror. The bash
-   script is the only other collector, kept for teams that must read what they run;
-   any collection change goes into `src/collect.ts` + `src/summarize.ts` and the bash
-   assembler together, and `tests/collector-parity.test.ts` must pass (needs
-   `python3`). Add any new sensitive field to `tests/fixtures/fake-api.json` with a
-   planted value and to `PLANTED_SECRETS`. The PowerShell collector was retired in
-   v0.2 — do not reintroduce a third implementation.
+7. **One collector.** The Mode B single binary (`src/bin/collect.ts`, built with
+   `scripts/build-binaries.sh`) IS the Mode A collector compiled with Bun. The
+   PowerShell and bash collectors were retired in v0.2 — do not reintroduce a
+   second implementation; auditability comes from the open source, the reproducible
+   bundle (`scripts/verify-build.sh`), and self-builds. Add any new sensitive field to
+   `tests/fixtures/fake-api.json` with a planted value and to `PLANTED_SECRETS` in
+   `tests/collector-policy.test.ts`. Binaries are unsigned by decision.
 
 ## Conventions
 
@@ -60,7 +58,7 @@ evaluates a YAML findings rulebook against it and renders a Markdown report.
 ## Layout
 
 - `src/schema.ts` — collection contract (zod); version-bump on breaking change
-- `src/redact.ts` — shared redaction (mirror in both shell collectors)
+- `src/redact.ts` — shared redaction
 - `src/endpoints.ts` — the endpoint registry (Mode A iterates this only)
 - `src/summarize.ts` — policy-safe summarizers for raw API objects (mirrored in Mode B)
 - `src/collect.ts` — Mode A collector
@@ -68,9 +66,8 @@ evaluates a YAML findings rulebook against it and renders a Markdown report.
 - `src/cli.ts` — `collect` / `analyze` commands
 - `src/bin/collect.ts` — Mode B single-binary entry (hidden token prompt; client installs no runtime)
 - `findings/checks.yaml` — the rulebook
-- `collectors/sh/` — readable bash collector (alternative to the binary)
 - `tests/` — read-only enforcement, redaction, engine + web-security fixtures,
-  TS/bash collector parity (`tests/fixtures/fake-api.json`, fake `curl`), binary tests
+  collector data policy (`tests/fixtures/fake-api.json`), binary tests
 - `docs/EVOLUTION-*.md` — design review and roadmap (versioned, newest wins)
 
 ## Known gaps (see TODO.md and the latest docs/EVOLUTION-*.md)

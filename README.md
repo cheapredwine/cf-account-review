@@ -15,8 +15,7 @@ are available via `--profile`.
 
 ## The guarantees
 
-- **READ ONLY — enforced by tests, not convention.** The API layer implements `GET` only;
-  the shell collectors call the API only through GET-only wrappers. `tests/read-only.test.ts`
+- **READ ONLY — enforced by tests, not convention.** The API layer implements `GET` only, and the Mode B binary is that same code compiled. `tests/read-only.test.ts`
   fails the build if any mutating HTTP method or non-`api.cloudflare.com` host appears.
 - **Never records sensitive data.** DNS contents, origin IPs, IDs (hashed), identities
   (emails/names — reduced to role names and booleans), Worker binding values, and token
@@ -59,15 +58,8 @@ bundle embedded in each binary is reproducible (published with the release and
 checked by `scripts/verify-build.sh`); the executables are not bit-identical across
 builds, so clients who want zero trust in our artifacts build their own.
 
-**Readable scripts** (for teams that must read what they run):
-
-Bash (macOS/Linux; curl + python3, no jq needed):
-
-```bash
-CF_API_TOKEN=xxx ./collectors/sh/collect-config.sh output/
-```
-
-Either file feeds the same analyzer: `node dist/cli.js analyze <file>`.
+The binary's output feeds the same analyzer: `node dist/cli.js analyze <file>`.
+Binaries are unsigned by design: verify `SHA256SUMS`, or build your own.
 
 Token scopes: create a **read-only** token covering every permission in
 [`docs/endpoints.md`](./docs/endpoints.md) (generated from the endpoint registry).
@@ -117,7 +109,7 @@ Verdicts: `pass | warn | fail | manual | na` — **incomplete evidence can never
 
 ```bash
 pnpm install
-pnpm verify      # lint + tests (the done-check), incl. TS/bash collector parity
+pnpm verify      # lint + tests (the done-check), incl. the collector data-policy test
 pnpm build       # tsc -> dist/
 ```
 

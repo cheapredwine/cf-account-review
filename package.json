@@ -1,7 +1,7 @@
 {
   "name": "cf-account-review",
   "version": "0.2.0",
-  "description": "Read-only Cloudflare account configuration review: collect config (API token or offline shell scripts) and analyze it against a YAML best-practice rulebook.",
+  "description": "Read-only Cloudflare account configuration review: collect config (API token, or an offline single binary) and analyze it against a YAML best-practice rulebook.",
   "type": "module",
   "license": "MIT",
   "engines": {

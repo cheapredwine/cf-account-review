@@ -66,13 +66,13 @@ You have two options for running this review. Choose based on your security requ
 
 **How it works:**
 
-1. You run the single-file collector (or the bash script) **inside your environment**
-2. The script collects configuration using your API token — **the token never leaves your machine**
-3. The script writes a JSON file containing your configuration (with sensitive data redacted)
+1. You run the single-file collector **inside your environment**
+2. The collector reads configuration using your API token — **the token never leaves your machine**
+3. It writes a JSON file containing your configuration (with sensitive data redacted)
 4. You send us **only the JSON file** — no tokens, no credentials
 5. We run the analyzer against the JSON and return your report
 
-**Recommended: the single-file collector (nothing to install).**
+**The single-file collector (nothing to install).**
 Download the file for your platform from the project's GitHub release, together with
 `SHA256SUMS`. Each file contains everything it needs — no Node.js, Python, PowerShell
 modules, or other runtime.
@@ -101,7 +101,9 @@ Get-FileHash .\cf-account-review-collect-<version>-windows-x64.exe -Algorithm SH
 Output: `output/cloudflare-config-YYYY-MM-DD-HHMM.json`. If nothing could be read (bad
 token, no network), the collector says so and writes nothing.
 
-> **First run on macOS/Windows:** the binaries are not yet code-signed. macOS may block
+> **First run on macOS/Windows:** the binaries are deliberately not code-signed —
+> trust comes from the open source, the published checksums, and the option to build
+> them yourself. macOS may block
 > a downloaded file ("cannot be opened because the developer cannot be verified"):
 > run `xattr -d com.apple.quarantine <file>` or allow it in System Settings → Privacy &
 > Security. Windows SmartScreen may ask you to confirm ("More info" → "Run anyway").
@@ -122,12 +124,6 @@ token, no network), the collector says so and writes nothing.
   if you don't want to trust ours, build it: `scripts/build-binaries.sh bun-darwin-arm64`
   (or any target) on the release tag. Building requires the repo's pinned toolchain;
   running the result requires nothing.
-
-**Alternative: readable script (macOS/Linux).** If your policy requires running only code
-you can read line by line, use the bash script instead (same output format):
-
-- Bash: `CF_API_TOKEN=... ./collectors/sh/collect-config.sh output/` (needs `curl` and
-  `python3`; on macOS `python3` comes with the Xcode Command Line Tools)
 
 **What you send us:** The generated JSON file only. We run `node dist/cli.js analyze <file>` and return your report plus (future) a Terraform configuration to fix the issues.
 
@@ -422,8 +418,7 @@ pnpm verify    # or npm run verify (runs tests)
 
 **If you're only using Option 1 (offline collector):**
 
-- **Single-file collector (recommended):** nothing to install — download, verify the checksum, run
-- **Bash script:** `curl` and `python3` (macOS: Xcode Command Line Tools)
+- **Single-file collector:** nothing to install — download, verify the checksum, run
 
 ---
 
@@ -431,7 +426,7 @@ pnpm verify    # or npm run verify (runs tests)
 
 ### Option 1 workflow (offline collection)
 
-1. **You:** Run the collection script, send us the JSON file
+1. **You:** Run the collector, send us the JSON file
 2. **Us:** Run the analyzer, generate the report
 3. **Delivery:** Markdown report via secure channel (encrypted email, Signal, shared drive)
 4. **Cleanup:** We delete your JSON file after delivery

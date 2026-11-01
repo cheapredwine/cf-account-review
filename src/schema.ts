@@ -1,6 +1,6 @@
 /**
- * Collection schema — the contract between every collector (TS client/binary, bash
- * script) and the analyzer.
+ * Collection schema — the contract between the collector (Mode A and the Mode B
+ * binary) and the analyzer.
  *
  * Design rules:
  *  - Sensitive fields are either ABSENT from the schema or carry a "[redacted]"
@@ -120,7 +120,7 @@ const httpErrorSchema = z.object({
 export const collectionSchema = z.object({
   schemaVersion: z.string().refine((v) => v.split(".")[0] === SCHEMA_MAJOR, "unsupported schema major version"),
   collectedAt: z.string().datetime({ offset: true }),
-  // "powershell" is accepted only so collections from the retired v0.1/v0.2 PS script still load.
+  // "powershell" and "bash" are accepted only so collections from the retired scripts still load.
   collector: z.enum(["api", "binary", "powershell", "bash"]),
   collectorVersion: z.string(),
   tokenStatus: z.enum(["active", "verification-failed", "not-verified"]),
