@@ -52,6 +52,7 @@ export async function collect(token: string): Promise<Collection> {
     const kv = asArray(await client.list(`/accounts/${accountId}/storage/kv/namespaces`));
     const d1 = asArray(await client.list(`/accounts/${accountId}/d1/database`));
     const r2 = asArray(await client.list(`/accounts/${accountId}/r2/buckets`));
+    const aiGateways = asArray(await client.list(`/accounts/${accountId}/ai-gateway/gateways`));
 
     // Public hostnames referenced in expressions: keep zone names readable.
     const zoneNames = asArray(await client.list("/zones")).map((z) => String(asRecord(z).name ?? ""));
@@ -182,6 +183,26 @@ export async function collect(token: string): Promise<Collection> {
         d1Databases: d1.length,
         r2Buckets: r2.length,
       },
+      aiGateways: aiGateways.map((gw) => {
+        const g = asRecord(gw);
+        const dlp = asRecord(g.dlp);
+        const guardrails = asRecord(g.guardrails);
+        const spendLimits = asRecord(g.spend_limits);
+        return {
+          id: typeof g.id === "string" ? g.id : undefined,
+          authentication: typeof g.authentication === "boolean" ? g.authentication : undefined,
+          rateLimitingLimit: typeof g.rate_limiting_limit === "number" ? g.rate_limiting_limit : null,
+          rateLimitingInterval: typeof g.rate_limiting_interval === "number" ? g.rate_limiting_interval : null,
+          rateLimitingTechnique: typeof g.rate_limiting_technique === "string" ? g.rate_limiting_technique : null,
+          collectLogs: typeof g.collect_logs === "boolean" ? g.collect_logs : undefined,
+          dlpEnabled: typeof dlp.enabled === "boolean" ? dlp.enabled : undefined,
+          dlpPoliciesCount: Array.isArray(dlp.policies) ? dlp.policies.length : undefined,
+          guardrailsConfigured: guardrails && Object.keys(guardrails).length > 0 ? true : undefined,
+          retryMaxAttempts: typeof g.retry_max_attempts === "number" ? g.retry_max_attempts : null,
+          spendLimitsEnabled: typeof spendLimits.enabled === "boolean" ? spendLimits.enabled : undefined,
+          byokOnly: typeof g.byok_only === "boolean" ? g.byok_only : undefined,
+        };
+      }),
     });
     void zoneNames;
   }

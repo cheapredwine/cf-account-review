@@ -193,6 +193,24 @@ export const collectionSchema = z.object({
             r2Buckets: z.number().optional(),
           })
           .optional(),
+        aiGateways: z
+          .array(
+            z.object({
+              id: z.string().optional().describe("Gateway identifier, not hashed — part of config"),
+              authentication: z.boolean().optional(),
+              rateLimitingLimit: z.number().nullable().optional(),
+              rateLimitingInterval: z.number().nullable().optional(),
+              rateLimitingTechnique: z.string().nullable().optional(),
+              collectLogs: z.boolean().optional(),
+              dlpEnabled: z.boolean().optional(),
+              dlpPoliciesCount: z.number().optional(),
+              guardrailsConfigured: z.boolean().optional(),
+              retryMaxAttempts: z.number().nullable().optional(),
+              spendLimitsEnabled: z.boolean().optional(),
+              byokOnly: z.boolean().optional(),
+            }),
+          )
+          .optional(),
       }),
     )
     .default([]),

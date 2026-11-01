@@ -344,3 +344,71 @@ checks:
       Monitor intervals longer than 60 seconds may fail to detect outages quickly.
       Reduce the interval for production traffic pools.
     citation: https://developers.cloudflare.com/load-balancing/monitors/
+
+  # ------------------------------------------------------------------ AI Gateway
+  - id: CF-AIG-001
+    name: AI Gateways have rate limiting configured
+    domain: ai-gateway
+    severity: high
+    type: aig_rate_limiting
+    applies: { planTier: any }
+    evidence: accounts[].aiGateways
+    params: {}
+    remediation: >
+      Configure rate limiting to prevent excessive costs and abuse. Set limits
+      appropriate for your expected traffic volume via Settings > Rate-limiting.
+    citation: https://developers.cloudflare.com/ai-gateway/features/rate-limiting/
+
+  - id: CF-AIG-002
+    name: AI Gateways have authentication enabled
+    domain: ai-gateway
+    severity: high
+    type: aig_authentication
+    applies: { planTier: any }
+    evidence: accounts[].aiGateways
+    params: {}
+    remediation: >
+      Enable authentication to prevent unauthorized access to your AI Gateway.
+      Once enabled, authentication cannot be disabled.
+    citation: https://developers.cloudflare.com/ai-gateway/get-started/
+
+  - id: CF-AIG-003
+    name: AI Gateways have log collection enabled
+    domain: ai-gateway
+    severity: medium
+    type: aig_logging
+    applies: { planTier: any }
+    evidence: accounts[].aiGateways
+    params: {}
+    remediation: >
+      Enable log collection for audit trails, analytics, and debugging.
+      Configure via Settings > Logging.
+    citation: https://developers.cloudflare.com/ai-gateway/observability/logging/
+
+  - id: CF-AIG-004
+    name: AI Gateways have DLP policies configured
+    domain: ai-gateway
+    severity: medium
+    type: aig_dlp
+    applies: { planTier: any }
+    evidence: accounts[].aiGateways
+    params: {}
+    warnIf: ["dlp_disabled"]
+    remediation: >
+      Configure Data Loss Prevention policies to prevent sensitive data leakage
+      in prompts and responses. Set up DLP profiles via Settings > Data Loss Prevention.
+    citation: https://developers.cloudflare.com/ai-gateway/
+
+  - id: CF-AIG-005
+    name: AI Gateways have guardrails configured
+    domain: ai-gateway
+    severity: medium
+    type: aig_guardrails
+    applies: { planTier: any }
+    evidence: accounts[].aiGateways
+    params: {}
+    warnIf: ["guardrails_absent"]
+    remediation: >
+      Configure guardrails to protect against prompt injection and other AI-specific
+      attacks. Set up guardrail policies via Settings > Guardrails.
+    citation: https://developers.cloudflare.com/ai-gateway/

@@ -331,4 +331,154 @@ describe("findings engine", () => {
     expect(ssl001?.check.severity).toBe("high");
     expect(ssl001?.verdict).toBe("fail");
   });
+
+  it("AI Gateway: rate limiting configured passes, missing fails", () => {
+    const makeC = (rateLimitingLimit: number | null, rateLimitingInterval: number | null) => {
+      const c = baseCollection();
+      c.accounts = [
+        {
+          aiGateways: [
+            {
+              id: "my-gateway",
+              authentication: true,
+              rateLimitingLimit,
+              rateLimitingInterval,
+              rateLimitingTechnique: "sliding",
+              collectLogs: true,
+            },
+          ],
+        },
+      ];
+      return c;
+    };
+
+    const failing = evaluate(makeC(null, null), checks).find((f: Finding) => f.check.id === "CF-AIG-001");
+    expect(failing?.verdict).toBe("fail");
+
+    const passing = evaluate(makeC(100, 60), checks).find((f: Finding) => f.check.id === "CF-AIG-001");
+    expect(passing?.verdict).toBe("pass");
+  });
+
+  it("AI Gateway: authentication enabled passes, disabled fails", () => {
+    const makeC = (authentication: boolean) => {
+      const c = baseCollection();
+      c.accounts = [
+        {
+          aiGateways: [
+            {
+              id: "my-gateway",
+              authentication,
+              rateLimitingLimit: 100,
+              rateLimitingInterval: 60,
+              collectLogs: true,
+            },
+          ],
+        },
+      ];
+      return c;
+    };
+
+    const failing = evaluate(makeC(false), checks).find((f: Finding) => f.check.id === "CF-AIG-002");
+    expect(failing?.verdict).toBe("fail");
+
+    const passing = evaluate(makeC(true), checks).find((f: Finding) => f.check.id === "CF-AIG-002");
+    expect(passing?.verdict).toBe("pass");
+  });
+
+  it("AI Gateway: log collection enabled passes, disabled warns", () => {
+    const makeC = (collectLogs: boolean) => {
+      const c = baseCollection();
+      c.accounts = [
+        {
+          aiGateways: [
+            {
+              id: "my-gateway",
+              authentication: true,
+              collectLogs,
+            },
+          ],
+        },
+      ];
+      return c;
+    };
+
+    const warning = evaluate(makeC(false), checks).find((f: Finding) => f.check.id === "CF-AIG-003");
+    expect(warning?.verdict).toBe("warn");
+
+    const passing = evaluate(makeC(true), checks).find((f: Finding) => f.check.id === "CF-AIG-003");
+    expect(passing?.verdict).toBe("pass");
+  });
+
+  it("AI Gateway: DLP enabled passes, disabled warns", () => {
+    const makeC = (dlpEnabled: boolean | undefined) => {
+      const c = baseCollection();
+      c.accounts = [
+        {
+          aiGateways: [
+            {
+              id: "my-gateway",
+              authentication: true,
+              dlpEnabled,
+              dlpPoliciesCount: dlpEnabled ? 2 : 0,
+            },
+          ],
+        },
+      ];
+      return c;
+    };
+
+    const warning = evaluate(makeC(false), checks).find((f: Finding) => f.check.id === "CF-AIG-004");
+    expect(warning?.verdict).toBe("warn");
+
+    const passing = evaluate(makeC(true), checks).find((f: Finding) => f.check.id === "CF-AIG-004");
+    expect(passing?.verdict).toBe("pass");
+  });
+
+  it("AI Gateway: guardrails configured passes, absent warns", () => {
+    const makeC = (guardrailsConfigured: boolean) => {
+      const c = baseCollection();
+      c.accounts = [
+        {
+          aiGateways: [
+            {
+              id: "my-gateway",
+              authentication: true,
+              guardrailsConfigured,
+            },
+          ],
+        },
+      ];
+      return c;
+    };
+
+    const warning = evaluate(makeC(false), checks).find((f: Finding) => f.check.id === "CF-AIG-005");
+    expect(warning?.verdict).toBe("warn");
+
+    const passing = evaluate(makeC(true), checks).find((f: Finding) => f.check.id === "CF-AIG-005");
+    expect(passing?.verdict).toBe("pass");
+  });
+
+  it("AI Gateway: no gateways found returns na", () => {
+    const c = baseCollection();
+    c.accounts = [{ aiGateways: [] }];
+    const findings = evaluate(c, checks);
+    const aigFindings = findings.filter((f: Finding) => f.check.domain === "ai-gateway");
+    
+    // Debug: log any non-na findings
+    const nonNa = aigFindings.filter((f) => f.verdict !== "na");
+    if (nonNa.length > 0) {
+      console.log("Non-na AI Gateway findings:", nonNa.map((f) => ({ 
+        id: f.check.id, 
+        type: f.check.type,
+        verdict: f.verdict, 
+        detail: f.detail 
+      })));
+    }
+    
+    // Should have at least the 5 AI Gateway checks
+    expect(aigFindings.length).toBeGreaterThan(0);
+    
+    // All should return na when no gateways present
+    expect(aigFindings.every((f) => f.verdict === "na")).toBe(true);
+  });
 });

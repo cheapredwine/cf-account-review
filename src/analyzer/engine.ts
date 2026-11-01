@@ -362,6 +362,66 @@ const evaluators: Record<string, Evaluator> = {
     }
     return { verdict: "pass", detail: `${monitors.length} monitor(s), all with interval <=${maxInterval}s` };
   },
+
+  aig_rate_limiting: (_check, _zone, collection) => {
+    const gateways = collection.accounts.flatMap((a) => a.aiGateways ?? []);
+    if (gateways.length === 0) {
+      return { verdict: "na", detail: "no AI Gateway gateways found" };
+    }
+    const noRateLimit = gateways.filter((g) => !g.rateLimitingLimit || !g.rateLimitingInterval);
+    if (noRateLimit.length > 0) {
+      return { verdict: "fail", detail: `${noRateLimit.length} gateway(s) without rate limiting configured` };
+    }
+    return { verdict: "pass", detail: `${gateways.length} gateway(s), all have rate limiting configured` };
+  },
+
+  aig_authentication: (_check, _zone, collection) => {
+    const gateways = collection.accounts.flatMap((a) => a.aiGateways ?? []);
+    if (gateways.length === 0) {
+      return { verdict: "na", detail: "no AI Gateway gateways found" };
+    }
+    const noAuth = gateways.filter((g) => g.authentication === false);
+    if (noAuth.length > 0) {
+      return { verdict: "fail", detail: `${noAuth.length} gateway(s) without authentication enabled` };
+    }
+    return { verdict: "pass", detail: `${gateways.length} gateway(s), all have authentication enabled` };
+  },
+
+  aig_logging: (_check, _zone, collection) => {
+    const gateways = collection.accounts.flatMap((a) => a.aiGateways ?? []);
+    if (gateways.length === 0) {
+      return { verdict: "na", detail: "no AI Gateway gateways found" };
+    }
+    const noLogs = gateways.filter((g) => g.collectLogs === false);
+    if (noLogs.length > 0) {
+      return { verdict: "warn", detail: `${noLogs.length} gateway(s) without log collection enabled` };
+    }
+    return { verdict: "pass", detail: `${gateways.length} gateway(s), all have log collection enabled` };
+  },
+
+  aig_dlp: (_check, _zone, collection) => {
+    const gateways = collection.accounts.flatMap((a) => a.aiGateways ?? []);
+    if (gateways.length === 0) {
+      return { verdict: "na", detail: "no AI Gateway gateways found" };
+    }
+    const noDlp = gateways.filter((g) => g.dlpEnabled === false || g.dlpEnabled === undefined);
+    if (noDlp.length > 0) {
+      return { verdict: "warn", detail: `${noDlp.length} gateway(s) without DLP policies configured` };
+    }
+    return { verdict: "pass", detail: `${gateways.length} gateway(s), all have DLP policies configured` };
+  },
+
+  aig_guardrails: (_check, _zone, collection) => {
+    const gateways = collection.accounts.flatMap((a) => a.aiGateways ?? []);
+    if (gateways.length === 0) {
+      return { verdict: "na", detail: "no AI Gateway gateways found" };
+    }
+    const noGuardrails = gateways.filter((g) => g.guardrailsConfigured !== true);
+    if (noGuardrails.length > 0) {
+      return { verdict: "warn", detail: `${noGuardrails.length} gateway(s) without guardrails configured` };
+    }
+    return { verdict: "pass", detail: `${gateways.length} gateway(s), all have guardrails configured` };
+  },
 };
 
 export function evaluate(collection: Collection, checks: Check[]): Finding[] {
@@ -380,7 +440,7 @@ export function evaluate(collection: Collection, checks: Check[]): Finding[] {
     const tier = check.applies?.planTier ?? "any";
     if (tier !== "any") {
       // account-level checks run once; zone checks run per zone
-      if (["turnstile", "access_apps", "access_idps", "account_setting_flag", "token_expiry", "zombie_workers", "lb_pool_health", "lb_monitor_health"].includes(check.type)) {
+      if (["turnstile", "access_apps", "access_idps", "account_setting_flag", "token_expiry", "zombie_workers", "lb_pool_health", "lb_monitor_health", "aig_rate_limiting", "aig_authentication", "aig_logging", "aig_dlp", "aig_guardrails"].includes(check.type)) {
         const res = evaluator(check, null, collection);
         findings.push({ check, scope: "account", ...res });
       } else {
@@ -399,17 +459,18 @@ export function evaluate(collection: Collection, checks: Check[]): Finding[] {
         }
       }
     } else {
-      if (["turnstile", "access_apps", "access_idps", "account_setting_flag", "token_expiry", "zombie_workers", "lb_pool_health", "lb_monitor_health"].includes(check.type)) {
+      if (["turnstile", "access_apps", "access_idps", "account_setting_flag", "token_expiry", "zombie_workers", "lb_pool_health", "lb_monitor_health", "aig_rate_limiting", "aig_authentication", "aig_logging", "aig_dlp", "aig_guardrails"].includes(check.type)) {
         const res = evaluator(check, null, collection);
         findings.push({ check, scope: "account", ...res });
       } else {
-        for (const zone of collection.zones) {
-          const res = evaluator(check, zone, collection);
-          findings.push({ check, scope: zone.name, ...res });
+        if (collection.zones.length === 0) {
+          findings.push({ check, scope: "account", verdict: "manual", detail: "no zones collected" });
+        } else {
+          for (const zone of collection.zones) {
+            const res = evaluator(check, zone, collection);
+            findings.push({ check, scope: zone.name, ...res });
+          }
         }
-      }
-      if (collection.zones.length === 0) {
-        findings.push({ check, scope: "account", verdict: "manual", detail: "no zones collected" });
       }
     }
   }

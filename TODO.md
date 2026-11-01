@@ -11,6 +11,7 @@
 - [ ] HTML report renderer.
 - [ ] Add CI-scheduled smoke: analyze a committed fixture collection so rulebook
       regressions fail visibly.
+- [x] AI Gateway security checks (CF-AIG-001 through CF-AIG-005) — DONE
 - [ ] Check batch 2 (from detailed review): Page Shield, Logpush, Authenticated Origin Pulls,
       DDoS Protection, Cache rules, Email Routing, Waiting Room.
 - [ ] Diff mode: `--compare-to previous-collection.json --diff-only` for quarterly check-ins

@@ -327,6 +327,15 @@ export const ENDPOINTS: Endpoint[] = [
     domain: "unsecured-endpoints",
     citation: "https://developers.cloudflare.com/api-shield/security/jwt-validation/",
   },
+  {
+    path: "/accounts/{account_id}/ai-gateway/gateways",
+    rationale: "AI Gateway inventory: rate limiting, authentication, DLP, guardrails, and log collection posture.",
+    tokenPermission: "AI Gateway: Read",
+    scope: "account",
+    planTier: "any",
+    domain: "ai-gateway",
+    citation: "https://developers.cloudflare.com/ai-gateway/",
+  },
 ];
 
 /** Security/traffic phases whose entrypoint rules are collected. */
