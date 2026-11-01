@@ -47,7 +47,7 @@ describe("redaction", () => {
   });
 
   it("secret scan flags kv-style assignments of secrets", () => {
-    const hits = scanForSecrets("api_key: sk-1234567890abcdef1234567890abcdef");
+    const hits = scanForSecrets("api_key: aaaabbbbccccddddeeeeffff00001111");
     expect(hits.some((h) => h.severity === "fail")).toBe(true);
   });
 
