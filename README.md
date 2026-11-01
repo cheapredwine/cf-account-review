@@ -89,6 +89,7 @@ Verdicts: `pass | warn | fail | manual | na` — **incomplete evidence can never
 
 ## Docs
 
+- **[docs/CLIENT-GUIDE.md](./docs/CLIENT-GUIDE.md)** — comprehensive client-facing guide (send this to clients)
 - [docs/endpoints.md](./docs/endpoints.md) — every GET with its rationale and citation
 - [docs/data-policy.md](./docs/data-policy.md) — read-only, redaction, no-exfiltration
 - [docs/sources.md](./docs/sources.md) — the best-practice sources behind each check
