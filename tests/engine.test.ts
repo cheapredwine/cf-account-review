@@ -67,29 +67,23 @@ describe("findings engine", () => {
     expect(finding?.verdict).toBe("fail");
   });
 
-  it("managed ruleset absent -> fail when phase readable, manual when not", () => {
-    const collection = baseCollection();
-    collection.zones = [
-      zoneWith({
-        phaseEntrypoints: {
-          http_request_firewall_managed: {
-            phase: "http_request_firewall_managed",
-            rules: [{ action: "execute", enabled: true }],
-          },
-        },
-      }),
-    ];
-    const pass = evaluate(collection, checks).find(
-      (f: Finding) => f.check.id === "CF-WAF-001" && f.scope === "example.com",
-    );
-    expect(pass?.verdict).toBe("pass");
-
-    const c2 = baseCollection();
-    c2.zones = [zoneWith({})];
-    const manual = evaluate(c2, checks).find(
-      (f: Finding) => f.check.id === "CF-WAF-001" && f.scope === "example.com",
-    );
-    expect(manual?.verdict).toBe("manual");
+  it("managed ruleset: identified + enforcing passes; absent fails; unreadable is manual; 1.0 data is manual", () => {
+    const withRules = (rules: unknown[], status?: Record<string, string>) => {
+      const c = baseCollection();
+      c.zones = [
+        zoneWith({
+          phaseEntrypoints: rules.length ? { http_request_firewall_managed: { phase: "http_request_firewall_managed", rules } } : {},
+          phaseStatus: status,
+        }),
+      ];
+      return evaluate(c, checks).find((f: Finding) => f.check.id === "CF-WAF-001" && f.scope === "example.com")?.verdict;
+    };
+    expect(withRules([{ action: "execute", enabled: true, actionParameters: { executes: "cloudflare_managed" } }])).toBe("pass");
+    expect(withRules([], { http_request_firewall_managed: "absent" })).toBe("fail");
+    expect(withRules([], { http_request_firewall_managed: "unreadable" })).toBe("manual");
+    expect(withRules([])).toBe("manual"); // 1.0 collection, no phaseStatus
+    // 1.0 data: an execute rule with no identity cannot prove WHICH ruleset runs
+    expect(withRules([{ action: "execute", enabled: true }])).toBe("manual");
   });
 
   it("bot rules with zero enforcement fail", () => {
@@ -485,7 +479,7 @@ describe("findings engine", () => {
     expect(passing?.verdict).toBe("pass");
   });
 
-  it("Authenticated Origin Pulls: enabled passes, disabled fails", () => {
+  it("Authenticated Origin Pulls: enabled passes, disabled warns (origin may be locked down another way)", () => {
     const makeC = (enabled: boolean) => {
       const c = baseCollection();
       c.zones = [zoneWith({ authenticatedOriginPulls: { enabled, hasZoneLevelCert: false, certCount: 0 } })];
@@ -493,7 +487,7 @@ describe("findings engine", () => {
     };
 
     const failing = evaluate(makeC(false), checks).find((f: Finding) => f.check.id === "CF-AOP-001");
-    expect(failing?.verdict).toBe("fail");
+    expect(failing?.verdict).toBe("warn");
 
     const passing = evaluate(makeC(true), checks).find((f: Finding) => f.check.id === "CF-AOP-001");
     expect(passing?.verdict).toBe("pass");
@@ -513,7 +507,7 @@ describe("findings engine", () => {
     expect(passing?.verdict).toBe("pass");
   });
 
-  it("DDoS: passes when not disabled, fails when override disables", () => {
+  it("DDoS: passes when not disabled, fails when override disables (fixture shape only — see web-security tests)", () => {
     const makeC = (disabledCount: number) => {
       const c = baseCollection();
       const rules = [];
@@ -531,18 +525,17 @@ describe("findings engine", () => {
     expect(failing?.verdict).toBe("fail");
   });
 
-  it("Cache: warns on aggressive, passes otherwise", () => {
-    const makeC = (cacheLevel: string) => {
+  it("Cache: Cache Everything page rule warns; nothing broad passes; unreadable is manual", () => {
+    const make = (z: Record<string, unknown>) => {
       const c = baseCollection();
-      c.zones = [zoneWith({ settings: { cache_level: { id: "cache_level", value: cacheLevel } } })];
-      return c;
+      c.zones = [zoneWith(z)];
+      return evaluate(c, checks).find((f: Finding) => f.check.id === "CF-CACHE-001")?.verdict;
     };
-
-    const warning = evaluate(makeC("aggressive"), checks).find((f: Finding) => f.check.id === "CF-CACHE-001");
-    expect(warning?.verdict).toBe("warn");
-
-    const passing = evaluate(makeC("basic"), checks).find((f: Finding) => f.check.id === "CF-CACHE-001");
-    expect(passing?.verdict).toBe("pass");
+    expect(make({ pageRuleSummary: [{ status: "active", actions: [{ id: "cache_level", value: "cache_everything" }] }], phaseStatus: { http_request_cache_settings: "absent" } })).toBe("warn");
+    expect(make({ pageRuleSummary: [], phaseStatus: { http_request_cache_settings: "absent" } })).toBe("pass");
+    expect(make({})).toBe("manual");
+    // the old check treated cache_level=aggressive as "caches HTML" — it does not
+    expect(make({ settings: { cache_level: { id: "cache_level", value: "aggressive" } } })).toBe("manual");
   });
 
   it("Tunnel-Access gap: fails when public hostname unprotected, passes when protected", () => {

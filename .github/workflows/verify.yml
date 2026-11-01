@@ -26,3 +26,9 @@ jobs:
           shellcheck collectors/sh/collect-config.sh
       - name: bash syntax check
         run: bash -n collectors/sh/collect-config.sh
+      - name: citation links resolve
+        run: node scripts/check-citations.mjs
+      - name: analyzer smoke (committed fixture)
+        run: |
+          node dist/cli.js analyze tests/fixtures/web-security-collection.json --out /tmp/report.md --profile all
+          grep -q "CF-WAF-001" /tmp/report.md

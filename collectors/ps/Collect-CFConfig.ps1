@@ -249,7 +249,7 @@ param(
 $ErrorActionPreference = "Stop"
 $Base = "https://api.cloudflare.com/client/v4"
 $script:ApiErrors = @()
-$script:CollectorVersion = "0.1.0"
+$script:CollectorVersion = "0.2.0"
 
 # ---------------------------------------------------------------------------
 # Token handling — never echoed, never written to disk
@@ -289,124 +289,284 @@ Write-Host ""
 # ---------------------------------------------------------------------------
 # GET-only helpers
 # ---------------------------------------------------------------------------
-# Invoke-CFGet: The ONLY place HTTP requests are made.
-# Enforces -Method Get (read-only) and paginates automatically.
+# Invoke-CFGet / Invoke-CFGetObject are the ONLY places HTTP requests are made.
+# Both call Invoke-RestMethod with -Method Get (read-only; tests enforce it).
 #
-# Parameters:
-#   $Path = API path (e.g., "/zones" or "/accounts/{id}/settings")
-#   $MaxPages = Maximum pages to fetch (default 50)
-#
-# Behavior:
-#   1. Calls Invoke-RestMethod with -Method Get (enforces read-only)
-#   2. Paginates automatically (up to MaxPages)
-#   3. Returns merged result array, or $null on failure
-#   4. Records errors in $script:ApiErrors for reporting
-#
-# Why -Method Get?
-#   Enforces read-only at the HTTP level. No POST, PUT, PATCH, DELETE possible.
-#   Tests in the main repo verify this.
+# Readability contract (schema 1.1, mirrors src/collect.ts):
+#   unreadable endpoint -> $null (field omitted from the output)
+#   readable, empty     -> empty array
+# Phase entrypoints distinguish 404 ("absent": nothing deployed) from other
+# failures ("unreadable"); fail-closed verdicts in the analyzer depend on it.
 # ---------------------------------------------------------------------------
+function Get-HttpStatus {
+    param($ErrorRecord)
+    try {
+        if ($ErrorRecord.Exception.Response) { return [int]$ErrorRecord.Exception.Response.StatusCode }
+    } catch { }
+    return 0
+}
+
 function Invoke-CFGet {
     param([string]$Path, [int]$MaxPages = 50)
-    
+    $all = New-Object System.Collections.ArrayList
+    $page = 1
     try {
-        $all = @()
-        $page = 1
         while ($page -le $MaxPages) {
             $sep = if ($Path.Contains("?")) { "&" } else { "?" }
             $resp = Invoke-RestMethod -Uri "$Base$Path${sep}page=$page&per_page=50" `
                 -Headers $Headers -Method Get -TimeoutSec 60
-            
-            # Check API success field
             if (-not $resp.success) {
-                $script:ApiErrors += @{ path = $Path; error = ($resp.errors | ConvertTo-Json -Compress -Depth 5) }
+                $script:ApiErrors += [ordered]@{ path = $Path; error = "API reported failure" }
                 return $null
             }
-            
-            # Accumulate results
-            $all += $resp.result
-            
-            # Check pagination
+            $rows = @($resp.result | Where-Object { $null -ne $_ })
+            foreach ($r in $rows) { [void]$all.Add($r) }
             $info = $resp.result_info
-            if ($null -eq $info -or $page -ge $info.total_pages -or $resp.result.Count -eq 0) { 
-                break 
-            }
+            if ($null -eq $info -or $null -eq $info.total_pages -or $page -ge $info.total_pages -or $rows.Count -lt 50) { break }
             $page++
         }
-        return $all
+        return , $all.ToArray()
     } catch {
-        $script:ApiErrors += @{ path = $Path; error = $_.Exception.Message }
+        $code = Get-HttpStatus $_
+        $script:ApiErrors += [ordered]@{ path = $Path; error = "HTTP $code" }
         return $null
     }
 }
 
-function Get-Array { 
-    param($Value) 
-    if ($null -eq $Value) { @() } else { @($Value) } 
+function Invoke-CFGetObject {
+    param([string]$Path, [switch]$Quiet404)
+    $script:LastStatus = 0
+    try {
+        $resp = Invoke-RestMethod -Uri "$Base$Path" -Headers $Headers -Method Get -TimeoutSec 60
+        $script:LastStatus = 200
+        if (-not $resp.success -or $null -eq $resp.result) {
+            $script:ApiErrors += [ordered]@{ path = $Path; error = "API reported failure" }
+            return $null
+        }
+        return $resp.result
+    } catch {
+        $code = Get-HttpStatus $_
+        $script:LastStatus = $code
+        if (-not ($Quiet404 -and $code -eq 404)) {
+            $script:ApiErrors += [ordered]@{ path = $Path; error = "HTTP $code" }
+        }
+        return $null
+    }
+}
+
+# Map rows with a scriptblock; $null (unreadable) stays $null, [] stays [].
+function ConvertTo-Mapped {
+    param($Rows, [scriptblock]$Fn)
+    if ($null -eq $Rows) { return $null }
+    $out = @(foreach ($r in @($Rows)) { if ($null -ne $r) { & $Fn $r } })
+    return , $out
+}
+
+function Get-Array {
+    param($Value)
+    if ($null -eq $Value) { return , @() }
+    return , @($Value)
+}
+
+function Get-Prop {
+    param($Obj, [string]$Name)
+    if ($null -eq $Obj) { return $null }
+    if ($Obj -is [System.Collections.IDictionary]) { return $Obj[$Name] }
+    $p = $Obj.PSObject.Properties[$Name]
+    if ($p) { return $p.Value }
+    return $null
+}
+
+function As-Bool { param($v) if ($v -is [bool]) { return $v } return $null }
+function As-Num { param($v) if (($v -is [int]) -or ($v -is [long]) -or ($v -is [double]) -or ($v -is [decimal])) { return $v } return $null }
+# Invoke-RestMethod turns ISO-8601 strings into [datetime]; render them back
+# as UTC ISO strings (fractional seconds kept, trailing zeros dropped).
+function As-Str {
+    param($v)
+    if ($v -is [string]) { return $v }
+    if ($v -is [datetime]) { return $v.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'") }
+    return $null
 }
 
 # ---------------------------------------------------------------------------
-# Redaction helpers (mirrors the bash collector and src/redact.ts)
+# Redaction helpers (mirror src/redact.ts and the bash assembler)
 # ---------------------------------------------------------------------------
-
-# Protect-Id: Hash an ID (account, zone, rule) using SHA-256, truncate to 16 hex chars
-function Protect-Id { 
-    param($Id) 
-    if ($Id) { 
-        $hash = ([BitConverter]::ToString((New-Object Security.Cryptography.SHA256Managed).ComputeHash([Text.Encoding]::UTF8.GetBytes([string]$Id))).Replace("-","").Substring(0,16)).ToLower()
-        return "h$hash"
-    } 
-    return $null 
+function Protect-Id {
+    param($Id)
+    if ($Id) {
+        $sha = [Security.Cryptography.SHA256]::Create()
+        $hex = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes([string]$Id))).Replace("-", "").Substring(0, 16).ToLower()
+        return "h$hex"
+    }
+    return $null
 }
 
-# Protect-Expression: Redact IPs, emails, and internal hostnames from firewall rule expressions
+function Protect-IdsInPath {
+    param([string]$Path)
+    return [regex]::Replace($Path, '\b[0-9a-f]{32}\b', { param($m) Protect-Id $m.Value })
+}
+
+$script:EmailRx = '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
 function Protect-Expression {
-    param($Expression, $ZoneName)
-    if (-not $Expression) { return $Expression }
-    $expr = $Expression -replace '\b\d{1,3}(\.\d{1,3}){3}\b', "[redacted]"
-    $expr = $expr -replace '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b', "[redacted]"
-    $expr = $expr -replace '\b([a-z0-9-]+\.)*(internal|corp|intranet|local)\b', "[redacted]"
+    param($Expression)
+    if (-not ($Expression -is [string]) -or -not $Expression) { return $Expression }
+    $expr = $Expression -creplace $script:EmailRx, "[redacted]"
+    $expr = $expr -creplace '\b\d{1,3}(?:\.\d{1,3}){3}\b', "[redacted]"
+    $expr = $expr -replace '\b(?:[a-z0-9-]+\.)*(?:internal|corp|intranet|local|internal\.[a-z]{2,}|origin\.[-a-z0-9.]+)\b', "[redacted]"
     return $expr
 }
-
-# Protect-DnsContent: Redact DNS record contents (origin IPs, CNAME targets)
-function Protect-DnsContent { 
-    param($Content) 
-    if ($null -ne $Content) { return "[redacted]" } 
-    return $null 
+function Protect-Emails {
+    param($Text)
+    if (-not ($Text -is [string])) { return $null }
+    return ($Text -creplace $script:EmailRx, "[redacted]")
 }
 
-# Get-Setting: Extract a specific setting value from zone settings array
-function Get-Setting { 
-    param($Settings, $Id) 
-    $row = $Settings | Where-Object { $_.id -eq $Id } | Select-Object -First 1
-    if ($row) { return $row.value } 
-    return $null 
+# ---------------------------------------------------------------------------
+# Summarizers (mirror src/summarize.ts — keep the three collectors in step)
+# ---------------------------------------------------------------------------
+$script:KnownManaged = @{
+    "efb7b8c949ac4650a09736fc376e9aee" = "Cloudflare Managed Ruleset"
+    "4814384a9e5d4991b9815dcfc25d2f1f" = "Cloudflare OWASP Core Ruleset"
+    "c2e184081120413c86c3ab7e14069605" = "Cloudflare Exposed Credentials Check Ruleset"
+    "4d21379b4f9f4bb088e0729962c8b3cf" = "DDoS L7 ruleset"
+}
+function Get-ManagedKey {
+    param($Name)
+    if (-not $Name) { return $null }
+    $n = ([string]$Name).ToLower()
+    if ($n.Contains("owasp")) { return "owasp" }
+    if ($n.Contains("exposed credentials")) { return "exposed_credentials" }
+    if ($n.Contains("ddos")) { return "ddos_l7" }
+    if ($n.Contains("cloudflare managed")) { return "cloudflare_managed" }
+    if ($n.Contains("sensitive data")) { return "sensitive_data_detection" }
+    return "other_managed"
+}
+
+function Get-ActionParametersSummary {
+    param($Action, $Ap, $RulesetNames, $Ratelimit)
+    $hasAp = ($null -ne $Ap) -and (@($Ap.PSObject.Properties).Count -gt 0)
+    if (-not $hasAp -and $null -eq $Ratelimit) { return $null }
+    $out = [ordered]@{}
+    if ($Action -eq "execute") {
+        $rid = [string](Get-Prop $Ap "id")
+        $name = if ($RulesetNames.ContainsKey($rid)) { $RulesetNames[$rid] } else { $script:KnownManaged[$rid] }
+        $key = Get-ManagedKey $name
+        $out.executes = if ($key) { $key } else { "custom_or_unknown" }
+        $ov = Get-Prop $Ap "overrides"
+        if ($null -ne $ov -and @($ov.PSObject.Properties).Count -gt 0) {
+            $cats = @(Get-Prop $ov "categories" | Where-Object { $null -ne $_ })
+            $rules = @(Get-Prop $ov "rules" | Where-Object { $null -ne $_ })
+            $th = @($rules | ForEach-Object { As-Num (Get-Prop $_ "score_threshold") } | Where-Object { $null -ne $_ })
+            $o = [ordered]@{
+                enabled               = As-Bool (Get-Prop $ov "enabled")
+                action                = As-Str (Get-Prop $ov "action")
+                sensitivityLevel      = As-Str (Get-Prop $ov "sensitivity_level")
+                disabledCategories    = @($cats | Where-Object { (Get-Prop $_ "enabled") -eq $false -and (Get-Prop $_ "category") -is [string] } | ForEach-Object { Get-Prop $_ "category" } | Select-Object -First 50)
+                rulesDisabled         = @($rules | Where-Object { (Get-Prop $_ "enabled") -eq $false }).Count
+                rulesActionOverridden = @($rules | Where-Object { (Get-Prop $_ "action") -is [string] }).Count
+                scoreThreshold        = if ($th.Count -gt 0) { ($th | Measure-Object -Minimum).Minimum } else { $null }
+            }
+            $out.overrides = $o
+        }
+    }
+    if ($Action -eq "skip") {
+        $rulesObj = Get-Prop $Ap "rules"
+        $ruleCount = 0
+        if ($null -ne $rulesObj) { foreach ($p in $rulesObj.PSObject.Properties) { $ruleCount += @($p.Value).Count } }
+        $out.skip = [ordered]@{
+            currentRuleset = ((Get-Prop $Ap "ruleset") -eq "current")
+            rulesets       = @(Get-Prop $Ap "rulesets" | Where-Object { $null -ne $_ }).Count
+            rules          = $ruleCount
+            phases         = @(Get-Prop $Ap "phases" | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_ } | Select-Object -First 20)
+            products       = @(Get-Prop $Ap "products" | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_ } | Select-Object -First 20)
+        }
+    }
+    if ($null -ne $Ratelimit) {
+        $ce = Get-Prop $Ratelimit "counting_expression"
+        $out.ratelimit = [ordered]@{
+            characteristics       = @(Get-Prop $Ratelimit "characteristics" | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_ } | Select-Object -First 10)
+            period                = As-Num (Get-Prop $Ratelimit "period")
+            requestsPerPeriod     = As-Num (Get-Prop $Ratelimit "requests_per_period")
+            scorePerPeriod        = As-Num (Get-Prop $Ratelimit "score_per_period")
+            mitigationTimeout     = As-Num (Get-Prop $Ratelimit "mitigation_timeout")
+            requestsToOrigin      = As-Bool (Get-Prop $Ratelimit "requests_to_origin")
+            hasCountingExpression = (($ce -is [string]) -and $ce.Length -gt 0)
+        }
+    }
+    $hdrs = Get-Prop $Ap "headers"
+    if ($null -ne $hdrs) {
+        $out.headers = @(foreach ($p in @($hdrs.PSObject.Properties | Select-Object -First 50)) {
+                $op = As-Str (Get-Prop $p.Value "operation")
+                [ordered]@{ name = $p.Name.ToLower(); operation = $(if ($op) { $op } else { "unknown" }) }
+            })
+    }
+    $cache = Get-Prop $Ap "cache"
+    if ($Action -eq "set_cache_settings" -and $cache -is [bool]) { $out.cache = [ordered]@{ eligible = $cache } }
+    if ($out.Count -eq 0) { return $null }
+    return $out
+}
+
+$script:PageRuleEnum = @("security_level", "ssl", "cache_level", "browser_check", "waf", "always_use_https",
+    "automatic_https_rewrites", "email_obfuscation", "rocket_loader", "disable_security", "disable_apps",
+    "disable_performance", "cache_deception_armor")
+$script:BotKeys = @("fight_mode", "enable_js", "sbfm_definitely_automated", "sbfm_likely_automated", "sbfm_verified_bots",
+    "sbfm_static_resource_protection", "optimize_wordpress", "ai_bots_protection", "crawler_protection",
+    "is_robots_txt_managed", "using_latest_model", "auto_update_model", "suppress_session_score")
+
+function Get-PlanTier {
+    param($Name, $Legacy)
+    foreach ($c in @($Legacy, $Name)) {
+        if (-not $c) { continue }
+        $p = ([string]$c).ToLower()
+        foreach ($t in @("enterprise", "business", "pro", "free")) { if ($p.Contains($t)) { return $t } }
+    }
+    return $null
+}
+
+# Drop $null values recursively (zod optional fields reject null).
+function Remove-Nulls {
+    param($Value)
+    if ($Value -is [System.Collections.IDictionary]) {
+        $o = [ordered]@{}
+        foreach ($k in @($Value.Keys)) {
+            if ($null -ne $Value[$k]) { $o[$k] = Remove-Nulls $Value[$k] }
+        }
+        return $o
+    }
+    if ($Value -is [array]) {
+        return , @(foreach ($x in $Value) { Remove-Nulls $x })
+    }
+    return $Value
 }
 
 # ---------------------------------------------------------------------------
 # PHASE 2: TOKEN VERIFICATION
 # ---------------------------------------------------------------------------
 Write-Host "Verifying API token..." -ForegroundColor Cyan
-$verify = Invoke-CFGet -Path "/user/tokens/verify"
-$tokenStatus = if ($verify) { (Get-Array $verify)[0].status } else { "verification-failed" }
+$verify = Invoke-CFGetObject -Path "/user/tokens/verify"
+$tokenStatus = if ((Get-Prop $verify "status") -eq "active") { "active" } else { "verification-failed" }
 Write-Host "Token status: $tokenStatus" -ForegroundColor $(if ($tokenStatus -eq "active") { "Green" } else { "Yellow" })
-
 if ($tokenStatus -ne "active") {
     Write-Host "⚠️  Token verification failed. This may mean your token is narrowly scoped." -ForegroundColor Yellow
     Write-Host "   The script will continue and collect what it can access." -ForegroundColor Yellow
 }
 Write-Host ""
 
-# ---------------------------------------------------------------------------
-# Initialize collection document
-# ---------------------------------------------------------------------------
 $collection = [ordered]@{
-    schemaVersion    = "1.0"
+    schemaVersion    = "1.1"
     collectedAt      = (Get-Date).ToUniversalTime().ToString("o")
     collector        = "powershell"
     collectorVersion = $script:CollectorVersion
     tokenStatus      = $tokenStatus
+}
+
+function Get-GroupNames {
+    param($Obj)
+    return , @(foreach ($p in @(Get-Prop $Obj "policies" | Where-Object { $null -ne $_ })) {
+            foreach ($g in @(Get-Prop $p "permission_groups" | Where-Object { $null -ne $_ })) {
+                $n = Get-Prop $g "name"; if ($n) { [string]$n }
+            }
+        })
 }
 
 # ---------------------------------------------------------------------------
@@ -414,121 +574,149 @@ $collection = [ordered]@{
 # ---------------------------------------------------------------------------
 Write-Host "Collecting accounts..." -ForegroundColor Cyan
 $accounts = Get-Array (Invoke-CFGet -Path "/accounts")
-$planTiers = @()
+$userTokens = Invoke-CFGet -Path "/user/tokens"   # user-owned: read once
 $collection.accounts = @()
 
 foreach ($acct in $accounts) {
     Write-Host "  → Account: $($acct.name)" -ForegroundColor Gray
     $acctId = $acct.id
-    $a = [ordered]@{ id = (Protect-Id $acctId); name = $acct.name }
+    $a = [ordered]@{ id = (Protect-Id $acctId); name = (As-Str $acct.name) }
 
-    # Account settings
-    $settings = Invoke-CFGet -Path "/accounts/$acctId/settings"
-    $a | Add-Member -NotePropertyName settings -NotePropertyValue $settings
-    $a | Add-Member -NotePropertyName enforceTwofactor -NotePropertyValue (Get-Setting (Get-Array $settings) "enforce_twofactor")
+    $settings = Invoke-CFGetObject -Path "/accounts/$acctId/settings"
+    $a.enforceTwofactor = As-Bool (Get-Prop $settings "enforce_twofactor")
 
-    # Members: role names + 2FA booleans only — no emails, no user IDs
-    $members = Get-Array (Invoke-CFGet -Path "/accounts/$acctId/members")
-    $a.accountMembers = $members | ForEach-Object {
+    $a.accountMembers = ConvertTo-Mapped (Invoke-CFGet -Path "/accounts/$acctId/members") {
+        param($m)
         [ordered]@{
-            roleNames        = @(($_.policies | ForEach-Object { $_.permission_groups | ForEach-Object { $_.name } }) | Where-Object { $_ })
-            twofactorEnabled = $_.user.two_factor_authentication_enabled
-            status           = $_.status
+            roleNames        = (Get-GroupNames $m)
+            twofactorEnabled = As-Bool (Get-Prop (Get-Prop $m "user") "two_factor_authentication_enabled")
+            status           = As-Str (Get-Prop $m "status")
         }
     }
 
-    # Tokens: metadata only (no token values exist in list responses anyway)
-    $tokens = @(Get-Array (Invoke-CFGet -Path "/user/tokens")) + @(Get-Array (Invoke-CFGet -Path "/accounts/$acctId/tokens"))
-    $a.apiTokens = $tokens | ForEach-Object {
+    $acctTokens = Invoke-CFGet -Path "/accounts/$acctId/tokens"
+    $tokenRows = $null
+    if ($null -ne $userTokens -or $null -ne $acctTokens) {
+        $tokenRows = @()
+        if ($null -ne $userTokens) { $tokenRows += $userTokens }
+        if ($null -ne $acctTokens) { $tokenRows += $acctTokens }
+    }
+    $a.apiTokens = ConvertTo-Mapped $tokenRows {
+        param($t)
         [ordered]@{
-            status                = $_.status
-            expiresOn             = $_.expires_on
-            lastUsedOn            = $_.last_used_on
-            permissionGroupNames  = @($_.policies | ForEach-Object { $_.permission_groups | ForEach-Object { $_.name } } | Where-Object { $_ })
+            status               = As-Str (Get-Prop $t "status")
+            expiresOn            = As-Str (Get-Prop $t "expires_on")
+            lastUsedOn           = As-Str (Get-Prop $t "last_used_on")
+            permissionGroupNames = (Get-GroupNames $t)
         }
     }
 
-    # Load balancers
-    $a | Add-Member -NotePropertyName loadBalancerPools -NotePropertyValue (Invoke-CFGet -Path "/accounts/$acctId/load_balancers/pools")
-    $a | Add-Member -NotePropertyName loadBalancerMonitors -NotePropertyValue (Invoke-CFGet -Path "/accounts/$acctId/load_balancers/monitors")
-    
-    # Account-level rulesets (Enterprise only)
-    $a | Add-Member -NotePropertyName accountRulesets -NotePropertyValue (Invoke-CFGet -Path "/accounts/$acctId/rulesets")
-
-    # Access apps: decisions + policy presence only; identities never exported
-    $accessApps = Get-Array (Invoke-CFGet -Path "/accounts/$acctId/access/apps")
-    $a.accessApps = $accessApps | ForEach-Object {
-        $policies = @($_.policies)
+    # Pools/monitors: origin addresses, notification emails and monitor header
+    # VALUES (may carry auth material) are never exported.
+    $a.loadBalancerPools = ConvertTo-Mapped (Invoke-CFGet -Path "/accounts/$acctId/load_balancers/pools") {
+        param($p)
         [ordered]@{
-            name              = $_.name
-            type              = $_.type
-            domain            = $_.domain
-            selfHostedDomains = @($_.self_hosted_domains)
+            id                = Protect-Id (Get-Prop $p "id")
+            name              = As-Str (Get-Prop $p "name")
+            enabled           = As-Bool (Get-Prop $p "enabled")
+            origins           = @(foreach ($o in @(Get-Prop $p "origins" | Where-Object { $null -ne $_ })) {
+                    [ordered]@{
+                        name    = As-Str (Get-Prop $o "name")
+                        address = $(if (Get-Prop $o "address") { "[redacted]" } else { $null })
+                        enabled = As-Bool (Get-Prop $o "enabled")
+                        weight  = As-Num (Get-Prop $o "weight")
+                    }
+                })
+            monitor           = Protect-Id (Get-Prop $p "monitor")
+            notificationEmail = "[redacted]"
+        }
+    }
+    $a.loadBalancerMonitors = ConvertTo-Mapped (Invoke-CFGet -Path "/accounts/$acctId/load_balancers/monitors") {
+        param($m)
+        [ordered]@{
+            id              = Protect-Id (Get-Prop $m "id")
+            type            = As-Str (Get-Prop $m "type")
+            interval        = As-Num (Get-Prop $m "interval")
+            timeout         = As-Num (Get-Prop $m "timeout")
+            retries         = As-Num (Get-Prop $m "retries")
+            expectedCodes   = As-Str (Get-Prop $m "expected_codes")
+            followRedirects = As-Bool (Get-Prop $m "follow_redirects")
+            allowInsecure   = As-Bool (Get-Prop $m "allow_insecure")
+        }
+    }
+    $a.accountRulesets = ConvertTo-Mapped (Invoke-CFGet -Path "/accounts/$acctId/rulesets") {
+        param($r)
+        [ordered]@{ id = Protect-Id (Get-Prop $r "id"); name = As-Str (Get-Prop $r "name"); kind = As-Str (Get-Prop $r "kind"); phase = As-Str (Get-Prop $r "phase"); version = As-Str (Get-Prop $r "version") }
+    }
+    $a.accessApps = ConvertTo-Mapped (Invoke-CFGet -Path "/accounts/$acctId/access/apps") {
+        param($app)
+        $policies = @(Get-Prop $app "policies" | Where-Object { $null -ne $_ })
+        $sh = @(Get-Prop $app "self_hosted_domains" | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_ })
+        [ordered]@{
+            name              = As-Str (Get-Prop $app "name")
+            type              = As-Str (Get-Prop $app "type")
+            domain            = As-Str (Get-Prop $app "domain")
+            selfHostedDomains = $(if ($sh.Count -gt 0) { , $sh } else { $null })
             hasPolicies       = ($policies.Count -gt 0)
-            policyDecisions   = @($policies | ForEach-Object { $_.decision } | Where-Object { $_ })
+            policyDecisions   = @($policies | ForEach-Object { Get-Prop $_ "decision" } | Where-Object { $_ })
         }
     }
-
-    # Access identity providers
-    $idps = Get-Array (Invoke-CFGet -Path "/accounts/$acctId/access/identity_providers")
-    $a.accessIdentityProviders = $idps | ForEach-Object { 
-        [ordered]@{ name = $_.name; type = $_.type } 
+    $a.accessIdentityProviders = ConvertTo-Mapped (Invoke-CFGet -Path "/accounts/$acctId/access/identity_providers") {
+        param($p) [ordered]@{ name = As-Str (Get-Prop $p "name"); type = As-Str (Get-Prop $p "type") }
     }
-
-    # Turnstile widgets
-    $widgets = Get-Array (Invoke-CFGet -Path "/accounts/$acctId/challenges/widgets")
-    $a.turnstileWidgets = $widgets | ForEach-Object {
-        [ordered]@{ name = $_.name; domains = @($_.domains); mode = $_.mode }
+    $a.turnstileWidgets = ConvertTo-Mapped (Invoke-CFGet -Path "/accounts/$acctId/challenges/widgets") {
+        param($w)
+        $doms = @(Get-Prop $w "domains" | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_ })
+        [ordered]@{ name = As-Str (Get-Prop $w "name"); domains = $(if ($doms.Count -gt 0) { , $doms } else { $null }); mode = As-Str (Get-Prop $w "mode") }
     }
-
-    # Tunnels
-    $tunnels = Get-Array (Invoke-CFGet -Path "/accounts/$acctId/cfd_tunnel")
-    $a.cfdTunnels = $tunnels | ForEach-Object {
-        $tunnelId = $_.id
-        $configs = Get-Array (Invoke-CFGet -Path "/accounts/$acctId/cfd_tunnel/$tunnelId/configurations")
-        $publicHostnames = @()
-        foreach ($config in $configs) {
-            foreach ($ingress in ($config.config.ingress | Where-Object { $_ })) {
-                $hostname = $ingress.hostname
-                if ($hostname -and $hostname -ne "*") {
-                    $publicHostnames += $hostname
-                }
-            }
-        }
-        [ordered]@{
-            id               = (Protect-Id $_.id)
-            name             = $_.name
-            status           = $_.status
-            publicHostnames  = $publicHostnames
-        }
-    }
-
-    # Workers scripts: names + plaintext binding names/types (never values)
-    $scripts = Get-Array (Invoke-CFGet -Path "/accounts/$acctId/workers/scripts")
-    $a.workersScripts = $scripts | ForEach-Object {
-        $bindings = @($_.bindings)
-        [ordered]@{
-            id                 = (Protect-Id $_.id)
-            scriptName         = $_.id
-            createdOn          = $_.created_on
-            modifiedOn         = $_.modified_on
-            plainTextBindings  = @($bindings | Where-Object { $_.type -in @("plain_text","secret_text") } | ForEach-Object { 
-                [ordered]@{ name = $_.name; type = $_.type } 
+    $a.cfdTunnels = ConvertTo-Mapped (Invoke-CFGet -Path "/accounts/$acctId/cfd_tunnel") {
+        param($t)
+        $tunnelId = Get-Prop $t "id"
+        $cfg = Invoke-CFGetObject -Path "/accounts/$acctId/cfd_tunnel/$tunnelId/configurations"
+        $hostnames = @(foreach ($ing in @(Get-Prop (Get-Prop $cfg "config") "ingress" | Where-Object { $null -ne $_ })) {
+                $h = Get-Prop $ing "hostname"; if ($h -and $h -ne "*") { [string]$h }
             })
+        [ordered]@{ id = Protect-Id $tunnelId; name = As-Str (Get-Prop $t "name"); status = As-Str (Get-Prop $t "status"); publicHostnames = $hostnames }
+    }
+    $a.workersScripts = ConvertTo-Mapped (Invoke-CFGet -Path "/accounts/$acctId/workers/scripts") {
+        param($s)
+        [ordered]@{
+            id                = Protect-Id (Get-Prop $s "id")
+            scriptName        = As-Str (Get-Prop $s "id")
+            createdOn         = As-Str (Get-Prop $s "created_on")
+            modifiedOn        = As-Str (Get-Prop $s "modified_on")
+            plainTextBindings = @(Get-Prop $s "bindings" | Where-Object { $null -ne $_ -and (Get-Prop $_ "type") -in @("plain_text", "secret_text") } | ForEach-Object {
+                    [ordered]@{ name = [string](Get-Prop $_ "name"); type = [string](Get-Prop $_ "type") } })
+        }
+    }
+    $kv = Invoke-CFGet -Path "/accounts/$acctId/storage/kv/namespaces"
+    $d1 = Invoke-CFGet -Path "/accounts/$acctId/d1/database"
+    $r2 = Invoke-CFGet -Path "/accounts/$acctId/r2/buckets"
+    $a.storageInventory = [ordered]@{
+        kvNamespaces = $(if ($null -ne $kv) { @($kv).Count } else { $null })
+        d1Databases  = $(if ($null -ne $d1) { @($d1).Count } else { $null })
+        r2Buckets    = $(if ($null -ne $r2) { @($r2).Count } else { $null })
+    }
+    $a.aiGateways = ConvertTo-Mapped (Invoke-CFGet -Path "/accounts/$acctId/ai-gateway/gateways") {
+        param($g)
+        $dlp = Get-Prop $g "dlp"; $gr = Get-Prop $g "guardrails"; $sl = Get-Prop $g "spend_limits"
+        $pol = Get-Prop $dlp "policies"
+        [ordered]@{
+            id                    = As-Str (Get-Prop $g "id")
+            authentication        = As-Bool (Get-Prop $g "authentication")
+            rateLimitingLimit     = As-Num (Get-Prop $g "rate_limiting_limit")
+            rateLimitingInterval  = As-Num (Get-Prop $g "rate_limiting_interval")
+            rateLimitingTechnique = As-Str (Get-Prop $g "rate_limiting_technique")
+            collectLogs           = As-Bool (Get-Prop $g "collect_logs")
+            dlpEnabled            = As-Bool (Get-Prop $dlp "enabled")
+            dlpPoliciesCount      = $(if ($pol -is [array]) { $pol.Count } else { $null })
+            guardrailsConfigured  = $(if ($null -ne $gr -and @($gr.PSObject.Properties).Count -gt 0) { $true } else { $null })
+            spendLimitsEnabled    = As-Bool (Get-Prop $sl "enabled")
+            byokOnly              = As-Bool (Get-Prop $g "byok_only")
         }
     }
 
-    # Storage inventory (counts only; never contents)
-    $kv = Get-Array (Invoke-CFGet -Path "/accounts/$acctId/storage/kv/namespaces")
-    $d1 = Get-Array (Invoke-CFGet -Path "/accounts/$acctId/d1/database")
-    $r2 = Get-Array (Invoke-CFGet -Path "/accounts/$acctId/r2/buckets")
-    $a.storageInventory = [ordered]@{ 
-        kvNamespaces = $kv.Count
-        d1Databases  = $d1.Count
-        r2Buckets    = $r2.Count 
-    }
-
-    $collection.accounts += $a
+    $collection.accounts += , $a
 }
 
 # ---------------------------------------------------------------------------
@@ -536,19 +724,18 @@ foreach ($acct in $accounts) {
 # ---------------------------------------------------------------------------
 Write-Host ""
 Write-Host "Collecting zones..." -ForegroundColor Cyan
-$zones = Get-Array (Invoke-CFGet -Path "/zones?per_page=50")
+$zones = Get-Array (Invoke-CFGet -Path "/zones")
 $collection.zones = @()
+$planTiers = @()
 
-# Ruleset phases to collect (Cloudflare's standard phases)
+# Ruleset phases to collect (mirror src/endpoints.ts PHASES)
 $phases = @(
     "http_request_firewall_custom",
     "http_request_firewall_managed",
     "http_ratelimit",
-    "http_request_transform",
-    "http_request_dynamic_redirect",
+    "ddos_l7",
     "http_request_cache_settings",
-    "http_request_origin",
-    "http_request_redirect"
+    "http_response_headers_transform"
 )
 
 foreach ($z in $zones) {
@@ -556,144 +743,180 @@ foreach ($z in $zones) {
     $zoneId = $z.id
     $plan = $z.plan
     if ($plan.name) { $planTiers += $plan.name }
-    
+    $legacy = As-Str (Get-Prop $plan "legacy_id")
+
     $zoneOut = [ordered]@{
-        name       = $z.name
-        plan       = $plan.name
-        status     = $z.status
-        paused     = $z.paused
-        type       = $z.type
-        createdOn  = $z.created_on
+        name         = [string]$z.name
+        plan         = As-Str (Get-Prop $plan "name")
+        planLegacyId = $(if ($legacy) { $legacy } else { Get-PlanTier (Get-Prop $plan "name") $null })
+        status       = As-Str $z.status
+        paused       = As-Bool $z.paused
+        type         = As-Str $z.type
+        createdOn    = As-Str $z.created_on
     }
 
-    # Zone settings as keyed rows
-    $settingsRows = Get-Array (Invoke-CFGet -Path "/zones/$zoneId/settings")
-    $settingsMap = [ordered]@{}
-    foreach ($row in $settingsRows) {
-        $settingsMap[$row.id] = [ordered]@{ 
-            id       = $row.id
-            value    = $row.value
-            editable = $row.editable 
+    $settingsRows = Invoke-CFGet -Path "/zones/$zoneId/settings"
+    if ($null -ne $settingsRows) {
+        $settingsMap = [ordered]@{}
+        foreach ($row in $settingsRows) {
+            if (-not $row.id) { continue }
+            $settingsMap[[string]$row.id] = [ordered]@{ id = [string]$row.id; value = $row.value; editable = As-Bool $row.editable }
         }
-    }
-    $zoneOut | Add-Member -NotePropertyName settings -NotePropertyValue $settingsMap
-
-    # Ruleset inventory
-    $rsList = Get-Array (Invoke-CFGet -Path "/zones/$zoneId/rulesets")
-    $zoneOut.rulesets = $rsList | ForEach-Object {
-        [ordered]@{ 
-            id      = (Protect-Id $_.id)
-            name    = $_.name
-            kind    = $_.kind
-            phase   = $_.phase
-            version = $_.version 
-        }
+        $zoneOut.settings = $settingsMap
     }
 
-    # Phase entrypoints (live rules) with redacted expressions
+    # Ruleset list: raw id -> name so execute rules resolve before IDs are hashed.
+    $rsList = Invoke-CFGet -Path "/zones/$zoneId/rulesets"
+    $rulesetNames = @{}
+    foreach ($r in (Get-Array $rsList)) { if ($r.id -and ($r.name -is [string])) { $rulesetNames[[string]$r.id] = $r.name } }
+    $zoneOut.rulesets = ConvertTo-Mapped $rsList {
+        param($r) [ordered]@{ id = Protect-Id $r.id; name = As-Str $r.name; kind = As-Str $r.kind; phase = As-Str $r.phase; version = As-Str $r.version }
+    }
+
     $entrypoints = [ordered]@{}
+    $phaseStatus = [ordered]@{}
     foreach ($phase in $phases) {
-        $ep = Invoke-CFGet -Path "/zones/$zoneId/rulesets/phases/$phase/entrypoint"
-        if ($null -eq $ep) { continue }
-        $epRow = (Get-Array $ep)[0]
+        $ep = Invoke-CFGetObject -Path "/zones/$zoneId/rulesets/phases/$phase/entrypoint" -Quiet404
+        if ($null -eq $ep) {
+            $phaseStatus[$phase] = $(if ($script:LastStatus -eq 404) { "absent" } else { "unreadable" })
+            continue
+        }
+        $phaseStatus[$phase] = "present"
         $entrypoints[$phase] = [ordered]@{
             phase = $phase
-            name  = $epRow.name
-            kind  = $epRow.kind
-            rules = @(Get-Array $epRow.rules) | ForEach-Object {
-                [ordered]@{
-                    id          = (Protect-Id $_.id)
-                    description = $_.description
-                    enabled     = $_.enabled
-                    action      = $_.action
-                    expression  = (Protect-Expression $_.expression $z.name)
-                    version     = $_.version
-                    lastUpdated = $_.last_updated
-                }
-            }
+            name  = As-Str $ep.name
+            kind  = As-Str $ep.kind
+            rules = @(foreach ($r in @(Get-Prop $ep "rules" | Where-Object { $null -ne $_ })) {
+                    $action = As-Str $r.action
+                    [ordered]@{
+                        id               = Protect-Id $r.id
+                        description      = Protect-Emails $r.description
+                        enabled          = As-Bool $r.enabled
+                        action           = $action
+                        expression       = Protect-Expression $r.expression
+                        version          = As-Str $r.version
+                        lastUpdated      = As-Str $r.last_updated
+                        actionParameters = Get-ActionParametersSummary $action (Get-Prop $r "action_parameters") $rulesetNames (Get-Prop $r "ratelimit")
+                    }
+                })
         }
     }
-    if ($entrypoints.Keys.Count -gt 0) {
-        $zoneOut | Add-Member -NotePropertyName phaseEntrypoints -NotePropertyValue $entrypoints
+    $zoneOut.phaseEntrypoints = $entrypoints
+    $zoneOut.phaseStatus = $phaseStatus
+
+    $bm = Invoke-CFGetObject -Path "/zones/$zoneId/bot_management"
+    if ($null -ne $bm) {
+        $b = [ordered]@{}
+        foreach ($k in $script:BotKeys) { $v = Get-Prop $bm $k; if (($v -is [string]) -or ($v -is [bool])) { $b[$k] = $v } }
+        if (@($bm.PSObject.Properties).Count -gt 0) { $zoneOut.botManagement = $b }
     }
 
-    # Bot management (Pro+ only)
-    $zoneOut | Add-Member -NotePropertyName botManagement -NotePropertyValue (Invoke-CFGet -Path "/zones/$zoneId/bot_management")
-    
-    # WAF overrides (legacy)
-    $zoneOut | Add-Member -NotePropertyName wafOverrides -NotePropertyValue (Invoke-CFGet -Path "/zones/$zoneId/firewall/waf/overrides")
-    
-    # IP access rules
-    $zoneOut | Add-Member -NotePropertyName ipAccessRules -NotePropertyValue (Invoke-CFGet -Path "/zones/$zoneId/firewall/access_rules/rules?per_page=100")
-    
-    # Page rules (legacy)
-    $zoneOut | Add-Member -NotePropertyName pageRules -NotePropertyValue (Invoke-CFGet -Path "/zones/$zoneId/pagerules?per_page=100")
-    
-    # Certificates
-    $zoneOut | Add-Member -NotePropertyName certificatePacks -NotePropertyValue (Invoke-CFGet -Path "/zones/$zoneId/ssl/certificate_packs?status=all")
-    $zoneOut | Add-Member -NotePropertyName sslVerification -NotePropertyValue (Invoke-CFGet -Path "/zones/$zoneId/ssl/verification")
-    
-    # Load balancers
-    $zoneOut | Add-Member -NotePropertyName loadBalancers -NotePropertyValue (Invoke-CFGet -Path "/zones/$zoneId/load_balancers")
-
-    # Workers routes
-    $routes = Get-Array (Invoke-CFGet -Path "/zones/$zoneId/workers/routes")
-    $zoneOut.workersRoutes = $routes | ForEach-Object { 
-        [ordered]@{ pattern = $_.pattern; script = $_.script } 
-    }
-
-    # DNS: content redacted unconditionally in Mode B
-    $dns = Get-Array (Invoke-CFGet -Path "/zones/$zoneId/dns_records?per_page=100")
-    $zoneOut.dnsRecordCount = $dns.Count
-    $zoneOut.dnsRecords = $dns | ForEach-Object {
+    # IP access rules: mode/target; value only for country/ASN; notes dropped.
+    $zoneOut.ipAccessRuleSummary = ConvertTo-Mapped (Invoke-CFGet -Path "/zones/$zoneId/firewall/access_rules/rules") {
+        param($r)
+        $cfg = Get-Prop $r "configuration"
+        $target = As-Str (Get-Prop $cfg "target")
         [ordered]@{
-            type    = $_.type
-            name    = $_.name
-            content = (Protect-DnsContent $_.content)
-            proxied = $_.proxied
-            ttl     = $_.ttl
-            comment = $_.comment
+            mode   = As-Str (Get-Prop $r "mode")
+            target = $target
+            value  = $(if ($target -in @("country", "asn")) { As-Str (Get-Prop $cfg "value") } else { "[redacted]" })
+            scope  = As-Str (Get-Prop (Get-Prop $r "scope") "type")
         }
     }
 
-    # Legacy rate limits
-    $zoneOut | Add-Member -NotePropertyName legacyRateLimits -NotePropertyValue (Invoke-CFGet -Path "/zones/$zoneId/rate_limits")
+    # Page rules: action ids + enumerated values; URL targets dropped.
+    $zoneOut.pageRuleSummary = ConvertTo-Mapped (Invoke-CFGet -Path "/zones/$zoneId/pagerules") {
+        param($p)
+        [ordered]@{
+            status  = As-Str (Get-Prop $p "status")
+            actions = @(foreach ($act in @(Get-Prop $p "actions" | Where-Object { $null -ne $_ })) {
+                    $id = As-Str (Get-Prop $act "id")
+                    if (-not $id) { continue }
+                    $v = Get-Prop $act "value"
+                    $item = [ordered]@{ id = $id }
+                    if ($script:PageRuleEnum -contains $id) {
+                        if ($v -is [bool]) { $item.value = ([string]$v).ToLower() } elseif ($v -is [string]) { $item.value = $v }
+                    }
+                    $item
+                })
+        }
+    }
 
-    # Page Shield (Business+ only)
-    $ps = Invoke-CFGet -Path "/zones/$zoneId/page_shield"
-    if ($ps) {
-        $psObj = (Get-Array $ps)[0]
+    $zoneOut.certificatePacks = ConvertTo-Mapped (Invoke-CFGet -Path "/zones/$zoneId/ssl/certificate_packs") {
+        param($p)
+        [ordered]@{
+            id                   = Protect-Id (Get-Prop $p "id")
+            type                 = As-Str (Get-Prop $p "type")
+            status               = As-Str (Get-Prop $p "status")
+            validityDays         = As-Num (Get-Prop $p "validity_days")
+            certificateAuthority = As-Str (Get-Prop $p "certificate_authority")
+            expiresOn            = As-Str (Get-Prop $p "expires_on")
+            hosts                = @(Get-Prop $p "hosts" | Where-Object { $_ -is [string] })
+        }
+    }
+
+    $zoneOut.workersRoutes = ConvertTo-Mapped (Invoke-CFGet -Path "/zones/$zoneId/workers/routes") {
+        param($r) [ordered]@{ pattern = As-Str (Get-Prop $r "pattern"); script = As-Str (Get-Prop $r "script") }
+    }
+
+    # DNS: content redacted unconditionally; comments (free text) dropped.
+    $dns = ConvertTo-Mapped (Invoke-CFGet -Path "/zones/$zoneId/dns_records") {
+        param($r)
+        [ordered]@{
+            type    = [string](Get-Prop $r "type")
+            name    = [string](Get-Prop $r "name")
+            content = $(if ($null -ne (Get-Prop $r "content")) { "[redacted]" } else { $null })
+            proxied = As-Bool (Get-Prop $r "proxied")
+            ttl     = As-Num (Get-Prop $r "ttl")
+        }
+    }
+    if ($null -ne $dns) { $zoneOut.dnsRecordCount = $dns.Count; $zoneOut.dnsRecords = $dns }
+
+    $zoneOut.legacyRateLimits = ConvertTo-Mapped (Invoke-CFGet -Path "/zones/$zoneId/rate_limits") {
+        param($r) [ordered]@{ disabled = ((Get-Prop $r "disabled") -eq $true) }
+    }
+
+    $mh = Invoke-CFGetObject -Path "/zones/$zoneId/managed_headers"
+    if ($null -ne $mh -and @($mh.PSObject.Properties).Count -gt 0) {
+        $pick = { param($list) , @(foreach ($h in @($list | Where-Object { $null -ne $_ })) { $hid = As-Str (Get-Prop $h "id"); if ($hid) { [ordered]@{ id = $hid; enabled = ((Get-Prop $h "enabled") -eq $true) } } }) }
+        $zoneOut.managedHeaders = [ordered]@{
+            request  = (& $pick (Get-Prop $mh "managed_request_headers"))
+            response = (& $pick (Get-Prop $mh "managed_response_headers"))
+        }
+    }
+
+    $lc = Invoke-CFGetObject -Path "/zones/$zoneId/leaked-credential-checks"
+    if ($null -ne $lc) { $zoneOut.leakedCredentialChecks = [ordered]@{ enabled = As-Bool (Get-Prop $lc "enabled") } }
+
+    $ps = Invoke-CFGetObject -Path "/zones/$zoneId/page_shield"
+    if ($null -ne $ps) {
         $zoneOut.pageShield = [ordered]@{
-            enabled                        = $psObj.enabled
-            useCloudflareReportingEndpoint = $psObj.use_cloudflare_reporting_endpoint
-            useConnectionUrlPath           = $psObj.use_connection_url_path
+            enabled                        = As-Bool (Get-Prop $ps "enabled")
+            useCloudflareReportingEndpoint = As-Bool (Get-Prop $ps "use_cloudflare_reporting_endpoint")
+            useConnectionUrlPath           = As-Bool (Get-Prop $ps "use_connection_url_path")
         }
     }
 
-    # Authenticated Origin Pulls
-    $aopSettings = Invoke-CFGet -Path "/zones/$zoneId/origin_tls_client_auth/settings"
-    $aopCerts = Get-Array (Invoke-CFGet -Path "/zones/$zoneId/origin_tls_client_auth")
-    if ($aopSettings) {
-        $aopObj = (Get-Array $aopSettings)[0]
+    $aop = Invoke-CFGetObject -Path "/zones/$zoneId/origin_tls_client_auth/settings"
+    $aopCerts = Invoke-CFGet -Path "/zones/$zoneId/origin_tls_client_auth"
+    if ($null -ne $aop) {
         $zoneOut.authenticatedOriginPulls = [ordered]@{
-            enabled          = $aopObj.enabled
-            hasZoneLevelCert = ($aopCerts.Count -gt 0)
-            certCount        = $aopCerts.Count
+            enabled          = As-Bool (Get-Prop $aop "enabled")
+            hasZoneLevelCert = $(if ($null -ne $aopCerts) { @($aopCerts).Count -gt 0 } else { $null })
+            certCount        = $(if ($null -ne $aopCerts) { @($aopCerts).Count } else { $null })
         }
     }
 
-    $collection.zones += $zoneOut
+    $collection.zones += , $zoneOut
 }
 
-# Plan tiers seen
-if ($planTiers.Count -gt 0) {
-    $collection.planTiersSeen = @($planTiers | Sort-Object -Unique)
-}
+$collection.planTiersSeen = @($planTiers | Sort-Object -Unique)
 
 # ---------------------------------------------------------------------------
 # PHASE 5: ERRORS (scope gaps)
 # ---------------------------------------------------------------------------
-$collection.collectionErrors = $script:ApiErrors
+# Raw account/zone/tunnel IDs in error paths are hashed like every other ID.
+$collection.collectionErrors = @(foreach ($e in $script:ApiErrors) { [ordered]@{ path = (Protect-IdsInPath $e.path); error = [string]$e.error } })
 
 # ---------------------------------------------------------------------------
 # PHASE 6: SECRET SCAN + WRITE
@@ -701,10 +924,12 @@ $collection.collectionErrors = $script:ApiErrors
 Write-Host ""
 Write-Host "Assembling and redacting output..." -ForegroundColor Cyan
 
-$json = $collection | ConvertTo-Json -Depth 12
+$json = Remove-Nulls $collection | ConvertTo-Json -Depth 30
 
-# PRE-WRITE SECRET SCAN: abort if any credential-shaped patterns detected
-if ($json -match "Bearer\s+\S+" -or $json -match "(?i)authorization") {
+# PRE-WRITE SECRET SCAN (mirrors src/redact.ts fail-severity patterns).
+# Note: the bare word "authorization" is NOT a hit — WAF expressions
+# legitimately reference the Authorization header by name.
+if ($json -match "(?i)Bearer\s+[A-Za-z0-9._-]+" -or $json -match "\b[A-Za-z0-9_-]{64,}\b" -or $json -match "(?i)(?:api[_-]?key|api[_-]?token|password|credential)\s*[:=]\s*\S+") {
     Write-Host ""
     Write-Host "❌ ABORTING: Pre-write secret scan matched an authorization pattern." -ForegroundColor Red
     Write-Host "   Nothing written. This is a safety check to prevent credential leakage." -ForegroundColor Red

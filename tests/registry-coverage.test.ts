@@ -15,7 +15,7 @@ describe("endpoint registry coverage", () => {
   it("Mode A collector only requests registered paths", () => {
     const collectSrc = readFileSync(join(ROOT, "src", "collect.ts"), "utf8");
     const used = new Set<string>();
-    for (const match of collectSrc.matchAll(/client\.(?:list|get)\(\s*[`"]([^`"]+)[`"]/g)) {
+    for (const match of collectSrc.matchAll(/client\.(?:list|get|getEntrypoint)\(\s*[`"]([^`"]+)[`"]/g)) {
       used.add(match[1] ?? "");
     }
     expect(used.size, "collector should request several endpoints").toBeGreaterThan(10);
@@ -48,5 +48,11 @@ describe("endpoint registry coverage", () => {
       const ok = candidates.some((c) => new RegExp(`^${c}$`).test(template));
       expect(ok, `collector path not in registry: ${path}`).toBe(true);
     }
+  });
+
+  it("docs/endpoints.md lists every registered endpoint and phase (regenerate with scripts/gen-endpoints-doc.mjs)", () => {
+    const doc = readFileSync(join(ROOT, "docs", "endpoints.md"), "utf8");
+    for (const e of ENDPOINTS) expect(doc, `docs/endpoints.md missing ${e.path}`).toContain(`\`${e.path}\``);
+    for (const p of PHASES) expect(doc, `docs/endpoints.md missing phase ${p}`).toContain(`\`${p}\``);
   });
 });

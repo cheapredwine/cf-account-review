@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "1.1",
+  "collectedAt": "2026-11-01T00:00:00Z",
+  "collector": "api",
+  "collectorVersion": "0.2.0",
+  "tokenStatus": "active",
+  "planTiersSeen": ["Enterprise Website", "Free Website"],
+  "accounts": [
+    {
+      "id": "h0000000000000001",
+      "name": "Fixture Account",
+      "enforceTwofactor": true,
+      "apiTokens": [{ "status": "active", "expiresOn": null, "lastUsedOn": null, "permissionGroupNames": ["Zone Read"] }],
+      "turnstileWidgets": [],
+      "cfdTunnels": [],
+      "accessApps": [],
+      "accessIdentityProviders": [],
+      "workersScripts": [],
+      "loadBalancerPools": [],
+      "loadBalancerMonitors": [],
+      "aiGateways": []
+    }
+  ],
+  "zones": [
+    {
+      "name": "shop.example",
+      "plan": "Enterprise Website",
+      "planLegacyId": "enterprise",
+      "status": "active",
+      "paused": false,
+      "type": "full",
+      "settings": {
+        "ssl": { "id": "ssl", "value": "full" },
+        "min_tls_version": { "id": "min_tls_version", "value": "1.2" },
+        "security_header": { "id": "security_header", "value": { "strict_transport_security": { "enabled": true } } },
+        "always_use_https": { "id": "always_use_https", "value": "on" },
+        "0rtt": { "id": "0rtt", "value": "on" },
+        "tls_1_3": { "id": "tls_1_3", "value": "on" },
+        "security_level": { "id": "security_level", "value": "medium" },
+        "dnssec": { "id": "dnssec", "value": "active" }
+      },
+      "phaseStatus": {
+        "http_request_firewall_custom": "present",
+        "http_request_firewall_managed": "present",
+        "http_ratelimit": "present",
+        "ddos_l7": "absent",
+        "http_request_cache_settings": "absent",
+        "http_response_headers_transform": "absent"
+      },
+      "phaseEntrypoints": {
+        "http_request_firewall_custom": {
+          "phase": "http_request_firewall_custom",
+          "rules": [
+            { "action": "block", "enabled": true, "expression": "cf.bot_management.score eq 1" },
+            { "action": "skip", "enabled": true, "expression": "http.host eq \"api.shop.example\"", "actionParameters": { "skip": { "currentRuleset": false, "rulesets": 0, "rules": 0, "phases": ["http_request_firewall_managed"], "products": [] } } }
+          ]
+        },
+        "http_request_firewall_managed": {
+          "phase": "http_request_firewall_managed",
+          "rules": [
+            { "action": "execute", "enabled": true, "actionParameters": { "executes": "cloudflare_managed" } },
+            { "action": "execute", "enabled": true, "actionParameters": { "executes": "owasp", "overrides": { "action": "log", "disabledCategories": [], "rulesDisabled": 0, "rulesActionOverridden": 0 } } }
+          ]
+        },
+        "http_ratelimit": {
+          "phase": "http_ratelimit",
+          "rules": [
+            { "action": "block", "enabled": true, "expression": "http.request.uri.path eq \"/login\"", "actionParameters": { "ratelimit": { "characteristics": ["ip.src", "cf.colo.id"], "period": 60, "requestsPerPeriod": 5, "mitigationTimeout": 600, "hasCountingExpression": false } } }
+          ]
+        }
+      },
+      "botManagement": { "enable_js": true, "sbfm_definitely_automated": "allow" },
+      "ipAccessRuleSummary": [{ "mode": "whitelist", "target": "ip", "value": "[redacted]", "scope": "zone" }],
+      "pageRuleSummary": [],
+      "managedHeaders": { "request": [], "response": [{ "id": "add_security_headers", "enabled": false }] },
+      "leakedCredentialChecks": { "enabled": false },
+      "certificatePacks": [{ "type": "universal", "status": "active", "certificateAuthority": "google", "expiresOn": null, "hosts": ["shop.example"] }],
+      "workersRoutes": [],
+      "dnsRecordCount": 4,
+      "dnsRecords": [
+        { "type": "A", "name": "shop.example", "content": "[redacted]", "proxied": true },
+        { "type": "A", "name": "origin-direct.shop.example", "content": "[redacted]", "proxied": false },
+        { "type": "MX", "name": "shop.example", "content": "[redacted]", "proxied": false },
+        { "type": "TXT", "name": "shop.example", "content": "[redacted]", "proxied": false }
+      ],
+      "legacyRateLimits": [],
+      "pageShield": { "enabled": true },
+      "authenticatedOriginPulls": { "enabled": false, "hasZoneLevelCert": false, "certCount": 0 }
+    },
+    {
+      "name": "blog.example",
+      "plan": "Free Website",
+      "planLegacyId": "free",
+      "status": "active",
+      "paused": false,
+      "type": "full",
+      "settings": {
+        "ssl": { "id": "ssl", "value": "flexible" },
+        "min_tls_version": { "id": "min_tls_version", "value": "1.0" },
+        "always_use_https": { "id": "always_use_https", "value": "off" },
+        "security_level": { "id": "security_level", "value": "essentially_off" },
+        "dnssec": { "id": "dnssec", "value": "disabled" }
+      },
+      "phaseStatus": {
+        "http_request_firewall_custom": "absent",
+        "http_request_firewall_managed": "absent",
+        "http_ratelimit": "absent",
+        "ddos_l7": "absent",
+        "http_request_cache_settings": "absent",
+        "http_response_headers_transform": "absent"
+      },
+      "phaseEntrypoints": {},
+      "botManagement": { "fight_mode": false },
+      "ipAccessRuleSummary": [{ "mode": "whitelist", "target": "country", "value": "US", "scope": "zone" }],
+      "pageRuleSummary": [{ "status": "active", "actions": [{ "id": "cache_level", "value": "cache_everything" }] }],
+      "dnsRecordCount": 1,
+      "dnsRecords": [{ "type": "A", "name": "blog.example", "content": "[redacted]", "proxied": true }],
+      "legacyRateLimits": []
+    }
+  ],
+  "collectionErrors": []
+}

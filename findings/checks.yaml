@@ -1,17 +1,41 @@
-# cf-account-review findings rulebook — v1 checks
+# cf-account-review findings rulebook — v0.2 (web security first)
 #
 # Every check carries:
 #   id, name, domain, severity — the finding identity
-#   applies.planTier — highest-confidence plan tier the check applies to
-#   evidence — which part of the collection the check reads (documented for customers)
-#   remediation — what to do about a fail
-#   citation — the Cloudflare doc (or listed source) that justifies the check
+#   scope — "zone" (default, evaluated per zone) or "account" (evaluated once)
+#   applies.planTier — plan tier the check applies to (below it → na)
+#   evidence — which part of the collection the check reads
+#   remediation — what to do about a fail/warn
+#   citation — the Cloudflare doc that justifies the check
 #
-# Verdict semantics (borrowed from the grclanker cloudflare-sec-inspector spec):
-#   pass | warn | fail | manual | na — and INCOMPLETE OR UNREADABLE EVIDENCE
-#   CAN NEVER PASS. Missing data yields "manual", not "pass".
+# Verdicts: pass | warn | fail | manual | na.
+# INCOMPLETE OR UNREADABLE EVIDENCE CAN NEVER PASS — it yields "manual".
+#
+# Profiles select checks by domain. `analyze` defaults to web-security;
+# `--profile all` runs everything.
+
+profiles:
+  web-security:
+    [zone, ssl-tls, waf, rate-limiting, bots, ddos, dns, origin-security, client-side-security, http-headers, cache]
+  zero-trust: [zero-trust]
+  platform: [account-hygiene, workers, traffic, ai-gateway]
 
 checks:
+  # ------------------------------------------------------------------ Zone
+  - id: CF-ZONE-001
+    name: Zone is active and proxying (not paused)
+    domain: zone
+    severity: high
+    type: zone_active
+    applies: { planTier: any }
+    evidence: zones[].paused, zones[].status
+    params: {}
+    remediation: >
+      A paused zone serves DNS only: traffic goes straight to the origin and no WAF,
+      DDoS, bot, rate limiting, or TLS policy applies. Unpause unless this is deliberate
+      and time-boxed.
+    citation: https://developers.cloudflare.com/fundamentals/manage-domains/pause-cloudflare/
+
   # ------------------------------------------------------------------ SSL/TLS
   - id: CF-SSL-001
     name: SSL/TLS encryption mode is Full (strict)
@@ -21,10 +45,11 @@ checks:
     applies: { planTier: any }
     evidence: zones[].settings["ssl"]
     params: { settingId: ssl, expectOneOf: ["strict"] }
-    warnIf: ["full", "origin_pull"]
+    warnIf: ["full"]
     remediation: >
-      Set SSL/TLS mode to Full (strict) in Zone > SSL/TLS > Overview. Flexible or Off
-      modes allow unencrypted traffic between Cloudflare and your origin.
+      Set SSL/TLS mode to Full (strict). Flexible sends origin traffic in plaintext;
+      Full encrypts but does not validate the origin certificate, so it does not
+      stop an on-path attacker between Cloudflare and the origin.
     citation: https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/
 
   - id: CF-SSL-002
@@ -36,8 +61,8 @@ checks:
     evidence: zones[].settings["min_tls_version"]
     params: { settingId: min_tls_version, expectOneOf: ["1.2", "1.3"] }
     remediation: >
-      Set Minimum TLS Version to 1.2 on Edge Certificates. TLS 1.0/1.1 have known
-      vulnerabilities and are not strong cryptography under PCI DSS 4.2.1.
+      Set Minimum TLS Version to 1.2. TLS 1.0/1.1 have known weaknesses and are not
+      strong cryptography under PCI DSS 4.0.
     citation: https://developers.cloudflare.com/ssl/edge-certificates/additional-options/minimum-tls/
 
   - id: CF-SSL-003
@@ -51,8 +76,8 @@ checks:
       settingId: security_header
       nested: { path: strict_transport_security.enabled, expect: true }
     remediation: >
-      Enable HSTS on Edge Certificates. Confirm all subdomains support HTTPS first —
-      HSTS forces HTTPS browser-side and can lock out HTTP-only hosts.
+      Enable HSTS. Confirm every subdomain serves HTTPS first if includeSubDomains is
+      used — HSTS is cached by browsers and hard to roll back.
     citation: https://developers.cloudflare.com/ssl/edge-certificates/additional-options/http-strict-transport-security/
 
   - id: CF-SSL-004
@@ -64,7 +89,7 @@ checks:
     evidence: zones[].settings["always_use_https"]
     params: { settingId: always_use_https, expect: "on" }
     remediation: >
-      Enable Always Use HTTPS so no plaintext HTTP requests reach your application.
+      Enable Always Use HTTPS so plaintext requests are redirected at the edge.
     citation: https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/
 
   - id: CF-SSL-005
@@ -76,58 +101,146 @@ checks:
     evidence: zones[].certificatePacks
     params: { warnDays: 90, failDays: 30 }
     remediation: >
-      Custom certificates expiring within 30 days require immediate renewal.
-      Upload a renewed certificate via SSL/TLS > Edge Certificates > Upload Custom SSL Certificate.
-      Certificates expiring within 90 days should be scheduled for renewal.
-      Universal certificates auto-renew; this check applies only to custom certificates.
+      Renew custom certificates expiring within 30 days now; schedule those within 90.
+      Universal and Let's Encrypt advanced certificates auto-renew and are excluded.
     citation: https://developers.cloudflare.com/ssl/edge-certificates/custom-certificates/renewing/
+
+  - id: CF-SSL-006
+    name: 0-RTT is off (or replay risk accepted)
+    domain: ssl-tls
+    severity: low
+    type: zone_setting
+    applies: { planTier: any }
+    evidence: zones[].settings["0rtt"]
+    params: { settingId: 0rtt, expect: "off", missVerdict: warn }
+    remediation: >
+      TLS 1.3 0-RTT early data can be replayed. Leave it on only if the origin treats
+      non-idempotent requests carrying Cf-0rtt-Unique safely, or keep it off.
+    citation: https://developers.cloudflare.com/speed/optimization/protocol/0-rtt-connection-resumption/
+
+  - id: CF-SSL-007
+    name: TLS 1.3 enabled
+    domain: ssl-tls
+    severity: low
+    type: zone_setting
+    applies: { planTier: any }
+    evidence: zones[].settings["tls_1_3"]
+    params: { settingId: tls_1_3, expectOneOf: ["on", "zrt"], missVerdict: warn }
+    remediation: >
+      Enable TLS 1.3 for modern cipher suites and faster handshakes.
+    citation: https://developers.cloudflare.com/ssl/edge-certificates/additional-options/tls-13/
 
   # ------------------------------------------------------------------ WAF
   - id: CF-WAF-001
-    name: Managed WAF ruleset deployed
+    name: Cloudflare Managed Ruleset deployed and enforcing
     domain: waf
     severity: high
-    type: phase_present
+    type: waf_managed
     applies: { planTier: pro-plus }
-    evidence: zones[].phaseEntrypoints["http_request_firewall_managed"]
-    params:
-      phase: http_request_firewall_managed
-      requireEnabledExecuteRule: true
-      failIfAllOverridesDisabled: true
+    evidence: zones[].phaseEntrypoints["http_request_firewall_managed"] (execute rules + overrides)
+    params: { ruleset: cloudflare_managed }
     remediation: >
-      Deploy the Cloudflare Managed Ruleset (and OWASP Core Ruleset) from Security > Settings.
-      The managed ruleset is updated weekly for CVE coverage; a zone without it has no
-      signature-based exploit protection.
+      Deploy the Cloudflare Managed Ruleset and do not override it to disabled or log.
+      It is updated for new CVEs; a zone without it has no signature-based exploit
+      protection. Tune with targeted exceptions, not ruleset-wide overrides.
     citation: https://developers.cloudflare.com/waf/managed-rules/reference/cloudflare-managed-ruleset/
 
   - id: CF-WAF-002
-    name: Custom WAF rules present for sensitive endpoints
+    name: Custom rules exist and some enforce
     domain: waf
     severity: medium
-    type: phase_present
-    applies: { planTier: any }
-    evidence: zones[].phaseEntrypoints["http_request_firewall_custom"]
-    params:
-      phase: http_request_firewall_custom
-      warnIfNoBlockingAction: true
-    remediation: >
-      Review Security > Security rules. Custom rules should protect login/checkout/API
-      paths; rules that are log-only on Business+ plans provide no enforcement.
-    citation: https://developers.cloudflare.com/waf/custom-rules/
-
-  - id: CF-WAF-003
-    name: Broad skip rules are not neutralizing the WAF
-    domain: waf
-    severity: high
-    type: broad_skip_audit
+    type: custom_rules
     applies: { planTier: any }
     evidence: zones[].phaseEntrypoints["http_request_firewall_custom"]
     params: {}
     remediation: >
-      Skip rules with site-wide expressions (or missing run-time/locking configurations)
-      disable protections for most traffic. Narrow skip scopes and separate
-      onboarding vs enforcement rulesets.
+      Custom rules should protect admin/login/checkout/API paths. Rules left in log or
+      skip mode after validation provide no enforcement.
+    citation: https://developers.cloudflare.com/waf/custom-rules/
+
+  - id: CF-WAF-003
+    name: No site-wide skip rules or WAF exceptions
+    domain: waf
+    severity: high
+    type: broad_skip_audit
+    applies: { planTier: any }
+    evidence: zones[].phaseEntrypoints (custom + managed phases, skip action parameters)
+    params: {}
+    remediation: >
+      A skip rule or WAF exception that matches all traffic (or a whole hostname)
+      silently disables protections. Scope exceptions to the specific path, rule, and
+      source that needs them.
     citation: https://developers.cloudflare.com/waf/managed-rules/waf-exceptions/
+
+  - id: CF-WAF-004
+    name: OWASP Core Ruleset deployed in blocking mode
+    domain: waf
+    severity: medium
+    type: waf_owasp
+    applies: { planTier: pro-plus }
+    evidence: zones[].phaseEntrypoints["http_request_firewall_managed"] (OWASP execute + overrides)
+    params: { maxScoreThreshold: 60 }
+    remediation: >
+      Deploy the OWASP Core Ruleset alongside the Cloudflare Managed Ruleset, start in
+      log, then move to block. Keep the anomaly threshold at Medium (40) or High (25)
+      sensitivity once false positives are tuned.
+    citation: https://developers.cloudflare.com/waf/managed-rules/reference/owasp-core-ruleset/
+
+  - id: CF-WAF-005
+    name: Leaked credentials detection enabled
+    domain: waf
+    severity: medium
+    type: leaked_credentials
+    applies: { planTier: any }
+    evidence: zones[].leakedCredentialChecks
+    params: {}
+    remediation: >
+      Turn on leaked credentials detection and act on it (challenge or rate limit
+      login requests where cf.waf.credential_check.* matches).
+    citation: https://developers.cloudflare.com/waf/detections/leaked-credentials/
+
+  - id: CF-WAF-006
+    name: No allowlist IP Access Rules bypassing security
+    domain: waf
+    severity: high
+    type: ip_access_allowlist
+    applies: { planTier: any }
+    evidence: zones[].ipAccessRuleSummary
+    params: {}
+    remediation: >
+      IP Access Rules in Allow mode skip WAF, rate limiting, bot and DDoS mitigations
+      for the source. Country/ASN allowlists do so for whole networks. Replace them
+      with custom rules that skip only the specific product and path needed.
+    citation: https://developers.cloudflare.com/waf/tools/ip-access-rules/
+
+  - id: CF-WAF-007
+    name: Page rules do not weaken security
+    domain: waf
+    severity: high
+    type: page_rule_security
+    applies: { planTier: any }
+    evidence: zones[].pageRuleSummary
+    params: {}
+    remediation: >
+      Page rules that disable security, lower the security level, turn off the
+      browser integrity check, or set SSL to Off/Flexible punch holes in the zone's
+      posture. Remove them and migrate remaining page rules to modern Rules.
+    citation: https://developers.cloudflare.com/rules/reference/page-rules-migration/
+
+  - id: CF-WAF-008
+    name: Security level is not off and not stuck in Under Attack
+    domain: waf
+    severity: medium
+    type: zone_setting
+    applies: { planTier: any }
+    evidence: zones[].settings["security_level"]
+    params: { settingId: security_level, expectOneOf: ["low", "medium", "high"] }
+    warnIf: ["under_attack"]
+    remediation: >
+      "Essentially off" disables IP-reputation challenges. "I'm Under Attack" left on
+      permanently challenges every visitor and breaks API clients — use it as a
+      temporary lever.
+    citation: https://developers.cloudflare.com/waf/tools/security-level/
 
   # ------------------------------------------------------------------ Rate limiting
   - id: CF-RL-001
@@ -137,14 +250,15 @@ checks:
     type: ratelimit_login
     applies: { planTier: any }
     evidence: zones[].phaseEntrypoints["http_ratelimit"]
-    params: { phase: http_ratelimit, loginPaths: ["/login", "/log-in", "/signin", "/api/login", "/auth"] }
+    params: { loginPaths: ["/login", "/log-in", "/signin", "/sign-in", "/api/login", "/auth", "/oauth/token", "/wp-login.php"] }
     remediation: >
-      Add a rate limiting rule for login POSTs (count IP, e.g. 4 failed attempts/min
-      with response-code counting on Business+, escalating windows per the docs).
+      Add a blocking rate limiting rule for login POSTs (counted per IP; on Business+
+      count failed responses). Path matching is heuristic — confirm the app's actual
+      authentication paths.
     citation: https://developers.cloudflare.com/waf/rate-limiting-rules/best-practices/
 
   - id: CF-RL-002
-    name: Legacy rate-limiting product not in use (migration complete)
+    name: Legacy rate limiting product not in use
     domain: rate-limiting
     severity: low
     type: legacy_ratelimit
@@ -152,106 +266,94 @@ checks:
     evidence: zones[].legacyRateLimits
     params: {}
     remediation: >
-      The legacy rate limiting product is superseded by rate limiting rules
-      (http_ratelimit phase). Migrate to the new ruleset engine.
+      Migrate legacy rate limits to rate limiting rules (http_ratelimit phase).
     citation: https://developers.cloudflare.com/waf/reference/legacy/old-rate-limiting/
+
+  - id: CF-RL-003
+    name: At least one enforcing rate limiting rule
+    domain: rate-limiting
+    severity: medium
+    type: ratelimit_present
+    applies: { planTier: any }
+    evidence: zones[].phaseEntrypoints["http_ratelimit"]
+    params: {}
+    remediation: >
+      Every plan includes rate limiting rules. Protect at least the most expensive or
+      abuse-prone endpoints (auth, search, checkout, APIs).
+    citation: https://developers.cloudflare.com/waf/rate-limiting-rules/
 
   # ------------------------------------------------------------------ Bots
   - id: CF-BOT-001
-    name: Definite-bot block excludes verified bots
+    name: Bot-score blocks exclude verified bots
     domain: bots
     severity: medium
-    type: bot_rules
-    applies: { planTier: pro-plus }
+    type: bot_verified_exclusion
+    applies: { planTier: enterprise }
     evidence: zones[].phaseEntrypoints["http_request_firewall_custom"]
     params: {}
     remediation: >
-      Block expressions using cf.bot_management.score should include
-      `not cf.bot_management.verified_bot`, or Googlebot and other verified crawlers
-      (score=1) get blocked.
+      Block/challenge expressions on cf.bot_management.score should include
+      `not cf.bot_management.verified_bot`, or search crawlers get blocked.
     citation: https://developers.cloudflare.com/bots/concepts/bot-score/
 
   - id: CF-BOT-002
-    name: Bot management rules actually enforce (not skip-only)
+    name: Bot Management rules enforce (not skip/log only)
     domain: bots
     severity: high
-    type: bot_rules
-    applies: { planTier: pro-plus }
+    type: bot_enforcement
+    applies: { planTier: enterprise }
     evidence: zones[].phaseEntrypoints["http_request_firewall_custom"]
     params: {}
     remediation: >
-      Bot management rules that only skip other rules leave automation unenforced.
-      Validate the intended tiered model: skip for verified bots, challenge for
-      likely bots (score 1–30), block for definite bots — then enforce.
-    citation: https://developers.cloudflare.com/bots/
+      Enterprise Bot Management only acts through rules. Typical model: allow verified
+      bots, challenge likely bots (score 2–29), block definite bots (score 1).
+      Without enforcing rules the add-on only scores traffic.
+    citation: https://developers.cloudflare.com/bots/concepts/bot-score/
+
+  - id: CF-BOT-003
+    name: Baseline bot mitigation on for the plan
+    domain: bots
+    severity: medium
+    type: bot_baseline
+    applies: { planTier: any }
+    evidence: zones[].botManagement, zones[].phaseEntrypoints["http_request_firewall_custom"]
+    params: {}
+    remediation: >
+      Free: enable Bot Fight Mode. Pro/Business: set Super Bot Fight Mode
+      "definitely automated" to Block or Managed Challenge. Enterprise: enforce
+      Bot Management via custom rules on bot score.
+    citation: https://developers.cloudflare.com/bots/plans/
 
   - id: CF-TS-001
     name: Turnstile widgets have domains bound
     domain: bots
     severity: low
+    scope: account
     type: turnstile
     applies: { planTier: any }
     evidence: accounts[].turnstileWidgets
     params: {}
     remediation: >
-      A Turnstile widget with no bound domains cannot protect your forms. Bind the
-      widget to the hostnames that serve the protected flows. Enforcement of
-      sitekey usage cannot be verified over the API — mark for manual review.
+      A widget with no bound hostnames protects nothing. Server-side siteverify cannot
+      be confirmed over the API — verify it in the application.
     citation: https://developers.cloudflare.com/turnstile/get-started/
 
-  # ------------------------------------------------------------------ Access
-  - id: CF-ZT-001
-    name: Access applications have policies attached
-    domain: zero-trust
+  # ------------------------------------------------------------------ DDoS
+  - id: CF-DDOS-001
+    name: HTTP DDoS managed ruleset not weakened
+    domain: ddos
     severity: high
-    type: access_apps
+    type: ddos_not_disabled
     applies: { planTier: any }
-    evidence: accounts[].accessApps
+    evidence: zones[].phaseEntrypoints["ddos_l7"]
     params: {}
     remediation: >
-      Every Access application must have at least one allow policy; policies with
-      decision "bypass" expose the app without authentication.
-    citation: https://developers.cloudflare.com/cloudflare-one/policies/access/
+      Do not disable or log-only the HTTP DDoS managed ruleset or set sensitivity to
+      Essentially Off. To reduce false positives, override the specific rule's
+      sensitivity instead.
+    citation: https://developers.cloudflare.com/ddos-protection/managed-rulesets/http/
 
-  - id: CF-ZT-002
-    name: Identity providers beyond one-time PIN configured
-    domain: zero-trust
-    severity: medium
-    type: access_idps
-    applies: { planTier: any }
-    evidence: accounts[].accessIdentityProviders
-    params: {}
-    remediation: >
-      An empty IdP list (OTP-only) means no centralized identity control. Integrate
-      your corporate IdP.
-    citation: https://developers.cloudflare.com/cloudflare-one/identity-providers/
-
-  - id: CF-ZT-003
-    name: Two-factor authentication enforced on the account
-    domain: account-hygiene
-    severity: high
-    type: account_setting_flag
-    applies: { planTier: any }
-    evidence: accounts[].enforceTwofactor
-    params: { flag: enforceTwofactor, expect: true }
-    remediation: >
-      Enable "Enforce 2FA" in account members settings so every member must use 2FA.
-    citation: https://developers.cloudflare.com/fundamentals/account/account-security/mfa/
-
-  - id: CF-IAM-001
-    name: API tokens have expiry set
-    domain: account-hygiene
-    severity: medium
-    type: token_expiry
-    applies: { planTier: any }
-    evidence: accounts[].apiTokens
-    params: {}
-    remediation: >
-      Active tokens without expiration are standing credentials. Set expiry and
-      rotate tokens in use.
-    citation: https://developers.cloudflare.com/fundamentals/api/get-started/create-token/
-
-  # ------------------------------------------------------------------ DNS / unsecured endpoints
+  # ------------------------------------------------------------------ DNS / origin exposure
   - id: CF-DNS-001
     name: DNSSEC enabled
     domain: dns
@@ -261,7 +363,7 @@ checks:
     evidence: zones[].settings["dnssec"]
     params: { settingId: dnssec, expect: "active" }
     remediation: >
-      Enable DNSSEC in DNS > Settings to prevent response forgery.
+      Enable DNSSEC and publish the DS record at the registrar.
     citation: https://developers.cloudflare.com/dns/dnssec/
 
   - id: CF-DNS-002
@@ -273,11 +375,12 @@ checks:
     evidence: zones[].dnsRecords
     params: {}
     remediation: >
-      Add CAA records restricting certificate issuance to your chosen CAs.
-    citation: https://developers.cloudflare.com/dns/manage-dns-records/reference/dns-record-types/#caa
+      Publish CAA records restricting issuance to the CAs you use (include Cloudflare's
+      CAs if using Universal/Advanced certificates).
+    citation: https://developers.cloudflare.com/ssl/edge-certificates/caa-records/
 
   - id: CF-DNS-003
-    name: MX and SPF/DMARC email posture recorded
+    name: Mail posture (SPF/DMARC records present)
     domain: dns
     severity: low
     type: email_records
@@ -285,137 +388,56 @@ checks:
     evidence: zones[].dnsRecords
     params: {}
     remediation: >
-      Zones sending mail should publish SPF/DMARC; zones that never send mail
-      should publish null SPF and reject-DMARC records to prevent spoofing.
-    citation: https://developers.cloudflare.com/dns/manage-dns-records/reference/dns-record-types/
+      Zones sending mail should publish SPF and DMARC; non-mail zones should publish a
+      null SPF and a reject DMARC to prevent spoofing. TXT contents are not exported,
+      so verify values manually.
+    citation: https://developers.cloudflare.com/dns/manage-dns-records/how-to/email-records/
 
-  # ------------------------------------------------------------------ Workers
-  - id: CF-WRK-001
-    name: No zombie Workers (deployed, never routed)
-    domain: workers
+  - id: CF-DNS-004
+    name: No DNS-only web records exposing origins next to proxied ones
+    domain: dns
     severity: medium
-    type: zombie_workers
+    type: dns_origin_exposure
     applies: { planTier: any }
-    evidence: accounts[].workersScripts + zones[].workersRoutes
+    evidence: zones[].dnsRecords (type, name, proxied)
     params: {}
     remediation: >
-      Scripts deployed with no route on any audited zone are untracked attack
-      surface (if reachable via workers.dev) or dead weight. Delete or route them.
-    citation: https://developers.cloudflare.com/workers/configuration/routes/
+      A grey-clouded A/AAAA/CNAME that resolves to the same origin as a proxied
+      hostname reveals the origin IP and lets attackers bypass the WAF entirely.
+      Proxy it, move it to a different origin, or lock the origin to Cloudflare.
+    citation: https://developers.cloudflare.com/dns/manage-dns-records/reference/proxied-dns-records/
 
-  - id: CF-WRK-002
-    name: Workers routes point to scripts that exist
-    domain: workers
-    severity: high
-    type: zombie_workers
-    applies: { planTier: any }
-    evidence: accounts[].workersScripts + zones[].workersRoutes
-    params: {}
-    remediation: >
-      Routes referencing unknown scripts (or scripts the token cannot list)
-      need manual confirmation — this verdict is "manual" unless both sides
-      of the check were readable.
-    citation: https://developers.cloudflare.com/workers/configuration/routes/
-
-  # ------------------------------------------------------------------ Load Balancing
-  - id: CF-LB-001
-    name: Load balancer pools have multiple origins for failover
-    domain: traffic
-    severity: high
-    type: lb_pool_health
-    applies: { planTier: any }
-    evidence: accounts[].loadBalancerPools
-    params: { minOrigins: 2 }
-    remediation: >
-      Pools with a single origin have no failover. Add a second origin for redundancy.
-      If a single origin is intentional (e.g., DNS-only load balancing), ensure external
-      monitoring alerts on outages — monitoring does not provide failover.
-    citation: https://developers.cloudflare.com/load-balancing/pools/
-
-  - id: CF-LB-002
-    name: Load balancer monitors use appropriate intervals
-    domain: traffic
+  - id: CF-AOP-001
+    name: Authenticated Origin Pulls enabled
+    domain: origin-security
     severity: medium
-    type: lb_monitor_health
+    type: authenticated_origin_pulls_enabled
     applies: { planTier: any }
-    evidence: accounts[].loadBalancerMonitors
-    params: { maxIntervalSeconds: 60 }
-    remediation: >
-      Monitor intervals longer than 60 seconds may fail to detect outages quickly.
-      Reduce the interval for production traffic pools.
-    citation: https://developers.cloudflare.com/load-balancing/monitors/
-
-  # ------------------------------------------------------------------ AI Gateway
-  - id: CF-AIG-001
-    name: AI Gateways have rate limiting configured
-    domain: ai-gateway
-    severity: high
-    type: aig_rate_limiting
-    applies: { planTier: any }
-    evidence: accounts[].aiGateways
+    evidence: zones[].authenticatedOriginPulls
     params: {}
     remediation: >
-      Configure rate limiting to prevent excessive costs and abuse. Set limits
-      appropriate for your expected traffic volume via Settings > Rate-limiting.
-    citation: https://developers.cloudflare.com/ai-gateway/features/rate-limiting/
+      Without an origin lockdown, anyone who finds the origin IP bypasses Cloudflare.
+      Use Authenticated Origin Pulls, Cloudflare Tunnel, or an origin firewall that
+      only admits Cloudflare IP ranges.
+    citation: https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/
 
-  - id: CF-AIG-002
-    name: AI Gateways have authentication enabled
-    domain: ai-gateway
-    severity: high
-    type: aig_authentication
+  - id: CF-AOP-002
+    name: Zone-level Authenticated Origin Pulls certificate
+    domain: origin-security
+    severity: low
+    type: zone_level_aop_preferred
     applies: { planTier: any }
-    evidence: accounts[].aiGateways
+    evidence: zones[].authenticatedOriginPulls
     params: {}
     remediation: >
-      Enable authentication to prevent unauthorized access to your AI Gateway.
-      Once enabled, authentication cannot be disabled.
-    citation: https://developers.cloudflare.com/ai-gateway/get-started/
+      The global AOP certificate proves a request came through Cloudflare, not through
+      your account. Upload a zone-level certificate so other Cloudflare customers
+      cannot reach your origin through their zones.
+    citation: https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/zone-level/
 
-  - id: CF-AIG-003
-    name: AI Gateways have log collection enabled
-    domain: ai-gateway
-    severity: medium
-    type: aig_logging
-    applies: { planTier: any }
-    evidence: accounts[].aiGateways
-    params: {}
-    remediation: >
-      Enable log collection for audit trails, analytics, and debugging.
-      Configure via Settings > Logging.
-    citation: https://developers.cloudflare.com/ai-gateway/observability/logging/
-
-  - id: CF-AIG-004
-    name: AI Gateways have DLP policies configured
-    domain: ai-gateway
-    severity: medium
-    type: aig_dlp
-    applies: { planTier: any }
-    evidence: accounts[].aiGateways
-    params: {}
-    warnIf: ["dlp_disabled"]
-    remediation: >
-      Configure Data Loss Prevention policies to prevent sensitive data leakage
-      in prompts and responses. Set up DLP profiles via Settings > Data Loss Prevention.
-    citation: https://developers.cloudflare.com/ai-gateway/
-
-  - id: CF-AIG-005
-    name: AI Gateways have guardrails configured
-    domain: ai-gateway
-    severity: medium
-    type: aig_guardrails
-    applies: { planTier: any }
-    evidence: accounts[].aiGateways
-    params: {}
-    warnIf: ["guardrails_absent"]
-    remediation: >
-      Configure guardrails to protect against prompt injection and other AI-specific
-      attacks. Set up guardrail policies via Settings > Guardrails.
-    citation: https://developers.cloudflare.com/ai-gateway/
-
-  # ----------------------------------------------------- Client-Side Security
+  # ------------------------------------------------------------------ Client side / headers / cache
   - id: CF-PS-001
-    name: Page Shield (Client-side security) enabled
+    name: Page Shield (client-side security) enabled
     domain: client-side-security
     severity: medium
     type: page_shield_enabled
@@ -423,82 +445,220 @@ checks:
     evidence: zones[].pageShield
     params: {}
     remediation: >
-      Enable Page Shield to monitor client-side scripts, connections, and cookies
-      loaded by your website visitors. Detect supply chain attacks and malicious
-      third-party scripts.
+      Enable Page Shield to inventory scripts and connections loaded by visitors and
+      detect malicious third-party code (PCI DSS 4.0 6.4.3 / 11.6.1).
     citation: https://developers.cloudflare.com/client-side-security/
 
-  # --------------------------------------------------------- Origin Security
-  - id: CF-AOP-001
-    name: Authenticated Origin Pulls enabled
-    domain: origin-security
-    severity: high
-    type: authenticated_origin_pulls_enabled
+  - id: CF-HDR-001
+    name: Security response headers set at the edge
+    domain: http-headers
+    severity: low
+    type: security_headers
     applies: { planTier: any }
-    evidence: zones[].authenticatedOriginPulls
-    params: {}
+    evidence: zones[].managedHeaders, zones[].phaseEntrypoints["http_response_headers_transform"]
+    params: { headers: ["x-content-type-options", "x-frame-options"] }
     remediation: >
-      Enable Authenticated Origin Pulls to ensure requests to your origin server
-      come from the Cloudflare network. Without AOP, anyone who discovers your
-      origin IP can bypass Cloudflare protections.
-    citation: https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/
-
-  - id: CF-AOP-002
-    name: Zone-level Authenticated Origin Pulls preferred
-    domain: origin-security
-    severity: medium
-    type: zone_level_aop_preferred
-    applies: { planTier: any }
-    evidence: zones[].authenticatedOriginPulls
-    params: {}
-    warnIf: ["global_only"]
-    remediation: >
-      Global AOP uses a shared Cloudflare certificate that only proves requests
-      come from the Cloudflare network. Upload a zone-level certificate to guarantee
-      requests come from YOUR account specifically.
-    citation: https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/zone-level/
-
-  # ------------------------------------------------------------- DDoS / Cache
-  - id: CF-DDOS-001
-    name: HTTP DDoS managed ruleset not disabled
-    domain: ddos
-    severity: high
-    type: ddos_not_disabled
-    applies: { planTier: any }
-    evidence: zones[].phaseEntrypoints
-    params: {}
-    remediation: >
-      HTTP DDoS managed rulesets should not be overridden to "disabled". This leaves
-      your zone exposed to DDoS attacks. If you need to reduce sensitivity, use
-      "log" mode or adjust sensitivity rather than disabling.
-    citation: https://developers.cloudflare.com/ddos-protection/
+      Enable the "Add security headers" Managed Transform or set headers with response
+      header transform rules (CSP is application-specific). Also enable "Remove
+      X-Powered-By". The origin may already send these — confirm before changing.
+    citation: https://developers.cloudflare.com/rules/transform/managed-transforms/reference/
 
   - id: CF-CACHE-001
-    name: HTML not cached aggressively by default
+    name: No site-wide HTML caching without bypass review
     domain: cache
     severity: medium
     type: html_cache_check
     applies: { planTier: any }
-    evidence: zones[].settings
+    evidence: zones[].pageRuleSummary, zones[].phaseEntrypoints["http_request_cache_settings"]
     params: {}
-    warnIf: ["aggressive_html_cache"]
     remediation: >
-      Cloudflare does not cache HTML by default. Setting cache_level to "aggressive"
-      caches HTML, which can serve stale content and bypass dynamic personalization.
-      Use Cache Rules for selective HTML caching instead.
-    citation: https://developers.cloudflare.com/cache/
+      Cache Everything page rules or cache rules that mark all traffic eligible can
+      cache authenticated or personalized responses. Scope them, or bypass on
+      session cookies / Authorization headers.
+    citation: https://developers.cloudflare.com/cache/how-to/cache-rules/
 
-  # -------------------------------------------------------------- Zero Trust
+  # ================================================================== non web-security profiles
+  - id: CF-ZT-001
+    name: Access applications have policies attached
+    domain: zero-trust
+    severity: high
+    scope: account
+    type: access_apps
+    applies: { planTier: any }
+    evidence: accounts[].accessApps
+    params: {}
+    remediation: >
+      Every Access application needs at least one allow policy; bypass decisions expose
+      the app without authentication.
+    citation: https://developers.cloudflare.com/cloudflare-one/policies/access/
+
+  - id: CF-ZT-002
+    name: Identity providers beyond one-time PIN configured
+    domain: zero-trust
+    severity: medium
+    scope: account
+    type: access_idps
+    applies: { planTier: any }
+    evidence: accounts[].accessIdentityProviders
+    params: {}
+    remediation: >
+      Integrate the corporate IdP; OTP-only means no centralized identity control.
+    citation: https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/
+
   - id: CF-TUNNEL-001
     name: Public tunnel routes protected by Access
     domain: zero-trust
     severity: high
+    scope: account
     type: tunnel_access_gap
     applies: { planTier: any }
     evidence: accounts[].cfdTunnels, accounts[].accessApps
     params: {}
     remediation: >
-      Create Access applications BEFORE adding public hostname routes to Cloudflare
-      Tunnels. The moment a public hostname is added, a live DNS record is created.
-      Without an Access app, your origin is exposed to the entire Internet.
-    citation: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/
+      Create the Access application before adding a public hostname to a tunnel; the
+      hostname is reachable from the Internet as soon as the route exists.
+    citation: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/
+
+  - id: CF-ZT-003
+    name: Two-factor authentication enforced on the account
+    domain: account-hygiene
+    severity: high
+    scope: account
+    type: account_setting_flag
+    applies: { planTier: any }
+    evidence: accounts[].enforceTwofactor
+    params: { flag: enforceTwofactor, expect: true }
+    remediation: >
+      Enforce 2FA for all account members (or require SSO with MFA).
+    citation: https://developers.cloudflare.com/fundamentals/user-profiles/2fa/
+
+  - id: CF-IAM-001
+    name: API tokens have expiry set
+    domain: account-hygiene
+    severity: medium
+    scope: account
+    type: token_expiry
+    applies: { planTier: any }
+    evidence: accounts[].apiTokens
+    params: {}
+    remediation: >
+      Tokens without expiry are standing credentials. Set expiry and rotate.
+    citation: https://developers.cloudflare.com/fundamentals/api/get-started/create-token/
+
+  - id: CF-WRK-001
+    name: No zombie Workers (deployed, never routed)
+    domain: workers
+    severity: low
+    scope: account
+    type: zombie_workers
+    applies: { planTier: any }
+    evidence: accounts[].workersScripts + zones[].workersRoutes
+    params: { mode: zombies }
+    remediation: >
+      Scripts with no route may still be reachable via workers.dev or custom domains
+      (not yet checked). Delete or route them.
+    citation: https://developers.cloudflare.com/workers/configuration/routing/
+
+  - id: CF-WRK-002
+    name: Workers routes point to scripts that exist
+    domain: workers
+    severity: medium
+    scope: account
+    type: zombie_workers
+    applies: { planTier: any }
+    evidence: accounts[].workersScripts + zones[].workersRoutes
+    params: { mode: dangling-routes }
+    remediation: >
+      Routes referencing missing scripts fail open to the origin. Remove or fix them.
+    citation: https://developers.cloudflare.com/workers/configuration/routing/routes/
+
+  - id: CF-LB-001
+    name: Load balancer pools have multiple origins
+    domain: traffic
+    severity: high
+    scope: account
+    type: lb_pool_health
+    applies: { planTier: any }
+    evidence: accounts[].loadBalancerPools
+    params: { minOrigins: 2 }
+    remediation: >
+      Single-origin pools have no failover. Add an origin or document the exception.
+    citation: https://developers.cloudflare.com/load-balancing/pools/
+
+  - id: CF-LB-002
+    name: Load balancer monitors use appropriate intervals
+    domain: traffic
+    severity: medium
+    scope: account
+    type: lb_monitor_health
+    applies: { planTier: any }
+    evidence: accounts[].loadBalancerMonitors
+    params: { maxIntervalSeconds: 60 }
+    remediation: >
+      Monitor intervals over 60 seconds detect outages slowly.
+    citation: https://developers.cloudflare.com/load-balancing/monitors/
+
+  - id: CF-AIG-001
+    name: AI Gateways have rate limiting configured
+    domain: ai-gateway
+    severity: high
+    scope: account
+    type: aig_gateway
+    applies: { planTier: any }
+    evidence: accounts[].aiGateways
+    params: { field: rateLimiting, label: rate limiting, missVerdict: fail }
+    remediation: >
+      Configure gateway rate limiting to cap cost and abuse.
+    citation: https://developers.cloudflare.com/ai-gateway/features/rate-limiting/
+
+  - id: CF-AIG-002
+    name: AI Gateways require authentication
+    domain: ai-gateway
+    severity: high
+    scope: account
+    type: aig_gateway
+    applies: { planTier: any }
+    evidence: accounts[].aiGateways
+    params: { field: authentication, label: authentication, missVerdict: fail }
+    remediation: >
+      Enable authenticated gateway so only holders of a Cloudflare token can use it.
+    citation: https://developers.cloudflare.com/ai-gateway/configuration/authentication/
+
+  - id: CF-AIG-003
+    name: AI Gateways collect logs
+    domain: ai-gateway
+    severity: medium
+    scope: account
+    type: aig_gateway
+    applies: { planTier: any }
+    evidence: accounts[].aiGateways
+    params: { field: collectLogs, label: log collection, missVerdict: warn }
+    remediation: >
+      Enable logging for audit trails and incident response.
+    citation: https://developers.cloudflare.com/ai-gateway/observability/logging/
+
+  - id: CF-AIG-004
+    name: AI Gateways have DLP enabled
+    domain: ai-gateway
+    severity: medium
+    scope: account
+    type: aig_gateway
+    applies: { planTier: any }
+    evidence: accounts[].aiGateways
+    params: { field: dlpEnabled, label: DLP, missVerdict: warn }
+    remediation: >
+      Configure DLP profiles to catch sensitive data in prompts and responses.
+    citation: https://developers.cloudflare.com/ai-gateway/features/dlp/
+
+  - id: CF-AIG-005
+    name: AI Gateways have guardrails configured
+    domain: ai-gateway
+    severity: medium
+    scope: account
+    type: aig_gateway
+    applies: { planTier: any }
+    evidence: accounts[].aiGateways
+    params: { field: guardrailsConfigured, label: guardrails, missVerdict: warn }
+    remediation: >
+      Configure guardrails for prompt and response content.
+    citation: https://developers.cloudflare.com/ai-gateway/features/guardrails/
