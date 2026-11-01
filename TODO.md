@@ -1,8 +1,27 @@
 # TODO — cf-account-review
 
-- [ ] End-to-end dogfood: run `collect-config.sh` (bash) and the TS Mode A collector
+- [x] End-to-end dogfood: run `collect-config.sh` (bash) and the TS Mode A collector
       against the personal test account; run `analyze` on the real output and eyeball
-      the report. The SRP account (read token pending) is the first real customer run.
+      the report. **DONE 2026-11-01** against JSherron Test Account (5 Enterprise zones,
+      wrangler OAuth token). Three bugs found and fixed in the same pass:
+      1. `collect-config.sh` crashed on tunnels whose `configurations` payload has
+         `config: null` (`.get("config", {})` returns None when the key exists with a
+         null value) → now `(config.get("config") or {})`.
+      2. `collect-config.sh` emitted `null` for `pageShield`/`authenticatedOriginPulls`
+         on scope gaps → zod validation failed; now always emits the object, mirroring
+         the TS collector's `asRecord()` behavior (unknown fields omitted, not null).
+      3. `collect-config.sh` zone loop split on tab but the producer emitted a space, so
+         `zone_id` was "id name" and every zone-level fetch failed (`HTTP 000`) →
+         producer now tab-separated.
+      Also: report's collection-errors table now partially masks 32-hex IDs
+      (`3979b75a****f205`, user-approved style) via `maskIdsInPath` — Mode B's raw zone
+      IDs in error paths are fixed by bug #3. Mode A/Mode B verdict parity confirmed
+      identical (0 fail / 7 warn / 70 manual / 13 pass / 25 n/a). Remaining notes:
+      OAuth-token runs report `verification-failed` (mode A verifies via
+      `/user/tokens/verify`, which rejects OAuth tokens) — cosmetic; and dogfooding with
+      the wrangler OAuth token leaves ~120 scope-gap errors (expected); real customer
+      runs should use the scoped read-only token from docs/endpoints.md.
+      The SRP account (read token pending) is the first real customer run.
 - [x] Certificate expiry check (CF-SSL-005) — DONE
 - [x] Load balancer health checks (CF-LB-001, CF-LB-002) — DONE
 - [x] Exit code enforcement (--fail-on flag) — DONE
