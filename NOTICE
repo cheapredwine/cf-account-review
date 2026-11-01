@@ -1,0 +1,16 @@
+NOTICE
+
+This project borrows design elements from the following open-source prior art,
+both MIT-licensed:
+
+* FlareGuard (https://github.com/harshadk99/flareguard)
+  Copyright (c) Harshad Sadashiv Kadam
+  The declarative zone-setting check shapes (expect / expect_one_of / nested)
+  and the editable-baseline rulebook concept derive from its baseline.yaml.
+
+* cloudflare-sec-inspector (https://github.com/ethanolivertroy/grclanker, spec)
+  The verdict semantics (pass/warn/fail/manual/na; unreadable evidence can
+  never pass) follow its specification.
+
+Additional guidance sources are listed in docs/sources.md. This project is not
+affiliated with or endorsed by Cloudflare, Inc. — see DISCLAIMER.md.

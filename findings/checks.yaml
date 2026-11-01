@@ -1,0 +1,303 @@
+# cf-account-review findings rulebook — v1 checks
+#
+# Every check carries:
+#   id, name, domain, severity — the finding identity
+#   applies.planTier — highest-confidence plan tier the check applies to
+#   evidence — which part of the collection the check reads (documented for customers)
+#   remediation — what to do about a fail
+#   citation — the Cloudflare doc (or listed source) that justifies the check
+#
+# Verdict semantics (borrowed from the grclanker cloudflare-sec-inspector spec):
+#   pass | warn | fail | manual | na — and INCOMPLETE OR UNREADABLE EVIDENCE
+#   CAN NEVER PASS. Missing data yields "manual", not "pass".
+
+checks:
+  # ------------------------------------------------------------------ SSL/TLS
+  - id: CF-SSL-001
+    name: SSL/TLS encryption mode is Full (strict)
+    domain: ssl-tls
+    severity: high
+    type: zone_setting
+    applies: { planTier: any }
+    evidence: zones[].settings["ssl"]
+    params: { settingId: ssl, expectOneOf: ["strict"] }
+    warnIf: ["full", "origin_pull"]
+    remediation: >
+      Set SSL/TLS mode to Full (strict) in Zone > SSL/TLS > Overview. Flexible or Off
+      modes allow unencrypted traffic between Cloudflare and your origin.
+    citation: https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/
+
+  - id: CF-SSL-002
+    name: Minimum TLS version is 1.2 or higher
+    domain: ssl-tls
+    severity: high
+    type: zone_setting
+    applies: { planTier: any }
+    evidence: zones[].settings["min_tls_version"]
+    params: { settingId: min_tls_version, expectOneOf: ["1.2", "1.3"] }
+    remediation: >
+      Set Minimum TLS Version to 1.2 on Edge Certificates. TLS 1.0/1.1 have known
+      vulnerabilities and are not strong cryptography under PCI DSS 4.2.1.
+    citation: https://developers.cloudflare.com/ssl/edge-certificates/additional-options/minimum-tls/
+
+  - id: CF-SSL-003
+    name: HSTS is enabled
+    domain: ssl-tls
+    severity: medium
+    type: zone_setting
+    applies: { planTier: any }
+    evidence: zones[].settings["security_header"]
+    params:
+      settingId: security_header
+      nested: { path: strict_transport_security.enabled, expect: true }
+    remediation: >
+      Enable HSTS on Edge Certificates. Confirm all subdomains support HTTPS first —
+      HSTS forces HTTPS browser-side and can lock out HTTP-only hosts.
+    citation: https://developers.cloudflare.com/ssl/edge-certificates/additional-options/http-strict-transport-security/
+
+  - id: CF-SSL-004
+    name: Always Use HTTPS is enabled
+    domain: ssl-tls
+    severity: medium
+    type: zone_setting
+    applies: { planTier: any }
+    evidence: zones[].settings["always_use_https"]
+    params: { settingId: always_use_https, expect: "on" }
+    remediation: >
+      Enable Always Use HTTPS so no plaintext HTTP requests reach your application.
+    citation: https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/
+
+  # ------------------------------------------------------------------ WAF
+  - id: CF-WAF-001
+    name: Managed WAF ruleset deployed
+    domain: waf
+    severity: high
+    type: phase_present
+    applies: { planTier: pro-plus }
+    evidence: zones[].phaseEntrypoints["http_request_firewall_managed"]
+    params:
+      phase: http_request_firewall_managed
+      requireEnabledExecuteRule: true
+      failIfAllOverridesDisabled: true
+    remediation: >
+      Deploy the Cloudflare Managed Ruleset (and OWASP Core Ruleset) from Security > Settings.
+      The managed ruleset is updated weekly for CVE coverage; a zone without it has no
+      signature-based exploit protection.
+    citation: https://developers.cloudflare.com/waf/managed-rules/reference/cloudflare-managed-ruleset/
+
+  - id: CF-WAF-002
+    name: Custom WAF rules present for sensitive endpoints
+    domain: waf
+    severity: medium
+    type: phase_present
+    applies: { planTier: any }
+    evidence: zones[].phaseEntrypoints["http_request_firewall_custom"]
+    params:
+      phase: http_request_firewall_custom
+      warnIfNoBlockingAction: true
+    remediation: >
+      Review Security > Security rules. Custom rules should protect login/checkout/API
+      paths; rules that are log-only on Business+ plans provide no enforcement.
+    citation: https://developers.cloudflare.com/waf/custom-rules/
+
+  - id: CF-WAF-003
+    name: Broad skip rules are not neutralizing the WAF
+    domain: waf
+    severity: high
+    type: broad_skip_audit
+    applies: { planTier: any }
+    evidence: zones[].phaseEntrypoints["http_request_firewall_custom"]
+    params: {}
+    remediation: >
+      Skip rules with site-wide expressions (or missing run-time/locking configurations)
+      disable protections for most traffic. Narrow skip scopes and separate
+      onboarding vs enforcement rulesets.
+    citation: https://developers.cloudflare.com/waf/managed-rules/waf-exceptions/
+
+  # ------------------------------------------------------------------ Rate limiting
+  - id: CF-RL-001
+    name: Rate limiting rule protects login endpoints
+    domain: rate-limiting
+    severity: high
+    type: ratelimit_login
+    applies: { planTier: any }
+    evidence: zones[].phaseEntrypoints["http_ratelimit"]
+    params: { phase: http_ratelimit, loginPaths: ["/login", "/log-in", "/signin", "/api/login", "/auth"] }
+    remediation: >
+      Add a rate limiting rule for login POSTs (count IP, e.g. 4 failed attempts/min
+      with response-code counting on Business+, escalating windows per the docs).
+    citation: https://developers.cloudflare.com/waf/rate-limiting-rules/best-practices/
+
+  - id: CF-RL-002
+    name: Legacy rate-limiting product not in use (migration complete)
+    domain: rate-limiting
+    severity: low
+    type: legacy_ratelimit
+    applies: { planTier: any }
+    evidence: zones[].legacyRateLimits
+    params: {}
+    remediation: >
+      The legacy rate limiting product is superseded by rate limiting rules
+      (http_ratelimit phase). Migrate to the new ruleset engine.
+    citation: https://developers.cloudflare.com/waf/reference/legacy/old-rate-limiting/
+
+  # ------------------------------------------------------------------ Bots
+  - id: CF-BOT-001
+    name: Definite-bot block excludes verified bots
+    domain: bots
+    severity: medium
+    type: bot_rules
+    applies: { planTier: pro-plus }
+    evidence: zones[].phaseEntrypoints["http_request_firewall_custom"]
+    params: {}
+    remediation: >
+      Block expressions using cf.bot_management.score should include
+      `not cf.bot_management.verified_bot`, or Googlebot and other verified crawlers
+      (score=1) get blocked.
+    citation: https://developers.cloudflare.com/bots/concepts/bot-score/
+
+  - id: CF-BOT-002
+    name: Bot management rules actually enforce (not skip-only)
+    domain: bots
+    severity: high
+    type: bot_rules
+    applies: { planTier: pro-plus }
+    evidence: zones[].phaseEntrypoints["http_request_firewall_custom"]
+    params: {}
+    remediation: >
+      Bot management rules that only skip other rules leave automation unenforced.
+      Validate the intended tiered model: skip for verified bots, challenge for
+      likely bots (score 1–30), block for definite bots — then enforce.
+    citation: https://developers.cloudflare.com/bots/
+
+  - id: CF-TS-001
+    name: Turnstile widgets have domains bound
+    domain: bots
+    severity: low
+    type: turnstile
+    applies: { planTier: any }
+    evidence: accounts[].turnstileWidgets
+    params: {}
+    remediation: >
+      A Turnstile widget with no bound domains cannot protect your forms. Bind the
+      widget to the hostnames that serve the protected flows. Enforcement of
+      sitekey usage cannot be verified over the API — mark for manual review.
+    citation: https://developers.cloudflare.com/turnstile/get-started/
+
+  # ------------------------------------------------------------------ Access
+  - id: CF-ZT-001
+    name: Access applications have policies attached
+    domain: zero-trust
+    severity: high
+    type: access_apps
+    applies: { planTier: any }
+    evidence: accounts[].accessApps
+    params: {}
+    remediation: >
+      Every Access application must have at least one allow policy; policies with
+      decision "bypass" expose the app without authentication.
+    citation: https://developers.cloudflare.com/cloudflare-one/policies/access/
+
+  - id: CF-ZT-002
+    name: Identity providers beyond one-time PIN configured
+    domain: zero-trust
+    severity: medium
+    type: access_idps
+    applies: { planTier: any }
+    evidence: accounts[].accessIdentityProviders
+    params: {}
+    remediation: >
+      An empty IdP list (OTP-only) means no centralized identity control. Integrate
+      your corporate IdP.
+    citation: https://developers.cloudflare.com/cloudflare-one/identity-providers/
+
+  - id: CF-ZT-003
+    name: Two-factor authentication enforced on the account
+    domain: account-hygiene
+    severity: high
+    type: account_setting_flag
+    applies: { planTier: any }
+    evidence: accounts[].enforceTwofactor
+    params: { flag: enforceTwofactor, expect: true }
+    remediation: >
+      Enable "Enforce 2FA" in account members settings so every member must use 2FA.
+    citation: https://developers.cloudflare.com/fundamentals/account/account-security/mfa/
+
+  - id: CF-IAM-001
+    name: API tokens have expiry set
+    domain: account-hygiene
+    severity: medium
+    type: token_expiry
+    applies: { planTier: any }
+    evidence: accounts[].apiTokens
+    params: {}
+    remediation: >
+      Active tokens without expiration are standing credentials. Set expiry and
+      rotate tokens in use.
+    citation: https://developers.cloudflare.com/fundamentals/api/get-started/create-token/
+
+  # ------------------------------------------------------------------ DNS / unsecured endpoints
+  - id: CF-DNS-001
+    name: DNSSEC enabled
+    domain: dns
+    severity: medium
+    type: zone_setting
+    applies: { planTier: any }
+    evidence: zones[].settings["dnssec"]
+    params: { settingId: dnssec, expect: "active" }
+    remediation: >
+      Enable DNSSEC in DNS > Settings to prevent response forgery.
+    citation: https://developers.cloudflare.com/dns/dnssec/
+
+  - id: CF-DNS-002
+    name: CAA records present
+    domain: dns
+    severity: low
+    type: caa_present
+    applies: { planTier: any }
+    evidence: zones[].dnsRecords
+    params: {}
+    remediation: >
+      Add CAA records restricting certificate issuance to your chosen CAs.
+    citation: https://developers.cloudflare.com/dns/manage-dns-records/reference/dns-record-types/#caa
+
+  - id: CF-DNS-003
+    name: MX and SPF/DMARC email posture recorded
+    domain: dns
+    severity: low
+    type: email_records
+    applies: { planTier: any }
+    evidence: zones[].dnsRecords
+    params: {}
+    remediation: >
+      Zones sending mail should publish SPF/DMARC; zones that never send mail
+      should publish null SPF and reject-DMARC records to prevent spoofing.
+    citation: https://developers.cloudflare.com/dns/manage-dns-records/reference/dns-record-types/
+
+  # ------------------------------------------------------------------ Workers
+  - id: CF-WRK-001
+    name: No zombie Workers (deployed, never routed)
+    domain: workers
+    severity: medium
+    type: zombie_workers
+    applies: { planTier: any }
+    evidence: accounts[].workersScripts + zones[].workersRoutes
+    params: {}
+    remediation: >
+      Scripts deployed with no route on any audited zone are untracked attack
+      surface (if reachable via workers.dev) or dead weight. Delete or route them.
+    citation: https://developers.cloudflare.com/workers/configuration/routes/
+
+  - id: CF-WRK-002
+    name: Workers routes point to scripts that exist
+    domain: workers
+    severity: high
+    type: zombie_workers
+    applies: { planTier: any }
+    evidence: accounts[].workersScripts + zones[].workersRoutes
+    params: {}
+    remediation: >
+      Routes referencing unknown scripts (or scripts the token cannot list)
+      need manual confirmation — this verdict is "manual" unless both sides
+      of the check were readable.
+    citation: https://developers.cloudflare.com/workers/configuration/routes/

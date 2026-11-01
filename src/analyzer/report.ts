@@ -1,0 +1,114 @@
+/**
+ * Report renderer — customer-facing Markdown with per-finding citations and a
+ * "data we did NOT record" appendix.
+ */
+import type { Collection } from "../schema.js";
+import type { Finding, Verdict } from "./engine.js";
+
+const VERDICT_ICON: Record<Verdict, string> = {
+  fail: "❌",
+  warn: "⚠️",
+  pass: "✅",
+  manual: "🔍",
+  na: "➖",
+};
+
+export function renderMarkdown(collection: Collection, findings: Finding[]): string {
+  const out: string[] = [];
+
+  out.push("# Cloudflare Account Configuration Review");
+  out.push("");
+  out.push(`- **Collected:** ${collection.collectedAt}`);
+  out.push(`- **Collector:** ${collection.collector} v${collection.collectorVersion}`);
+  out.push(`- **Token status:** ${collection.tokenStatus}`);
+  out.push(
+    `- **Zones reviewed:** ${collection.zones.length} (plans: ${[...new Set(collection.zones.map((z) => z.plan ?? "unknown"))].join(", ") || "n/a"})`,
+  );
+  out.push(`- **Schema:** ${collection.schemaVersion}`);
+  out.push("");
+  out.push(
+    "> This report was produced by a strictly read-only tool. It contains configuration",
+    "> metadata only — no tokens, credentials, usernames, emails, DNS contents, or logs.",
+    "> Fields that could carry sensitive values are recorded as `[redacted]`.",
+  );
+  out.push("");
+
+  // Summary table
+  const counts: Record<Verdict, number> = { fail: 0, warn: 0, pass: 0, manual: 0, na: 0 };
+  for (const f of findings) counts[f.verdict] += 1;
+  out.push("## Summary");
+  out.push("");
+  out.push("| Verdict | Count |");
+  out.push("| --- | --- |");
+  out.push(`| ❌ Fail | ${counts.fail} |`);
+  out.push(`| ⚠️ Warn | ${counts.warn} |`);
+  out.push(`| 🔍 Needs manual review | ${counts.manual} |`);
+  out.push(`| ✅ Pass | ${counts.pass} |`);
+  out.push(`| ➖ Not applicable | ${counts.na} |`);
+  out.push("");
+
+  // Findings sorted worst-first
+  const order: Verdict[] = ["fail", "warn", "manual", "na", "pass"];
+  const sorted = [...findings].sort(
+    (a, b) => order.indexOf(a.verdict) - order.indexOf(b.verdict) || a.check.id.localeCompare(b.check.id),
+  );
+
+  out.push("## Findings");
+  out.push("");
+  let currentCheck = "";
+  for (const f of sorted) {
+    if (f.check.id !== currentCheck) {
+      currentCheck = f.check.id;
+      out.push(`### ${f.check.id} — ${f.check.name}`);
+      out.push("");
+      out.push(`**Domain:** ${f.check.domain} · **Severity:** ${f.check.severity} · **Evidence:** \`${f.check.evidence}\``);
+      out.push("");
+      out.push(`**Why this check exists:** ${f.check.remediation.trim()}`);
+      out.push("");
+      out.push(`**Source:** ${f.check.citation}`);
+      out.push("");
+      out.push("| Scope | Verdict | Detail |");
+      out.push("| --- | --- | --- |");
+    }
+    out.push(`| ${f.scope} | ${VERDICT_ICON[f.verdict]} ${f.verdict} | ${f.detail.replaceAll("|", "\\|")} |`);
+    const isLast = sorted[sorted.length - 1] === f;
+    if (isLast || sorted[sorted.indexOf(f) + 1]?.check.id !== f.check.id) out.push("");
+  }
+
+  // Collection errors
+  if (collection.collectionErrors.length > 0) {
+    out.push("## Collection errors");
+    out.push("");
+    out.push(
+      "These endpoints could not be read — usually a token-scope gap. Findings backed by",
+      "this data are marked `manual`, never `pass`.",
+    );
+    out.push("");
+    out.push("| Path | Status | Error |");
+    out.push("| --- | --- | --- |");
+    for (const e of collection.collectionErrors.slice(0, 50)) {
+      out.push(`| \`${e.path}\` | ${e.status ?? "-"} | ${e.error.replaceAll("|", "\\|")} |`);
+    }
+    if (collection.collectionErrors.length > 50) {
+      out.push(`| … ${collection.collectionErrors.length - 50} more | | |`);
+    }
+    out.push("");
+  }
+
+  // Data policy appendix
+  out.push("## Data we did NOT record");
+  out.push("");
+  out.push("By design, this review never records:");
+  out.push("");
+  out.push("- API tokens, keys, or any credentials (the review token itself is never stored)");
+  out.push("- Usernames, email addresses, or member identities (role names and 2FA booleans only)");
+  out.push("- DNS record contents (origin IPs / CNAME targets) — recorded as `[redacted]`");
+  out.push("- Account IDs, zone IDs, rule IDs (hashed) or header/cookie values from rule expressions");
+  out.push("- Request logs, traffic analytics, or any request payload data");
+  out.push("- Worker script contents or secret binding values (binding names/types only)");
+  out.push("");
+  out.push("Any occurrence of `[redacted]` in the collection marks a field deliberately withheld.");
+  out.push("");
+
+  return out.join("\n");
+}
