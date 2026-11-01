@@ -67,6 +67,21 @@ checks:
       Enable Always Use HTTPS so no plaintext HTTP requests reach your application.
     citation: https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/
 
+  - id: CF-SSL-005
+    name: Custom certificates not expiring soon
+    domain: ssl-tls
+    severity: high
+    type: cert_expiry
+    applies: { planTier: any }
+    evidence: zones[].certificatePacks
+    params: { warnDays: 90, failDays: 30 }
+    remediation: >
+      Custom certificates expiring within 30 days require immediate renewal.
+      Upload a renewed certificate via SSL/TLS > Edge Certificates > Upload Custom SSL Certificate.
+      Certificates expiring within 90 days should be scheduled for renewal.
+      Universal certificates auto-renew; this check applies only to custom certificates.
+    citation: https://developers.cloudflare.com/ssl/edge-certificates/custom-certificates/renewing/
+
   # ------------------------------------------------------------------ WAF
   - id: CF-WAF-001
     name: Managed WAF ruleset deployed
@@ -301,3 +316,31 @@ checks:
       need manual confirmation — this verdict is "manual" unless both sides
       of the check were readable.
     citation: https://developers.cloudflare.com/workers/configuration/routes/
+
+  # ------------------------------------------------------------------ Load Balancing
+  - id: CF-LB-001
+    name: Load balancer pools have multiple origins for failover
+    domain: traffic
+    severity: high
+    type: lb_pool_health
+    applies: { planTier: any }
+    evidence: accounts[].loadBalancerPools
+    params: { minOrigins: 2 }
+    remediation: >
+      Pools with a single origin have no failover. Add a second origin for redundancy.
+      If a single origin is intentional (e.g., DNS-only load balancing), ensure external
+      monitoring alerts on outages — monitoring does not provide failover.
+    citation: https://developers.cloudflare.com/load-balancing/pools/
+
+  - id: CF-LB-002
+    name: Load balancer monitors use appropriate intervals
+    domain: traffic
+    severity: medium
+    type: lb_monitor_health
+    applies: { planTier: any }
+    evidence: accounts[].loadBalancerMonitors
+    params: { maxIntervalSeconds: 60 }
+    remediation: >
+      Monitor intervals longer than 60 seconds may fail to detect outages quickly.
+      Reduce the interval for production traffic pools.
+    citation: https://developers.cloudflare.com/load-balancing/monitors/

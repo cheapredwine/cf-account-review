@@ -107,8 +107,41 @@ export const collectionSchema = z.object({
             }),
           )
           .optional(),
-        loadBalancerPools: z.unknown().optional(),
-        loadBalancerMonitors: z.unknown().optional(),
+        loadBalancerPools: z
+          .array(
+            z.object({
+              id: idSchema.optional(),
+              name: z.string().optional(),
+              enabled: z.boolean().optional(),
+              origins: z
+                .array(
+                  z.object({
+                    name: z.string().optional(),
+                    address: z.string().optional().describe("IP or hostname, may be redacted"),
+                    enabled: z.boolean().optional(),
+                    weight: z.number().optional(),
+                  }),
+                )
+                .optional(),
+              monitor: idSchema.nullable().optional(),
+              notificationEmail: z.string().optional().describe("Redacted by default"),
+            }),
+          )
+          .optional(),
+        loadBalancerMonitors: z
+          .array(
+            z.object({
+              id: idSchema.optional(),
+              type: z.string().optional(),
+              interval: z.number().optional(),
+              timeout: z.number().optional(),
+              retries: z.number().optional(),
+              expectedCodes: z.string().optional(),
+              followRedirects: z.boolean().optional(),
+              allowInsecure: z.boolean().optional(),
+            }),
+          )
+          .optional(),
         accountRulesets: z.array(rulesetSummarySchema).optional(),
         accessApps: z
           .array(
@@ -179,7 +212,19 @@ export const collectionSchema = z.object({
         wafOverrides: z.unknown().optional(),
         ipAccessRules: z.unknown().optional(),
         pageRules: z.unknown().optional(),
-        certificatePacks: z.unknown().optional(),
+        certificatePacks: z
+          .array(
+            z.object({
+              id: idSchema.optional(),
+              type: z.string().optional(),
+              status: z.string().optional(),
+              validityDays: z.number().optional(),
+              certificateAuthority: z.string().optional(),
+              expiresOn: z.string().nullable().optional(),
+              hosts: z.array(z.string()).optional(),
+            }),
+          )
+          .optional(),
         sslVerification: z.unknown().optional(),
         loadBalancers: z.unknown().optional(),
         workersRoutes: z

@@ -22,9 +22,12 @@ import type { Check } from "./analyzer/engine.js";
 function usage(): never {
   console.error(`Usage:
   cf-account-review collect  [--out output/collection.json]
-  cf-account-review analyze  <collection.json> [--checks findings/checks.yaml] [--out output/report.md]
+  cf-account-review analyze  <collection.json> [--checks findings/checks.yaml] [--out output/report.md] [--fail-on <severity>]
 
 Environment: CF_API_TOKEN for \`collect\`.
+
+Flags:
+  --fail-on <severity>    Exit 1 if findings at or above this severity exist (high|medium|low). Default: no exit code enforcement.
 `);
   process.exit(2);
 }
@@ -37,6 +40,8 @@ function parseArgs(argv: string[]): Map<string, string> {
       args.set("out", argv[++i] ?? "");
     } else if (a === "--checks") {
       args.set("checks", argv[++i] ?? "");
+    } else if (a === "--fail-on") {
+      args.set("fail-on", argv[++i] ?? "");
     } else if (a.startsWith("--")) {
       console.error(`unknown flag: ${a}`);
       usage();
@@ -77,7 +82,7 @@ async function cmdCollect(outArg: string | undefined): Promise<void> {
   );
 }
 
-function cmdAnalyze(positional: string | undefined, outArg: string | undefined, checksArg: string | undefined): void {
+function cmdAnalyze(positional: string | undefined, outArg: string | undefined, checksArg: string | undefined, failOnArg: string | undefined): void {
   if (!positional) usage();
   const collectionPath = resolve(positional);
   const raw = JSON.parse(readFileSync(collectionPath, "utf8")) as unknown;
@@ -103,6 +108,25 @@ function cmdAnalyze(positional: string | undefined, outArg: string | undefined, 
   const fail = findings.filter((f) => f.verdict === "fail").length;
   const warn = findings.filter((f) => f.verdict === "warn").length;
   console.log(`findings: ${fail} fail, ${warn} warn`);
+  
+  // Exit code enforcement
+  if (failOnArg) {
+    const severityOrder = { high: 3, medium: 2, low: 1 };
+    const threshold = severityOrder[failOnArg as keyof typeof severityOrder];
+    if (!threshold) {
+      console.error(`invalid --fail-on value: ${failOnArg} (must be high, medium, or low)`);
+      process.exit(2);
+    }
+    const blocking = findings.filter((f) => {
+      if (f.verdict !== "fail") return false;
+      const checkSeverity = severityOrder[f.check.severity];
+      return checkSeverity >= threshold;
+    });
+    if (blocking.length > 0) {
+      console.error(`${blocking.length} fail finding(s) at or above ${failOnArg} severity — exiting 1`);
+      process.exit(1);
+    }
+  }
 }
 
 const [command, ...rest] = process.argv.slice(2);
@@ -110,7 +134,7 @@ if (command === "collect") {
   await cmdCollect(parseArgs(rest).get("out"));
 } else if (command === "analyze") {
   const args = parseArgs(rest);
-  cmdAnalyze(args.get("positional"), args.get("out"), args.get("checks"));
+  cmdAnalyze(args.get("positional"), args.get("out"), args.get("checks"), args.get("fail-on"));
 } else {
   usage();
 }

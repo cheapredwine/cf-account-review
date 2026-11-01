@@ -33,6 +33,9 @@ pnpm install && pnpm build
 export CF_API_TOKEN=...   # read-only token; see docs/endpoints.md for the scope list
 node dist/cli.js collect --out output/collection.json
 node dist/cli.js analyze output/collection.json --out output/report.md
+
+# Exit code enforcement (CI integration)
+node dist/cli.js analyze output/collection.json --fail-on high  # Exit 1 if any high-severity fails
 ```
 
 ### Mode B — offline shell collectors (token never leaves the customer)
@@ -62,7 +65,7 @@ work: unreadable endpoints are skipped and listed in `collectionErrors`.
 The rulebook lives in [`findings/checks.yaml`](./findings/checks.yaml) — add a check
 there (and an evaluator if it needs logic beyond a setting expectation). v1 covers:
 
-- **SSL/TLS:** Full(strict) mode, min TLS ≥ 1.2, HSTS, Always Use HTTPS
+- **SSL/TLS:** Full(strict) mode, min TLS ≥ 1.2, HSTS, Always Use HTTPS, certificate expiry
 - **WAF:** managed ruleset deployed (not disabled via overrides), custom rules with
   enforcement, broad-skip-rule audit
 - **Rate limiting:** login-endpoint protection, legacy rate-limit migration signal
@@ -70,6 +73,7 @@ there (and an evaluator if it needs logic beyond a setting expectation). v1 cove
   Turnstile widget inventory
 - **DNS:** DNSSEC, CAA records, mail posture
 - **Workers:** zombie (unrouted) scripts, dangling routes
+- **Load Balancing:** pool failover (multiple origins), monitor intervals
 - **Access & account:** policy-less Access apps, bypass decisions, OTP-only IdPs,
   2FA enforcement, token expiry posture
 

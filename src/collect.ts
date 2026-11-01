@@ -7,7 +7,7 @@
 import { CfGetClient } from "./cf/client.js";
 import { PHASES } from "./endpoints.js";
 import { hashId, redactDnsContent, redactEmails, redactExpression } from "./redact.js";
-import { SCHEMA_VERSION, type Collection, type Zone } from "./schema.js";
+import { REDACTED, SCHEMA_VERSION, type Collection, type Zone } from "./schema.js";
 
 const COLLECTOR_VERSION = "0.1.0";
 
@@ -88,8 +88,38 @@ export async function collect(token: string): Promise<Collection> {
           ),
         };
       }),
-      loadBalancerPools: lbPools,
-      loadBalancerMonitors: lbMonitors,
+      loadBalancerPools: lbPools.map((pool) => {
+        const p = asRecord(pool);
+        return {
+          id: typeof p.id === "string" ? hashId(p.id) : undefined,
+          name: typeof p.name === "string" ? p.name : undefined,
+          enabled: typeof p.enabled === "boolean" ? p.enabled : undefined,
+          origins: asArray(p.origins).map((o) => {
+            const origin = asRecord(o);
+            return {
+              name: typeof origin.name === "string" ? origin.name : undefined,
+              address: typeof origin.address === "string" ? REDACTED : undefined,
+              enabled: typeof origin.enabled === "boolean" ? origin.enabled : undefined,
+              weight: typeof origin.weight === "number" ? origin.weight : undefined,
+            };
+          }),
+          monitor: typeof p.monitor === "string" ? hashId(p.monitor) : null,
+          notificationEmail: REDACTED,
+        };
+      }),
+      loadBalancerMonitors: lbMonitors.map((mon) => {
+        const m = asRecord(mon);
+        return {
+          id: typeof m.id === "string" ? hashId(m.id) : undefined,
+          type: typeof m.type === "string" ? m.type : undefined,
+          interval: typeof m.interval === "number" ? m.interval : undefined,
+          timeout: typeof m.timeout === "number" ? m.timeout : undefined,
+          retries: typeof m.retries === "number" ? m.retries : undefined,
+          expectedCodes: typeof m.expected_codes === "string" ? m.expected_codes : undefined,
+          followRedirects: typeof m.follow_redirects === "boolean" ? m.follow_redirects : undefined,
+          allowInsecure: typeof m.allow_insecure === "boolean" ? m.allow_insecure : undefined,
+        };
+      }),
       accountRulesets: accountRulesets.map((r) => {
         const rs = asRecord(r);
         return {
@@ -245,7 +275,18 @@ export async function collect(token: string): Promise<Collection> {
       wafOverrides: asArray(await client.list(`/zones/${zoneId}/firewall/waf/overrides`)),
       ipAccessRules: asArray(await client.list(`/zones/${zoneId}/firewall/access_rules/rules`)),
       pageRules: asArray(await client.list(`/zones/${zoneId}/pagerules`)),
-      certificatePacks: asArray(await client.list(`/zones/${zoneId}/ssl/certificate_packs`)),
+      certificatePacks: asArray(await client.list(`/zones/${zoneId}/ssl/certificate_packs`)).map((pack) => {
+        const p = asRecord(pack);
+        return {
+          id: typeof p.id === "string" ? hashId(p.id) : undefined,
+          type: typeof p.type === "string" ? p.type : undefined,
+          status: typeof p.status === "string" ? p.status : undefined,
+          validityDays: typeof p.validity_days === "number" ? p.validity_days : undefined,
+          certificateAuthority: typeof p.certificate_authority === "string" ? p.certificate_authority : undefined,
+          expiresOn: typeof p.expires_on === "string" ? p.expires_on : null,
+          hosts: asArray(p.hosts).filter((h) => typeof h === "string") as string[],
+        };
+      }),
       sslVerification: asArray(await client.list(`/zones/${zoneId}/ssl/verification`)),
       loadBalancers: asArray(await client.list(`/zones/${zoneId}/load_balancers`)),
       workersRoutes: routes.map((r) => {

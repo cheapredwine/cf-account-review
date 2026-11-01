@@ -304,6 +304,64 @@ const evaluators: Record<string, Evaluator> = {
     }
     return { verdict: "pass", detail: "all routes reference readable scripts" };
   },
+
+  cert_expiry: (check, zone, _c) => {
+    if (!zone) return { verdict: "na", detail: "no zone in scope" };
+    const packs = zone.certificatePacks;
+    if (!packs || packs.length === 0) {
+      return { verdict: "manual", detail: "certificate packs not readable (or no custom certificates)" };
+    }
+    const customPacks = packs.filter((p) => !(p.type === "advanced" && p.certificateAuthority === "lets_encrypt"));
+    if (customPacks.length === 0) {
+      return { verdict: "pass", detail: "only universal certificates found (auto-renew)" };
+    }
+    const now = Date.now();
+    const warnMs = (check.params.warnDays as number) * 24 * 60 * 60 * 1000;
+    const failMs = (check.params.failDays as number) * 24 * 60 * 60 * 1000;
+    const expiring = customPacks
+      .filter((p) => p.expiresOn)
+      .map((p) => ({
+        ...p,
+        expiresMs: new Date(p.expiresOn!).getTime(),
+      }));
+    const failing = expiring.filter((p) => p.expiresMs - now < failMs);
+    const warning = expiring.filter((p) => p.expiresMs - now >= failMs && p.expiresMs - now < warnMs);
+    if (failing.length > 0) {
+      const days = Math.floor(((failing[0]?.expiresMs ?? now) - now) / (24 * 60 * 60 * 1000));
+      return { verdict: "fail", detail: `${failing.length} certificate(s) expiring within 30 days (soonest: ${days} days)` };
+    }
+    if (warning.length > 0) {
+      const days = Math.floor(((warning[0]?.expiresMs ?? now) - now) / (24 * 60 * 60 * 1000));
+      return { verdict: "warn", detail: `${warning.length} certificate(s) expiring within 90 days (soonest: ${days} days)` };
+    }
+    return { verdict: "pass", detail: `${customPacks.length} custom certificate(s), all valid for >90 days` };
+  },
+
+  lb_pool_health: (check, _zone, collection) => {
+    const pools = collection.accounts.flatMap((a) => a.loadBalancerPools ?? []);
+    if (pools.length === 0) {
+      return { verdict: "manual", detail: "no load balancer pools found (or not readable)" };
+    }
+    const minOrigins = (check.params.minOrigins as number) ?? 2;
+    const singleOrigin = pools.filter((p) => (p.origins?.length ?? 0) < minOrigins);
+    if (singleOrigin.length > 0) {
+      return { verdict: "fail", detail: `${singleOrigin.length} pool(s) have fewer than ${minOrigins} origin(s) — no failover` };
+    }
+    return { verdict: "pass", detail: `${pools.length} pool(s), all have ${minOrigins}+ origins` };
+  },
+
+  lb_monitor_health: (check, _zone, collection) => {
+    const monitors = collection.accounts.flatMap((a) => a.loadBalancerMonitors ?? []);
+    if (monitors.length === 0) {
+      return { verdict: "manual", detail: "no load balancer monitors found (or not readable)" };
+    }
+    const maxInterval = (check.params.maxIntervalSeconds as number) ?? 60;
+    const slow = monitors.filter((m) => (m.interval ?? 0) > maxInterval);
+    if (slow.length > 0) {
+      return { verdict: "warn", detail: `${slow.length} monitor(s) have interval >${maxInterval}s (may miss outages quickly)` };
+    }
+    return { verdict: "pass", detail: `${monitors.length} monitor(s), all with interval <=${maxInterval}s` };
+  },
 };
 
 export function evaluate(collection: Collection, checks: Check[]): Finding[] {
@@ -322,7 +380,7 @@ export function evaluate(collection: Collection, checks: Check[]): Finding[] {
     const tier = check.applies?.planTier ?? "any";
     if (tier !== "any") {
       // account-level checks run once; zone checks run per zone
-      if (["turnstile", "access_apps", "access_idps", "account_setting_flag", "token_expiry"].includes(check.type)) {
+      if (["turnstile", "access_apps", "access_idps", "account_setting_flag", "token_expiry", "zombie_workers", "lb_pool_health", "lb_monitor_health"].includes(check.type)) {
         const res = evaluator(check, null, collection);
         findings.push({ check, scope: "account", ...res });
       } else {
@@ -341,7 +399,7 @@ export function evaluate(collection: Collection, checks: Check[]): Finding[] {
         }
       }
     } else {
-      if (["turnstile", "access_apps", "access_idps", "account_setting_flag", "token_expiry"].includes(check.type)) {
+      if (["turnstile", "access_apps", "access_idps", "account_setting_flag", "token_expiry", "zombie_workers", "lb_pool_health", "lb_monitor_health"].includes(check.type)) {
         const res = evaluator(check, null, collection);
         findings.push({ check, scope: "account", ...res });
       } else {

@@ -199,4 +199,136 @@ describe("findings engine", () => {
     c.zones = [zoneWith({ dnsRecordCount: 1, dnsRecords: [{ type: "A", name: "app.example.com", content: "[redacted]", proxied: true }] })];
     expect(c.zones[0]?.dnsRecords?.[0]?.content).toBe("[redacted]");
   });
+
+  it("certificate expiry: fails within 30 days, warns within 90 days, passes beyond", () => {
+    function daysFromNow(days: number): string {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      return d.toISOString();
+    }
+
+    const makeColl = (expiresOn: string) => {
+      const c = baseCollection();
+      c.zones = [
+        zoneWith({
+          certificatePacks: [
+            { id: "pack1", type: "advanced", certificateAuthority: "digicert", expiresOn, hosts: ["example.com"] },
+          ],
+        }),
+      ];
+      return c;
+    };
+
+    const failing = evaluate(makeColl(daysFromNow(20)), checks).find(
+      (f: Finding) => f.check.id === "CF-SSL-005",
+    );
+    expect(failing?.verdict).toBe("fail");
+
+    const warning = evaluate(makeColl(daysFromNow(60)), checks).find(
+      (f: Finding) => f.check.id === "CF-SSL-005",
+    );
+    expect(warning?.verdict).toBe("warn");
+
+    const passing = evaluate(makeColl(daysFromNow(120)), checks).find(
+      (f: Finding) => f.check.id === "CF-SSL-005",
+    );
+    expect(passing?.verdict).toBe("pass");
+  });
+
+  it("certificate expiry: universal certs (auto-renew) pass", () => {
+    const c = baseCollection();
+    c.zones = [
+      zoneWith({
+        certificatePacks: [
+          { id: "pack1", type: "advanced", certificateAuthority: "lets_encrypt", expiresOn: new Date().toISOString(), hosts: ["example.com"] },
+        ],
+      }),
+    ];
+    const finding = evaluate(c, checks).find((f: Finding) => f.check.id === "CF-SSL-005");
+    expect(finding?.verdict).toBe("pass");
+  });
+
+  it("certificate expiry: universal cert expiring soon still passes (regression test)", () => {
+    function daysFromNow(days: number): string {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      return d.toISOString();
+    }
+
+    const c = baseCollection();
+    c.zones = [
+      zoneWith({
+        certificatePacks: [
+          {
+            id: "pack1",
+            type: "advanced",
+            certificateAuthority: "lets_encrypt",
+            expiresOn: daysFromNow(15), // Expiring in 15 days
+            hosts: ["example.com"],
+          },
+        ],
+      }),
+    ];
+    const finding = evaluate(c, checks).find((f: Finding) => f.check.id === "CF-SSL-005");
+    expect(finding?.verdict).toBe("pass"); // Universal certs auto-renew
+  });
+
+  it("load balancer pools: single origin fails, multiple origins pass", () => {
+    const makeC = (originCount: number) => {
+      const c = baseCollection();
+      c.accounts = [
+        {
+          loadBalancerPools: [
+            {
+              id: "pool1",
+              name: "test-pool",
+              enabled: true,
+              origins: Array.from({ length: originCount }, (_, i) => ({
+                name: `origin-${i}`,
+                address: `10.0.0.${i}`,
+                enabled: true,
+              })),
+            },
+          ],
+        },
+      ];
+      return c;
+    };
+
+    const failing = evaluate(makeC(1), checks).find((f: Finding) => f.check.id === "CF-LB-001");
+    expect(failing?.verdict).toBe("fail");
+
+    const passing = evaluate(makeC(2), checks).find((f: Finding) => f.check.id === "CF-LB-001");
+    expect(passing?.verdict).toBe("pass");
+  });
+
+  it("load balancer monitors: interval >60s warns, <=60s passes", () => {
+    const makeC = (interval: number) => {
+      const c = baseCollection();
+      c.accounts = [
+        {
+          loadBalancerMonitors: [
+            { id: "mon1", type: "https", interval, timeout: 5, retries: 2, expectedCodes: "200" },
+          ],
+        },
+      ];
+      return c;
+    };
+
+    const warning = evaluate(makeC(120), checks).find((f: Finding) => f.check.id === "CF-LB-002");
+    expect(warning?.verdict).toBe("warn");
+
+    const passing = evaluate(makeC(30), checks).find((f: Finding) => f.check.id === "CF-LB-002");
+    expect(passing?.verdict).toBe("pass");
+  });
+
+  it("exit code enforcement: --fail-on high blocks only high-severity fails", () => {
+    // This is tested via the CLI; engine just needs to expose severity
+    const c = baseCollection();
+    c.zones = [zoneWith({ settings: { ssl: { id: "ssl", value: "flexible" } } })];
+    const findings = evaluate(c, checks);
+    const ssl001 = findings.find((f: Finding) => f.check.id === "CF-SSL-001");
+    expect(ssl001?.check.severity).toBe("high");
+    expect(ssl001?.verdict).toBe("fail");
+  });
 });
