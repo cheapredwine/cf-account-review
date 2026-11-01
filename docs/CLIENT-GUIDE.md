@@ -11,7 +11,7 @@
 This is a **strictly read-only** security configuration review tool for Cloudflare accounts. It:
 
 1. **Collects** your Cloudflare configuration through the public API
-2. **Analyzes** it against 41 security best-practice checks across 16 domains
+2. **Analyzes** it against 35 security best-practice checks across 16 domains
 3. **Produces** a detailed Markdown report where every finding cites official Cloudflare documentation
 4. **Generates Terraform code** (future) with hardened defaults to fix your findings — YOU review and apply it carefully
 
@@ -226,7 +226,7 @@ https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/
 
 ### Appendix
 
-- **What we checked** — Full list of 41 checks
+- **What we checked** — Full list of 35 checks
 - **What we did NOT collect** — Explicit list of data not recorded (request logs, Worker script contents, Access policy identities, etc.)
 - **How to act on findings** — Prioritization guidance
 
