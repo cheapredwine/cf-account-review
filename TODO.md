@@ -20,7 +20,9 @@
       OAuth-token runs report `verification-failed` (mode A verifies via
       `/user/tokens/verify`, which rejects OAuth tokens) — cosmetic; and dogfooding with
       the wrangler OAuth token leaves ~120 scope-gap errors (expected); real customer
-      runs should use the scoped read-only token from docs/endpoints.md.
+      runs should use the scoped read-only token from docs/endpoints.md — and
+      per AGENTS.md rule 5 (added 2026-11-01) future runs must STOP and ask the
+      user for a scope-sufficient token rather than running with partial scope.
       The SRP account (read token pending) is the first real customer run.
 - [x] Certificate expiry check (CF-SSL-005) — DONE
 - [x] Load balancer health checks (CF-LB-001, CF-LB-002) — DONE

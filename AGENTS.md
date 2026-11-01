@@ -21,7 +21,18 @@ evaluates a YAML findings rulebook against it and renders a Markdown report.
    doc together. The pre-write secret scan must stay fail-closed.
 4. **Fail-closed verdicts.** Unreadable evidence → `manual`, never `pass`.
    Out-of-plan checks → `na`. Never turn a data gap into a pass.
-5. **Every new check needs:** an entry in `findings/checks.yaml` (or a new YAML),
+5. **Token scope gate — stop and ask before running collectors.** Never run
+   `collect` (either mode) with a token whose permission list does not cover
+   the review scopes in `docs/endpoints.md` (Account Settings Read + Workers/
+   Access/Turnstile/AI Gateway/API-token reads at account level; Zone, Zone
+   Settings, DNS, Firewall Services, Zone WAF, Rate Limiting, Page Shield,
+   SSL and Certificates, Load Balancing reads at zone level). A wrangler
+   OAuth token or a developer-oriented token is NOT acceptable for a review
+   run: it silently narrows the report to ~15% readable endpoints. Before any
+   run, confirm the token covers the scope list; if it doesn't, STOP and
+   present the required scope list to the user for approval — do not run with
+   partial scope and do not treat the resulting error count as acceptable.
+6. **Every new check needs:** an entry in `findings/checks.yaml` (or a new YAML),
    an evaluator (only if not declarative), a `citation` to Cloudflare docs, a
    plan-tier, and a fixture-based test in `tests/engine.test.ts`.
 
