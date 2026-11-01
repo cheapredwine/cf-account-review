@@ -34,7 +34,14 @@ evaluates a YAML findings rulebook against it and renders a Markdown report.
    partial scope and do not treat the resulting error count as acceptable.
 6. **Every new check needs:** an entry in `findings/checks.yaml` (or a new YAML),
    an evaluator (only if not declarative), a `citation` to Cloudflare docs, a
-   plan-tier, and a fixture-based test in `tests/engine.test.ts`.
+   plan-tier, a `scope` if account-level, a domain that belongs to a profile, and
+   a fixture-based test in `tests/engine.test.ts` or `tests/web-security.test.ts`.
+7. **Three collectors, one contract.** Any collection change goes into
+   `src/collect.ts` + `src/summarize.ts`, the bash assembler, and the PowerShell
+   collector together. `tests/collector-parity.test.ts` must pass (it needs
+   `python3`; the PowerShell leg runs when `pwsh` is on PATH or `$PWSH` is set —
+   CI has it). Add any new sensitive field to `tests/fixtures/fake-api.json` with
+   a planted value and to `PLANTED_SECRETS`.
 
 ## Conventions
 
@@ -43,23 +50,30 @@ evaluates a YAML findings rulebook against it and renders a Markdown report.
 - Done-check: `pnpm verify` (lint + tests) must exit 0 before any commit.
 - New checks go on a branch; main merges via PR; CI runs `verify` on push/PR.
 - Docs (`docs/endpoints.md`, `docs/data-policy.md`) must be updated in the same
-  change that alters collection or checks.
+  change that alters collection or checks. `docs/endpoints.md` is generated:
+  `pnpm build && node scripts/gen-endpoints-doc.mjs`.
+- Citations are link-checked in CI (`scripts/check-citations.mjs`).
 
 ## Layout
 
 - `src/schema.ts` — collection contract (zod); version-bump on breaking change
 - `src/redact.ts` — shared redaction (mirror in both shell collectors)
 - `src/endpoints.ts` — the endpoint registry (Mode A iterates this only)
+- `src/summarize.ts` — policy-safe summarizers for raw API objects (mirrored in Mode B)
 - `src/collect.ts` — Mode A collector
 - `src/analyzer/` — rulebook engine + Markdown report
 - `src/cli.ts` — `collect` / `analyze` commands
 - `findings/checks.yaml` — the rulebook
 - `collectors/ps/`, `collectors/sh/` — Mode B collectors
-- `tests/` — read-only enforcement, redaction, engine fixtures
+- `tests/` — read-only enforcement, redaction, engine + web-security fixtures,
+  three-way collector parity (`tests/fixtures/fake-api.json`, fake `curl`, fake
+  `Invoke-RestMethod`)
+- `docs/EVOLUTION-*.md` — design review and roadmap (versioned, newest wins)
 
-## Known v1 gaps (see TODO.md)
+## Known gaps (see TODO.md and the latest docs/EVOLUTION-*.md)
 
-- Analyzer round-trip against real collected output not yet run end-to-end.
+- v0.2 collection has only been exercised against the fake API; the full-scope
+  token dogfood run (PENDING-REVIEW.md) is still outstanding.
 - `--include-*` re-inclusion flags in Mode A not yet implemented.
 - HTML report renderer not implemented (Markdown only in v1).
 - Access policy identity expressions are reduced to decisions; a deeper

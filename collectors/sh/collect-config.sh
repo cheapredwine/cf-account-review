@@ -233,7 +233,7 @@ set -euo pipefail
 
 # Configuration
 BASE_URL="https://api.cloudflare.com/client/v4"
-COLLECTOR_VERSION="0.1.0"
+COLLECTOR_VERSION="0.2.0"
 OUT_DIR="${1:-.}"
 PER_PAGE=50
 MAX_PAGES=50
@@ -312,6 +312,7 @@ cf_get() {
 			rm -f "$tmp"
 			record_error "$path" "HTTP $status"
 			printf 'null' >"$out"
+			printf '%s' "$status" >"$WORK/files/$name.status"
 			return 1
 		fi
 
@@ -358,7 +359,7 @@ PY
 # Writes result object (not wrapped in array) to files/<name>.json.
 # ---------------------------------------------------------------------------
 cf_get_obj() {
-	local name="$1" path="$2"
+	local name="$1" path="$2" quiet="${3:-}"
 	mkdir -p "$WORK/files"
 	local out="$WORK/files/$name.json"
 
@@ -369,9 +370,13 @@ cf_get_obj() {
 		-H "Content-Type: application/json" \
 		--max-time 60 "${BASE_URL}${path}") || status="000"
 
+	printf '%s' "$status" >"$WORK/files/$name.status"
 	if [ "$status" != "200" ]; then
 		rm -f "$tmp"
-		record_error "$path" "HTTP $status"
+		# A 404 on a phase entrypoint means "nothing deployed", not a scope gap.
+		if [ "$quiet" != "quiet404" ] || [ "$status" != "404" ]; then
+			record_error "$path" "HTTP $status"
+		fi
 		printf 'null' >"$out"
 		return 1
 	fi
@@ -393,7 +398,7 @@ mkdir -p "$WORK/files"
 : >"$WORK/errors.tsv"
 
 # Ruleset phases to collect (these are Cloudflare's standard phases)
-PHASES="http_request_firewall_custom http_request_firewall_managed http_ratelimit http_request_transform http_request_dynamic_redirect http_request_cache_settings http_request_origin http_request_redirect"
+PHASES="http_request_firewall_custom http_request_firewall_managed http_ratelimit ddos_l7 http_request_cache_settings http_response_headers_transform"
 
 # ============================================================================
 # PHASE 2: TOKEN VERIFICATION
@@ -426,30 +431,35 @@ while IFS=$'\t' read -r zone_id zone_name; do
 	[ -n "$zone_id" ] || continue
 	echo "  → Zone: $zone_name"
 
-	# Core zone configuration
+	# List endpoints (paginated)
 	for ep in "settings:/settings" \
 		"rulesets:/rulesets" \
-		"bot_management:/bot_management" \
-		"waf_overrides:/firewall/waf/overrides" \
 		"ip_access_rules:/firewall/access_rules/rules" \
 		"page_rules:/pagerules" \
 		"certificate_packs:/ssl/certificate_packs" \
-		"ssl_verification:/ssl/verification" \
-		"load_balancers:/load_balancers" \
 		"workers_routes:/workers/routes" \
 		"dns_records:/dns_records" \
 		"legacy_rate_limits:/rate_limits" \
-		"page_shield:/page_shield" \
-		"origin_tls_settings:/origin_tls_client_auth/settings" \
 		"origin_tls_certs:/origin_tls_client_auth"; do
 		label="${ep%%:*}"
 		suffix="${ep#*:}"
 		cf_get "zone-${zone_id}-${label}" "/zones/${zone_id}${suffix}" >/dev/null 2>&1 || true
 	done
 
-	# Ruleset phase entrypoints (live rules per phase)
+	# Single-object endpoints (NOT paginated — cf_get would wrap them in a list)
+	for ep in "bot_management:/bot_management" \
+		"managed_headers:/managed_headers" \
+		"leaked_credentials:/leaked-credential-checks" \
+		"page_shield:/page_shield" \
+		"origin_tls_settings:/origin_tls_client_auth/settings"; do
+		label="${ep%%:*}"
+		suffix="${ep#*:}"
+		cf_get_obj "zone-${zone_id}-${label}" "/zones/${zone_id}${suffix}" >/dev/null 2>&1 || true
+	done
+
+	# Ruleset phase entrypoints (live rules per phase); 404 = nothing deployed
 	for phase in $PHASES; do
-		cf_get "zone-${zone_id}-phase-${phase}" "/zones/${zone_id}/rulesets/phases/${phase}/entrypoint" >/dev/null 2>&1 || true
+		cf_get_obj "zone-${zone_id}-phase-${phase}" "/zones/${zone_id}/rulesets/phases/${phase}/entrypoint" quiet404 >/dev/null 2>&1 || true
 	done
 done < <(python3 -c "
 import json
@@ -467,15 +477,19 @@ for z in zones:
 echo ""
 echo "Collecting accounts…"
 cf_get "accounts" "/accounts" >/dev/null 2>&1 || true
+# User-owned tokens are not per-account; read once.
+cf_get "user-tokens" "/user/tokens" >/dev/null 2>&1 || true
 
 # For each account, collect account-level configuration
 while IFS= read -r account_id; do
 	[ -n "$account_id" ] || continue
 	echo "  → Account: $account_id"
 
-	# Core account configuration
-	for ep in "settings:/settings" \
-		"members:/members" \
+	# Account settings is a single object (cf_get would wrap it in a list)
+	cf_get_obj "acct-${account_id}-settings" "/accounts/${account_id}/settings" >/dev/null 2>&1 || true
+
+	# List endpoints (paginated)
+	for ep in "members:/members" \
 		"tokens:/tokens" \
 		"lb_pools:/load_balancers/pools" \
 		"lb_monitors:/load_balancers/monitors" \
@@ -487,14 +501,13 @@ while IFS= read -r account_id; do
 		"worker_scripts:/workers/scripts" \
 		"kv:/storage/kv/namespaces" \
 		"d1:/d1/database" \
-		"r2:/r2/buckets"; do
+		"r2:/r2/buckets" \
+		"ai_gateways:/ai-gateway/gateways"; do
 		label="${ep%%:*}"
 		suffix="${ep#*:}"
 		cf_get "acct-${account_id}-${label}" "/accounts/${account_id}${suffix}" >/dev/null 2>&1 || true
 	done
 
-	# User tokens (collected per account for token inventory)
-	cf_get "acct-${account_id}-user-tokens" "/user/tokens" >/dev/null 2>&1 || true
 
 	# For each tunnel, collect its configuration to extract public hostnames
 	while IFS= read -r tunnel_id; do
@@ -529,25 +542,15 @@ OUT_FILE="$OUT_DIR/cloudflare-config-$(date -u +%Y-%m-%d-%H%M).json"
 
 python3 - "$WORK" "$OUT_FILE" "$TOKEN_STATUS" "$COLLECTOR_VERSION" <<'PY'
 """
-ASSEMBLER + REDACTOR
+ASSEMBLER + REDACTOR (bash collector)
 
-This is the SINGLE PLACE where redaction decisions live for the bash collector.
+The SINGLE PLACE where redaction decisions live for Mode B (bash). Mirrors
+src/summarize.ts and src/collect.ts in the main repo — keep them in step.
 
-What it does:
-  1. Reads every collected file from the working directory
-  2. Applies the data policy (hashing, redaction, anonymization)
-  3. Builds the final collection document (schema version 1.0)
-  4. Runs a pre-write secret scan (aborts if credential patterns found)
-  5. Writes the final JSON file with 0600 permissions
-
-Redaction rules applied:
-  → Account/zone/rule IDs: SHA-256 hash, first 16 hex chars (prefix "h...")
-  → DNS record contents: "[redacted]"
-  → Firewall expressions: IPs, emails, internal hostnames → "[redacted]"
-  → Member identities: role names + 2FA booleans only (no emails/names)
-  → Access policies: decisions only (allow/bypass/block); identities never exported
-  → Worker bindings: names and types only; values never collected
-  → Tokens: status, expiry, last-use, permission groups only (values never in responses)
+Readability contract (schema 1.1): a list field is OMITTED when its endpoint
+could not be read, and [] when read and empty. Phase entrypoints carry an
+explicit present/absent/unreadable status. The analyzer depends on this so
+scope gaps never turn into passes.
 """
 import hashlib
 import json
@@ -558,231 +561,364 @@ from datetime import datetime, timezone
 
 work, out_file, token_status, collector_version = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 files_dir = os.path.join(work, "files")
+REDACTED = "[redacted]"
+MISSING = object()
 
 def load(name):
-    """Load a JSON file from the working directory; return None on failure."""
-    path = os.path.join(files_dir, f"{name}.json")
+    """Load a fetched JSON file; MISSING if absent/unparseable."""
     try:
-        with open(path) as f:
+        with open(os.path.join(files_dir, f"{name}.json")) as f:
             return json.load(f)
     except Exception:
-        return None
+        return MISSING
 
-def arr(name):
-    """Load a JSON file and ensure it's an array."""
+def status(name):
+    try:
+        with open(os.path.join(files_dir, f"{name}.status")) as f:
+            return f.read().strip()
+    except Exception:
+        return ""
+
+def arr_opt(name):
+    """List or None (None = unreadable)."""
     v = load(name)
-    if v is None:
-        return []
+    if v is MISSING or v is None:
+        return None
     return v if isinstance(v, list) else [v]
 
+def arr(name):
+    return arr_opt(name) or []
+
 def obj(name):
-    """Load a JSON file and ensure it's an object."""
     v = load(name)
     return v if isinstance(v, dict) else None
 
+def mapped(name, fn):
+    rows = arr_opt(name)
+    return None if rows is None else [fn(r) for r in rows if isinstance(r, dict)]
+
 def hash_id(value):
-    """Hash an ID (account, zone, rule) using SHA-256, truncate to 16 hex chars."""
     if not value:
         return None
     return "h" + hashlib.sha256(str(value).encode()).hexdigest()[:16]
 
-# Regex patterns for redaction
 EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 IP = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
-INTERNAL_HOST = re.compile(r"\b(?:[a-z0-9-]+\.)*(?:internal|corp|intranet|local)\b", re.I)
-REDACTED = "[redacted]"
+INTERNAL_HOST = re.compile(r"\b(?:[a-z0-9-]+\.)*(?:internal|corp|intranet|local|internal\.[a-z]{2,}|origin\.[-a-z0-9.]+)\b", re.I)
 
 def redact_expr(expr):
-    """Redact IPs, emails, and internal hostnames from firewall rule expressions."""
     if not isinstance(expr, str):
         return expr
-    out = IP.sub(REDACTED, expr)
-    out = EMAIL.sub(REDACTED, out)
-    out = INTERNAL_HOST.sub(REDACTED, out)
-    return out
+    out = EMAIL.sub(REDACTED, expr)
+    out = IP.sub(REDACTED, out)
+    return INTERNAL_HOST.sub(REDACTED, out)
 
-def settings_map(zone_id):
-    """Build a map of zone settings (id → {id, value, editable})."""
-    rows = arr(f"zone-{zone_id}-settings")
-    return {r["id"]: {"id": r["id"], "value": r.get("value"), "editable": r.get("editable")} for r in rows if isinstance(r, dict) and "id" in r}
+def redact_emails(text):
+    return EMAIL.sub(REDACTED, text) if isinstance(text, str) else None
 
-def phase_entrypoints(zone_id):
-    """Collect ruleset phase entrypoints with redacted expressions."""
-    phases = ["http_request_firewall_custom", "http_request_firewall_managed", "http_ratelimit",
-              "http_request_transform", "http_request_dynamic_redirect", "http_request_cache_settings",
-              "http_request_origin", "http_request_redirect"]
+def d(v):
+    return v if isinstance(v, dict) else {}
+
+def l(v):
+    return v if isinstance(v, list) else []
+
+def num(v):
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+def boolean(v):
+    return v if isinstance(v, bool) else None
+
+def prune(o):
+    """Drop None values (zod optional fields reject null)."""
+    return {k: v for k, v in o.items() if v is not None}
+
+# ---- mirrors src/summarize.ts ------------------------------------------------
+KNOWN_MANAGED = {
+    "efb7b8c949ac4650a09736fc376e9aee": "Cloudflare Managed Ruleset",
+    "4814384a9e5d4991b9815dcfc25d2f1f": "Cloudflare OWASP Core Ruleset",
+    "c2e184081120413c86c3ab7e14069605": "Cloudflare Exposed Credentials Check Ruleset",
+    "4d21379b4f9f4bb088e0729962c8b3cf": "DDoS L7 ruleset",
+}
+
+def managed_key(name):
+    if not name:
+        return None
+    n = name.lower()
+    if "owasp" in n: return "owasp"
+    if "exposed credentials" in n: return "exposed_credentials"
+    if "ddos" in n: return "ddos_l7"
+    if "cloudflare managed" in n: return "cloudflare_managed"
+    if "sensitive data" in n: return "sensitive_data_detection"
+    return "other_managed"
+
+def summarize_ap(action, raw, ruleset_names, ratelimit_raw=None):
+    """action_parameters plus the rule-level `ratelimit` (it sits beside, not
+    inside, action_parameters in the Rulesets API)."""
+    ap = d(raw)
+    if not ap and ratelimit_raw is None:
+        return None
     out = {}
-    for phase in phases:
-        ep = obj(f"zone-{zone_id}-phase-{phase}")
-        if not ep:
-            continue
-        rules = []
-        for r in ep.get("rules") or []:
-            rules.append({
-                "id": hash_id(r.get("id")),
-                "description": r.get("description"),
-                "enabled": r.get("enabled"),
-                "action": r.get("action"),
-                "expression": redact_expr(r.get("expression")),
-                "version": r.get("version"),
-                "lastUpdated": r.get("last_updated"),
+    if action == "execute":
+        rid = ap.get("id") or ""
+        out["executes"] = managed_key(ruleset_names.get(rid) or KNOWN_MANAGED.get(rid)) or "custom_or_unknown"
+        ov = d(ap.get("overrides"))
+        if ov:
+            cats = [d(c) for c in l(ov.get("categories"))]
+            rules = [d(r) for r in l(ov.get("rules"))]
+            th = [num(r.get("score_threshold")) for r in rules if num(r.get("score_threshold")) is not None]
+            out["overrides"] = prune({
+                "enabled": boolean(ov.get("enabled")),
+                "action": ov.get("action") if isinstance(ov.get("action"), str) else None,
+                "sensitivityLevel": ov.get("sensitivity_level") if isinstance(ov.get("sensitivity_level"), str) else None,
+                "disabledCategories": [c.get("category") for c in cats if c.get("enabled") is False and isinstance(c.get("category"), str)][:50],
+                "rulesDisabled": sum(1 for r in rules if r.get("enabled") is False),
+                "rulesActionOverridden": sum(1 for r in rules if isinstance(r.get("action"), str)),
+                "scoreThreshold": min(th) if th else None,
             })
-        out[phase] = {"phase": phase, "name": ep.get("name"), "kind": ep.get("kind"), "rules": rules}
-    return out
+    if action == "skip":
+        out["skip"] = {
+            "currentRuleset": ap.get("ruleset") == "current",
+            "rulesets": len(l(ap.get("rulesets"))),
+            "rules": sum(len(l(v)) for v in d(ap.get("rules")).values()),
+            "phases": [str(x) for x in l(ap.get("phases"))][:20],
+            "products": [str(x) for x in l(ap.get("products"))][:20],
+        }
+    if ratelimit_raw is not None:
+        rl = d(ratelimit_raw)
+        ce = rl.get("counting_expression")
+        out["ratelimit"] = prune({
+            "characteristics": [str(x) for x in l(rl.get("characteristics"))][:10],
+            "period": num(rl.get("period")),
+            "requestsPerPeriod": num(rl.get("requests_per_period")),
+            "scorePerPeriod": num(rl.get("score_per_period")),
+            "mitigationTimeout": num(rl.get("mitigation_timeout")),
+            "requestsToOrigin": boolean(rl.get("requests_to_origin")),
+            "hasCountingExpression": isinstance(ce, str) and len(ce) > 0,
+        })
+    if "headers" in ap:
+        out["headers"] = [{"name": str(k).lower(), "operation": d(v).get("operation") if isinstance(d(v).get("operation"), str) else "unknown"}
+                          for k, v in list(d(ap.get("headers")).items())[:50]]
+    if action == "set_cache_settings" and isinstance(ap.get("cache"), bool):
+        out["cache"] = {"eligible": ap["cache"]}
+    return out or None
 
-def page_shield_doc(zone_id):
-    """Extract Page Shield settings. Always emits the object (fail-closed: absent
-    fields mean unknown, mirroring the TS collector's asRecord() behavior)."""
-    ps = obj(f"zone-{zone_id}-page_shield") or {}
-    out = {}
-    if isinstance(ps.get("enabled"), bool):
-        out["enabled"] = ps["enabled"]
-    if isinstance(ps.get("use_cloudflare_reporting_endpoint"), bool):
-        out["useCloudflareReportingEndpoint"] = ps["use_cloudflare_reporting_endpoint"]
-    if isinstance(ps.get("use_connection_url_path"), bool):
-        out["useConnectionUrlPath"] = ps["use_connection_url_path"]
-    return out
+def summarize_ip_rule(r):
+    cfg = d(r.get("configuration"))
+    target = cfg.get("target") if isinstance(cfg.get("target"), str) else None
+    keep = target in ("country", "asn")
+    return prune({
+        "mode": r.get("mode") if isinstance(r.get("mode"), str) else None,
+        "target": target,
+        "value": (cfg.get("value") if isinstance(cfg.get("value"), str) else None) if keep else REDACTED,
+        "scope": d(r.get("scope")).get("type") if isinstance(d(r.get("scope")).get("type"), str) else None,
+    })
 
-def authenticated_origin_pulls_doc(zone_id):
-    """Extract Authenticated Origin Pulls settings. Always emits the object."""
-    settings = obj(f"zone-{zone_id}-origin_tls_settings") or {}
-    certs = arr(f"zone-{zone_id}-origin_tls_certs")
-    out = {}
-    if isinstance(settings.get("enabled"), bool):
-        out["enabled"] = settings["enabled"]
-    out["hasZoneLevelCert"] = len(certs) > 0
-    out["certCount"] = len(certs)
-    return out
+PAGE_RULE_ENUM = {"security_level", "ssl", "cache_level", "browser_check", "waf", "always_use_https",
+                  "automatic_https_rewrites", "email_obfuscation", "rocket_loader", "disable_security",
+                  "disable_apps", "disable_performance", "cache_deception_armor"}
+
+def summarize_page_rule(r):
+    acts = []
+    for a in l(r.get("actions")):
+        a = d(a)
+        aid = a.get("id") if isinstance(a.get("id"), str) else ""
+        if not aid:
+            continue
+        v = a.get("value")
+        item = {"id": aid}
+        if aid in PAGE_RULE_ENUM and isinstance(v, (str, bool)):
+            item["value"] = str(v).lower() if isinstance(v, bool) else v
+        acts.append(item)
+    return prune({"status": r.get("status") if isinstance(r.get("status"), str) else None, "actions": acts})
+
+BOT_KEYS = ["fight_mode", "enable_js", "sbfm_definitely_automated", "sbfm_likely_automated", "sbfm_verified_bots",
+            "sbfm_static_resource_protection", "optimize_wordpress", "ai_bots_protection", "crawler_protection",
+            "is_robots_txt_managed", "using_latest_model", "auto_update_model", "suppress_session_score"]
+
+def summarize_bots(raw):
+    r = d(raw)
+    if not r:
+        return None
+    return {k: r[k] for k in BOT_KEYS if isinstance(r.get(k), (str, bool))}
+
+def summarize_managed_headers(raw):
+    r = d(raw)
+    if not r:
+        return None
+    pick = lambda v: [{"id": h.get("id"), "enabled": h.get("enabled") is True} for h in map(d, l(v)) if isinstance(h.get("id"), str) and h.get("id")]
+    return {"request": pick(r.get("managed_request_headers")), "response": pick(r.get("managed_response_headers"))}
+
+def normalize_plan(name, legacy=None):
+    for c in (legacy, name):
+        if not c:
+            continue
+        p = c.lower()
+        for tier in ("enterprise", "business", "pro", "free"):
+            if tier in p:
+                return tier
+    return None
+
+# ---- zone ---------------------------------------------------------------------
+PHASES = ["http_request_firewall_custom", "http_request_firewall_managed", "http_ratelimit",
+          "ddos_l7", "http_request_cache_settings", "http_response_headers_transform"]
 
 def zone_doc(z):
-    """Build a complete zone document with all collected data and redactions applied."""
     zone_id, zone_name = z.get("id", ""), z.get("name", "")
-    plan = (z.get("plan") or {}).get("name")
-    dns = arr(f"zone-{zone_id}-dns_records")
-    return {
+    plan = d(z.get("plan"))
+    rs_list = arr_opt(f"zone-{zone_id}-rulesets")
+    ruleset_names = {r.get("id"): r.get("name") for r in (rs_list or []) if isinstance(r, dict) and isinstance(r.get("name"), str)}
+
+    entrypoints, phase_status = {}, {}
+    for phase in PHASES:
+        name = f"zone-{zone_id}-phase-{phase}"
+        ep = obj(name)
+        if ep is None:
+            phase_status[phase] = "absent" if status(name) == "404" else "unreadable"
+            continue
+        phase_status[phase] = "present"
+        rules = []
+        for r in l(ep.get("rules")):
+            r = d(r)
+            action = r.get("action") if isinstance(r.get("action"), str) else None
+            rules.append(prune({
+                "id": hash_id(r.get("id")),
+                "description": redact_emails(r.get("description")),
+                "enabled": boolean(r.get("enabled")),
+                "action": action,
+                "expression": redact_expr(r.get("expression")),
+                "version": r.get("version") if isinstance(r.get("version"), str) else None,
+                "lastUpdated": r.get("last_updated") if isinstance(r.get("last_updated"), str) else None,
+                "actionParameters": summarize_ap(action, r.get("action_parameters"), ruleset_names, r.get("ratelimit")),
+            }))
+        entrypoints[phase] = prune({"phase": phase, "name": ep.get("name"), "kind": ep.get("kind"), "rules": rules})
+
+    settings_rows = arr_opt(f"zone-{zone_id}-settings")
+    settings = None if settings_rows is None else {
+        r["id"]: prune({"id": r["id"], "value": r.get("value"), "editable": boolean(r.get("editable"))})
+        for r in settings_rows if isinstance(r, dict) and "id" in r}
+
+    # DNS: content redacted, comments dropped (free text).
+    dns = mapped(f"zone-{zone_id}-dns_records", lambda r: prune({
+        "type": str(r.get("type", "")), "name": str(r.get("name", "")),
+        "content": REDACTED if r.get("content") is not None else None,
+        "proxied": boolean(r.get("proxied")), "ttl": num(r.get("ttl"))}))
+
+    ps = obj(f"zone-{zone_id}-page_shield")
+    aop = obj(f"zone-{zone_id}-origin_tls_settings")
+    aop_certs = arr_opt(f"zone-{zone_id}-origin_tls_certs")
+    leaked = obj(f"zone-{zone_id}-leaked_credentials")
+
+    return prune({
         "name": zone_name,
-        "plan": plan,
+        "plan": plan.get("name"),
+        "planLegacyId": plan.get("legacy_id") or normalize_plan(plan.get("name")),
         "status": z.get("status"),
-        "paused": z.get("paused"),
+        "paused": boolean(z.get("paused")),
         "type": z.get("type"),
         "createdOn": z.get("created_on"),
-        "settings": settings_map(zone_id),
-        "rulesets": [{"id": hash_id(r.get("id")), "name": r.get("name"), "kind": r.get("kind"),
-                      "phase": r.get("phase"), "version": r.get("version")} for r in arr(f"zone-{zone_id}-rulesets")],
-        "phaseEntrypoints": phase_entrypoints(zone_id),
-        "botManagement": obj(f"zone-{zone_id}-bot_management"),
-        "wafOverrides": arr(f"zone-{zone_id}-waf_overrides"),
-        "ipAccessRules": arr(f"zone-{zone_id}-ip_access_rules"),
-        "pageRules": arr(f"zone-{zone_id}-page_rules"),
-        "certificatePacks": arr(f"zone-{zone_id}-certificate_packs"),
-        "sslVerification": arr(f"zone-{zone_id}-ssl_verification"),
-        "loadBalancers": arr(f"zone-{zone_id}-load_balancers"),
-        "workersRoutes": [{"pattern": r.get("pattern"), "script": r.get("script")} for r in arr(f"zone-{zone_id}-workers_routes")],
-        "dnsRecordCount": len(dns),
-        "dnsRecords": [{"type": d.get("type"), "name": d.get("name"), "content": REDACTED if d.get("content") is not None else None,
-                        "proxied": d.get("proxied"), "ttl": d.get("ttl"), "comment": d.get("comment")} for d in dns],
-        "legacyRateLimits": arr(f"zone-{zone_id}-legacy_rate_limits"),
-        "pageShield": page_shield_doc(zone_id),
-        "authenticatedOriginPulls": authenticated_origin_pulls_doc(zone_id),
-    }
+        "settings": settings,
+        "rulesets": None if rs_list is None else [prune({"id": hash_id(r.get("id")), "name": r.get("name"), "kind": r.get("kind"),
+                      "phase": r.get("phase"), "version": r.get("version")}) for r in rs_list if isinstance(r, dict)],
+        "phaseEntrypoints": entrypoints,
+        "phaseStatus": phase_status,
+        "botManagement": summarize_bots(obj(f"zone-{zone_id}-bot_management")),
+        "ipAccessRuleSummary": mapped(f"zone-{zone_id}-ip_access_rules", summarize_ip_rule),
+        "pageRuleSummary": mapped(f"zone-{zone_id}-page_rules", summarize_page_rule),
+        "certificatePacks": mapped(f"zone-{zone_id}-certificate_packs", lambda p: prune({
+            "id": hash_id(p.get("id")), "type": p.get("type"), "status": p.get("status"),
+            "validityDays": num(p.get("validity_days")), "certificateAuthority": p.get("certificate_authority"),
+            "expiresOn": p.get("expires_on"), "hosts": [h for h in l(p.get("hosts")) if isinstance(h, str)]})),
+        "workersRoutes": mapped(f"zone-{zone_id}-workers_routes", lambda r: prune({"pattern": r.get("pattern"), "script": r.get("script")})),
+        "dnsRecordCount": None if dns is None else len(dns),
+        "dnsRecords": dns,
+        "legacyRateLimits": mapped(f"zone-{zone_id}-legacy_rate_limits", lambda r: {"disabled": r.get("disabled") is True}),
+        "managedHeaders": summarize_managed_headers(obj(f"zone-{zone_id}-managed_headers")),
+        "leakedCredentialChecks": None if leaked is None else prune({"enabled": boolean(leaked.get("enabled"))}),
+        "pageShield": None if ps is None else prune({
+            "enabled": boolean(ps.get("enabled")),
+            "useCloudflareReportingEndpoint": boolean(ps.get("use_cloudflare_reporting_endpoint")),
+            "useConnectionUrlPath": boolean(ps.get("use_connection_url_path"))}),
+        "authenticatedOriginPulls": None if aop is None else prune({
+            "enabled": boolean(aop.get("enabled")),
+            "hasZoneLevelCert": None if aop_certs is None else len(aop_certs) > 0,
+            "certCount": None if aop_certs is None else len(aop_certs)}),
+    })
 
-def tunnel_doc(acct_id, tunnel):
-    """Build a tunnel document with public hostnames extracted from config."""
-    tunnel_id = tunnel.get("id", "")
-    configs = arr(f"acct-{acct_id}-tunnel-{tunnel_id}-config")
-    public_hostnames = []
-    for config in configs:
-        for ingress in (config.get("config") or {}).get("ingress") or []:
-            hostname = ingress.get("hostname")
-            if hostname and hostname != "*":
-                public_hostnames.append(hostname)
-    return {
-        "id": hash_id(tunnel_id),
-        "name": tunnel.get("name"),
-        "status": tunnel.get("status"),
-        "publicHostnames": public_hostnames,
-    }
+# ---- account ------------------------------------------------------------------
+def tunnel_doc(acct_id, t):
+    tid = t.get("id", "")
+    hostnames = []
+    for cfg in arr(f"acct-{acct_id}-tunnel-{tid}-config"):
+        for ing in l(d(d(cfg).get("config")).get("ingress")):
+            h = d(ing).get("hostname")
+            if h and h != "*":
+                hostnames.append(h)
+    return prune({"id": hash_id(tid), "name": t.get("name"), "status": t.get("status"), "publicHostnames": hostnames})
+
+def groups(t):
+    out = []
+    for p in l(t.get("policies")):
+        out.extend(g.get("name") for g in map(d, l(d(p).get("permission_groups"))) if g.get("name"))
+    return out
 
 def account_doc(a):
-    """Build a complete account document with all collected data and redactions applied."""
     acct_id = a.get("id", "")
     settings = obj(f"acct-{acct_id}-settings") or {}
-    
-    # Member identities → role names + 2FA booleans only
-    members = []
-    for m in arr(f"acct-{acct_id}-members"):
-        roles = []
-        for p in m.get("policies") or []:
-            roles.extend(g.get("name") for g in p.get("permission_groups") or [])
-        user = m.get("user") or {}
-        members.append({
-            "roleNames": [r for r in roles if r],
-            "twofactorEnabled": user.get("two_factor_authentication_enabled"),
-            "status": m.get("status"),
-        })
-    
-    # API tokens → metadata only (values never in responses)
-    tokens = []
-    for t in arr(f"acct-{acct_id}-user-tokens") + arr(f"acct-{acct_id}-tokens"):
-        groups = []
-        for p in t.get("policies") or []:
-            groups.extend(g.get("name") for g in p.get("permission_groups") or [])
-        tokens.append({
-            "status": t.get("status"), "expiresOn": t.get("expires_on"),
-            "lastUsedOn": t.get("last_used_on"), "permissionGroupNames": [g for g in groups if g],
-        })
-    
-    # Worker scripts → names, routes, binding names/types only (never values)
-    scripts = []
-    for s in arr(f"acct-{acct_id}-worker_scripts"):
-        bindings = [{"name": b.get("name"), "type": b.get("type")}
-                    for b in s.get("bindings") or [] if b.get("type") in ("plain_text", "secret_text")]
-        scripts.append({
-            "id": hash_id(s.get("id")), "scriptName": s.get("id"),
-            "createdOn": s.get("created_on"), "modifiedOn": s.get("modified_on"),
-            "plainTextBindings": bindings,
-        })
-    
-    # Storage inventory → counts only (never contents)
-    storage = {
-        "kvNamespaces": len(arr(f"acct-{acct_id}-kv")),
-        "d1Databases": len(arr(f"acct-{acct_id}-d1")),
-        "r2Buckets": len(arr(f"acct-{acct_id}-r2")),
-    }
-    
-    # Access apps → decisions only (identities never exported)
-    access_apps = []
-    for app in arr(f"acct-{acct_id}-access_apps"):
-        policies = app.get("policies") or []
-        access_apps.append({
-            "name": app.get("name"), "type": app.get("type"), "domain": app.get("domain"),
-            "selfHostedDomains": app.get("self_hosted_domains") or [],
-            "hasPolicies": len(policies) > 0,
-            "policyDecisions": [p.get("decision") for p in policies if p.get("decision")],
-        })
-    
-    # Tunnels with public hostnames
-    tunnels = [tunnel_doc(acct_id, t) for t in arr(f"acct-{acct_id}-tunnels")]
-    
-    return {
+    user_tokens, acct_tokens = arr_opt("user-tokens"), arr_opt(f"acct-{acct_id}-tokens")
+    token_rows = None if user_tokens is None and acct_tokens is None else (user_tokens or []) + (acct_tokens or [])
+    tunnels = arr_opt(f"acct-{acct_id}-tunnels")
+    kv, d1, r2 = arr_opt(f"acct-{acct_id}-kv"), arr_opt(f"acct-{acct_id}-d1"), arr_opt(f"acct-{acct_id}-r2")
+    return prune({
         "id": hash_id(acct_id), "name": a.get("name"),
-        "enforceTwofactor": settings.get("enforce_twofactor"),
-        "accountMembers": members,
-        "apiTokens": tokens,
-        "loadBalancerPools": arr(f"acct-{acct_id}-lb_pools"),
-        "loadBalancerMonitors": arr(f"acct-{acct_id}-lb_monitors"),
-        "accountRulesets": [{"name": r.get("name"), "kind": r.get("kind"), "phase": r.get("phase")}
-                            for r in arr(f"acct-{acct_id}-account_rulesets")],
-        "accessApps": access_apps,
-        "accessIdentityProviders": [{"name": p.get("name"), "type": p.get("type")} for p in arr(f"acct-{acct_id}-access_idps")],
-        "turnstileWidgets": [{"name": w.get("name"), "domains": w.get("domains"), "mode": w.get("mode")}
-                             for w in arr(f"acct-{acct_id}-turnstile")],
-        "cfdTunnels": tunnels,
-        "workersScripts": scripts,
-        "storageInventory": storage,
-    }
+        "enforceTwofactor": boolean(settings.get("enforce_twofactor")),
+        "accountMembers": mapped(f"acct-{acct_id}-members", lambda m: prune({
+            "roleNames": groups(m), "twofactorEnabled": boolean(d(m.get("user")).get("two_factor_authentication_enabled")),
+            "status": m.get("status")})),
+        "apiTokens": None if token_rows is None else [prune({
+            "status": t.get("status"), "expiresOn": t.get("expires_on"), "lastUsedOn": t.get("last_used_on"),
+            "permissionGroupNames": groups(t)}) for t in token_rows if isinstance(t, dict)],
+        # Pools/monitors: origin addresses, notification emails and monitor
+        # header VALUES (may carry auth material) are never exported.
+        "loadBalancerPools": mapped(f"acct-{acct_id}-lb_pools", lambda p: prune({
+            "id": hash_id(p.get("id")), "name": p.get("name"), "enabled": boolean(p.get("enabled")),
+            "origins": [prune({"name": o.get("name"), "address": REDACTED if o.get("address") else None,
+                               "enabled": boolean(o.get("enabled")), "weight": num(o.get("weight"))}) for o in map(d, l(p.get("origins")))],
+            "monitor": hash_id(p.get("monitor")), "notificationEmail": REDACTED})),
+        "loadBalancerMonitors": mapped(f"acct-{acct_id}-lb_monitors", lambda m: prune({
+            "id": hash_id(m.get("id")), "type": m.get("type"), "interval": num(m.get("interval")),
+            "timeout": num(m.get("timeout")), "retries": num(m.get("retries")), "expectedCodes": m.get("expected_codes"),
+            "followRedirects": boolean(m.get("follow_redirects")), "allowInsecure": boolean(m.get("allow_insecure"))})),
+        "accountRulesets": mapped(f"acct-{acct_id}-account_rulesets", lambda r: prune({
+            "id": hash_id(r.get("id")), "name": r.get("name"), "kind": r.get("kind"), "phase": r.get("phase"), "version": r.get("version")})),
+        "accessApps": mapped(f"acct-{acct_id}-access_apps", lambda app: prune({
+            "name": app.get("name"), "type": app.get("type"), "domain": app.get("domain"),
+            "selfHostedDomains": [str(x) for x in l(app.get("self_hosted_domains"))] or None,
+            "hasPolicies": len(l(app.get("policies"))) > 0,
+            "policyDecisions": [p.get("decision") for p in map(d, l(app.get("policies"))) if p.get("decision")]})),
+        "accessIdentityProviders": mapped(f"acct-{acct_id}-access_idps", lambda p: prune({"name": p.get("name"), "type": p.get("type")})),
+        "turnstileWidgets": mapped(f"acct-{acct_id}-turnstile", lambda w: prune({
+            "name": w.get("name"), "domains": [str(x) for x in l(w.get("domains"))] or None, "mode": w.get("mode")})),
+        "cfdTunnels": None if tunnels is None else [tunnel_doc(acct_id, t) for t in tunnels if isinstance(t, dict)],
+        "workersScripts": mapped(f"acct-{acct_id}-worker_scripts", lambda sc: prune({
+            "id": hash_id(sc.get("id")), "scriptName": sc.get("id"),
+            "createdOn": sc.get("created_on"), "modifiedOn": sc.get("modified_on"),
+            "plainTextBindings": [{"name": str(b.get("name", "")), "type": str(b.get("type", ""))}
+                                  for b in map(d, l(sc.get("bindings"))) if b.get("type") in ("plain_text", "secret_text")]})),
+        "storageInventory": prune({"kvNamespaces": None if kv is None else len(kv),
+                                   "d1Databases": None if d1 is None else len(d1),
+                                   "r2Buckets": None if r2 is None else len(r2)}),
+        "aiGateways": mapped(f"acct-{acct_id}-ai_gateways", lambda g: prune({
+            "id": g.get("id"), "authentication": boolean(g.get("authentication")),
+            "rateLimitingLimit": num(g.get("rate_limiting_limit")), "rateLimitingInterval": num(g.get("rate_limiting_interval")),
+            "rateLimitingTechnique": g.get("rate_limiting_technique") if isinstance(g.get("rate_limiting_technique"), str) else None,
+            "collectLogs": boolean(g.get("collect_logs")), "dlpEnabled": boolean(d(g.get("dlp")).get("enabled")),
+            "dlpPoliciesCount": len(l(d(g.get("dlp")).get("policies"))) if isinstance(d(g.get("dlp")).get("policies"), list) else None,
+            "guardrailsConfigured": True if d(g.get("guardrails")) else None,
+            "spendLimitsEnabled": boolean(d(g.get("spend_limits")).get("enabled")),
+            "byokOnly": boolean(g.get("byok_only"))})),
+    })
 
-# Load collection errors (scope gaps)
+# ---- assemble -------------------------------------------------------------------
 errors = []
 err_path = os.path.join(work, "errors.tsv")
 if os.path.exists(err_path):
@@ -790,36 +926,41 @@ if os.path.exists(err_path):
         for line in f:
             parts = line.rstrip("\n").split("\t", 1)
             if len(parts) == 2:
-                errors.append({"path": parts[0], "error": parts[1]})
+                # Raw account/zone/tunnel IDs in error paths are hashed like every other ID.
+                path = re.sub(r"\b[0-9a-f]{32}\b", lambda m: hash_id(m.group(0)), parts[0])
+                errors.append({"path": path, "error": parts[1]})
 
-# Build final document
 zones = arr("zones")
-plans = sorted({(z.get("plan") or {}).get("name") for z in zones if (z.get("plan") or {}).get("name")})
+plans = sorted({d(z.get("plan")).get("name") for z in zones if d(z.get("plan")).get("name")})
 doc = {
-    "schemaVersion": "1.0",
+    "schemaVersion": "1.1",
     "collectedAt": datetime.now(timezone.utc).isoformat(),
     "collector": "bash",
     "collectorVersion": collector_version,
     "tokenStatus": token_status if token_status == "active" else "verification-failed",
     "planTiersSeen": plans,
-    "accounts": [account_doc(a) for a in arr("accounts")],
-    "zones": [zone_doc(z) for z in zones],
+    "accounts": [account_doc(a) for a in arr("accounts") if isinstance(a, dict)],
+    "zones": [zone_doc(z) for z in zones if isinstance(z, dict)],
     "collectionErrors": errors,
 }
 
-# Serialize to JSON
 text = json.dumps(doc, indent=2)
 
-# PRE-WRITE SECRET SCAN: abort if any credential-shaped patterns detected
-if re.search(r"Bearer\s+\S+", text, re.I):
-    print("❌ ABORTING: Pre-write secret scan matched an authorization pattern.", file=sys.stderr)
-    print("   Nothing written. This is a safety check to prevent credential leakage.", file=sys.stderr)
-    sys.exit(1)
+# PRE-WRITE SECRET SCAN (mirrors src/redact.ts fail-severity patterns)
+SECRET_PATTERNS = [
+    re.compile(r"Bearer\s+[A-Za-z0-9._-]+", re.I),
+    re.compile(r"\b[A-Za-z0-9_-]{64,}\b"),
+    re.compile(r"(?:api[_-]?key|api[_-]?token|password|credential)\s*[:=]\s*\S+", re.I),
+]
+for pat in SECRET_PATTERNS:
+    if pat.search(text):
+        print("❌ ABORTING: Pre-write secret scan matched a credential-shaped pattern.", file=sys.stderr)
+        print("   Nothing written. This is a safety check to prevent credential leakage.", file=sys.stderr)
+        sys.exit(1)
 
-# Write final output
 with open(out_file, "w") as f:
     f.write(text)
-os.chmod(out_file, 0o600)  # Owner read/write only
+os.chmod(out_file, 0o600)
 
 print(f"✅ Written: {out_file}")
 print(f"   Zones: {len(zones)}; Errors: {len(errors)} (scope gaps are expected with narrowly-scoped tokens)")

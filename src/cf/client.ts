@@ -22,7 +22,7 @@ export function assertReadOnly(): void {
 const REQUEST_TIMEOUT_MS = 30_000;
 const PER_PAGE = 50;
 const MAX_PAGES = 100;
-const USER_AGENT = "cf-account-review/0.1 (read-only collector)";
+const USER_AGENT = "cf-account-review/0.2 (read-only collector)";
 
 export interface ApiError {
   path: string;
@@ -33,15 +33,18 @@ export interface ApiError {
 
 export class CfGetClient {
   private readonly apiErrors: ApiError[] = [];
-  private keepHosts: string[] = [];
 
   constructor(private readonly token: string) {}
 
   /** Only HTTP method ever used. Enforced GET-only. */
+  private lastStatus: number | undefined;
+
   private async getJson(
     path: string,
     params: Record<string, string> = {},
+    opts: { quiet404?: boolean } = {},
   ): Promise<unknown | null> {
+    this.lastStatus = undefined;
     const url = new URL(BASE_URL + path);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     const controller = new AbortController();
@@ -56,8 +59,10 @@ export class CfGetClient {
         },
         signal: controller.signal,
       });
+      this.lastStatus = res.status;
       if (!res.ok) {
-        this.recordError(path, res.status, `HTTP ${res.status}`);
+        // A 404 on a phase entrypoint means "nothing deployed", not a scope gap.
+        if (!(opts.quiet404 && res.status === 404)) this.recordError(path, res.status, `HTTP ${res.status}`);
         return null;
       }
       const body = (await res.json()) as {
@@ -109,17 +114,20 @@ export class CfGetClient {
     return this.getJson(path);
   }
 
+  /**
+   * Phase entrypoint GET that distinguishes "not deployed" (404 → absent) from
+   * "could not read" (403/other → unreadable). Fail-closed verdicts depend on it.
+   */
+  async getEntrypoint(path: string): Promise<{ status: "present" | "absent" | "unreadable"; result: unknown }> {
+    const result = await this.getJson(path, {}, { quiet404: true });
+    if (result !== null) return { status: "present", result };
+    return { status: this.lastStatus === 404 ? "absent" : "unreadable", result: null };
+  }
+
   getApiErrors(): ApiError[] {
     return [...this.apiErrors];
   }
 
-  setKeepHosts(hosts: string[]): void {
-    this.keepHosts = hosts;
-  }
-
-  getKeepHosts(): string[] {
-    return [...this.keepHosts];
-  }
 }
 
 export const hashAccountId = hashId;

@@ -27,11 +27,21 @@
 - [x] Certificate expiry check (CF-SSL-005) — DONE
 - [x] Load balancer health checks (CF-LB-001, CF-LB-002) — DONE
 - [x] Exit code enforcement (--fail-on flag) — DONE
+- [x] **v0.2 web-security pass (2026-11-01, branch `web-security-v0.2`)** — see
+      docs/EVOLUTION-20261101T2214Z.md for the review of v0.1 and the roadmap. Fixed:
+      Mode B collected no ruleset rules; Mode B data-policy leaks; plan-tier matching
+      for "Enterprise Website"; managed-WAF false pass on disabled/log overrides;
+      ddos_l7 never collected; unreadable-vs-empty fail-open; cache check premise.
+      Added 14 web-security checks, profiles, posture matrix, three-way collector parity
+      test, citation link check, generated endpoints doc.
+- [ ] Full-scope token dogfood of v0.2 (all three collectors) — PENDING-REVIEW.md.
+- [ ] Reconcile token permission names for ddos_l7, managed_headers, bot_management,
+      zone rulesets list (EVOLUTION §8).
+- [ ] Roadmap P1/P2/P3 — tracked in docs/EVOLUTION-20261101T2214Z.md §6.
 - [ ] Mode A: implement `--include-*` explicit re-inclusion flags (DNS content, IDs)
       documented in docs/data-policy.md.
 - [ ] HTML report renderer.
-- [ ] Add CI-scheduled smoke: analyze a committed fixture collection so rulebook
-      regressions fail visibly.
+- [x] CI smoke: analyze a committed fixture collection (tests/fixtures/web-security-collection.json).
 - [x] AI Gateway security checks (CF-AIG-001 through CF-AIG-005) — DONE
 - [x] Check batch 2: Page Shield, Authenticated Origin Pulls (2 checks), DDoS, Cache, Tunnel-Access gap — DONE
 - [ ] Check batch 3 (deferred after dogfood): Email Security misconfigurations (hop count, MX hygiene),
@@ -42,6 +52,8 @@
 - [ ] Compliance framework mapping: add `compliance: []` to checks.yaml, map to SOC 2/PCI DSS
 - [ ] Extract JSON Schema from zod for customers who want to validate Mode B files
       before sending them back.
-- [ ] PowerShell collector: PSScriptAnalyzer pass + test with PowerShell 5.1.
+- [ ] PowerShell collector: PSScriptAnalyzer pass + test with Windows PowerShell 5.1
+      (v0.2 is tested with pwsh 7.4 via the parity test; 5.1 lacks `ConvertFrom-Json -AsHashtable`
+      used only by the test harness, not by the collector).
 - [ ] Upstream-friendly: consider contributing the zone-setting check shapes back to
       FlareGuard (or citing cross-links in its README).

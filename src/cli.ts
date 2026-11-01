@@ -12,7 +12,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import process from "node:process";
 import { parse } from "yaml";
-import { evaluate } from "./analyzer/engine.js";
+import { evaluate, selectProfile } from "./analyzer/engine.js";
 import { renderMarkdown } from "./analyzer/report.js";
 import { collect } from "./collect.js";
 import { scanForSecrets } from "./redact.js";
@@ -22,11 +22,13 @@ import type { Check } from "./analyzer/engine.js";
 function usage(): never {
   console.error(`Usage:
   cf-account-review collect  [--out output/collection.json]
-  cf-account-review analyze  <collection.json> [--checks findings/checks.yaml] [--out output/report.md] [--fail-on <severity>]
+  cf-account-review analyze  <collection.json> [--checks findings/checks.yaml] [--out output/report.md]
+                             [--profile web-security|zero-trust|platform|all] [--fail-on <severity>]
 
 Environment: CF_API_TOKEN for \`collect\`.
 
 Flags:
+  --profile <name>        Which checks to run. Default: web-security. "all" runs the whole rulebook.
   --fail-on <severity>    Exit 1 if findings at or above this severity exist (high|medium|low). Default: no exit code enforcement.
 `);
   process.exit(2);
@@ -42,6 +44,8 @@ function parseArgs(argv: string[]): Map<string, string> {
       args.set("checks", argv[++i] ?? "");
     } else if (a === "--fail-on") {
       args.set("fail-on", argv[++i] ?? "");
+    } else if (a === "--profile") {
+      args.set("profile", argv[++i] ?? "");
     } else if (a.startsWith("--")) {
       console.error(`unknown flag: ${a}`);
       usage();
@@ -82,7 +86,13 @@ async function cmdCollect(outArg: string | undefined): Promise<void> {
   );
 }
 
-function cmdAnalyze(positional: string | undefined, outArg: string | undefined, checksArg: string | undefined, failOnArg: string | undefined): void {
+function cmdAnalyze(
+  positional: string | undefined,
+  outArg: string | undefined,
+  checksArg: string | undefined,
+  failOnArg: string | undefined,
+  profileArg: string | undefined,
+): void {
   if (!positional) usage();
   const collectionPath = resolve(positional);
   const raw = JSON.parse(readFileSync(collectionPath, "utf8")) as unknown;
@@ -94,14 +104,21 @@ function cmdAnalyze(positional: string | undefined, outArg: string | undefined, 
   }
   const collection: Collection = parsed.data;
   const checksPath = resolve(checksArg ?? "findings/checks.yaml");
-  const doc = parse(readFileSync(checksPath, "utf8")) as { checks?: Check[] };
-  const checks = doc.checks ?? [];
+  const doc = parse(readFileSync(checksPath, "utf8")) as { checks?: Check[]; profiles?: Record<string, string[]> };
+  const profile = profileArg ?? "web-security";
+  let checks: Check[];
+  try {
+    checks = selectProfile(doc.checks ?? [], doc.profiles ?? {}, profile);
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(2);
+  }
   if (checks.length === 0) {
-    console.error(`no checks found in ${checksPath}`);
+    console.error(`no checks found in ${checksPath} for profile ${profile}`);
     process.exit(1);
   }
   const findings = evaluate(collection, checks);
-  const report = renderMarkdown(collection, findings);
+  const report = renderMarkdown(collection, findings, { profile });
   const out = resolve(outArg ?? "output/report.md");
   writeFileSync(out, report, { mode: 0o600 });
   console.log(`report: ${out}`);
@@ -134,7 +151,7 @@ if (command === "collect") {
   await cmdCollect(parseArgs(rest).get("out"));
 } else if (command === "analyze") {
   const args = parseArgs(rest);
-  cmdAnalyze(args.get("positional"), args.get("out"), args.get("checks"), args.get("fail-on"));
+  cmdAnalyze(args.get("positional"), args.get("out"), args.get("checks"), args.get("fail-on"), args.get("profile"));
 } else {
   usage();
 }

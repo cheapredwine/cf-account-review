@@ -1,7 +1,7 @@
 # Cloudflare Account Security Review — Client Guide
 
 **Last updated:** October 31, 2026  
-**Tool version:** 0.1.0
+**Tool version:** 0.2.0
 
 > ⚠️ **NOT OFFICIAL CLOUDFLARE.** This tool is not affiliated with or endorsed by Cloudflare, Inc.
 > NO WARRANTIES, EXPRESS OR IMPLIED. See [DISCLAIMER.md](../DISCLAIMER.md) for full terms.
@@ -11,7 +11,7 @@
 This is a **strictly read-only** security configuration review tool for Cloudflare accounts. It:
 
 1. **Collects** your Cloudflare configuration through the public API
-2. **Analyzes** it against 35 security best-practice checks across 16 domains
+2. **Analyzes** it against a best-practice rulebook — 33 web security checks by default, plus optional Zero Trust and platform profiles
 3. **Produces** a detailed Markdown report where every finding cites official Cloudflare documentation
 4. **Generates Terraform code** (future) with hardened defaults to fix your findings — YOU review and apply it carefully
 
@@ -24,7 +24,7 @@ This is a **strictly read-only** security configuration review tool for Cloudfla
 
 ## What gets checked
 
-The tool evaluates **41 security checks** across these areas:
+The default **web-security** profile evaluates 33 checks; `--profile all` adds Zero Trust and platform checks (47 in total):
 
 ### Security domains covered
 
@@ -134,48 +134,16 @@ node dist/cli.js analyze output/collection.json --out output/report.md
 
 Whether you use Option 1 or 2, you need a **read-only API token** with these permissions:
 
-### Required permissions (all zones)
+### Permissions
 
-Go to **Cloudflare Dashboard** → **My Profile** → **API Tokens** → **Create Token**
+Go to **Cloudflare Dashboard** → **My Profile** → **API Tokens** → **Create Token**,
+choose **Create Custom Token**, and add **Read** access for every permission listed in
+[docs/endpoints.md](endpoints.md). That file is generated from the tool's endpoint
+registry, so it is always the exact list of what the tool reads and why.
 
-**Template:** Start with "Read all resources" and narrow it to these:
-
-| Permission | Access Level | Required? |
-|------------|--------------|-----------|
-| Account Settings | Read | ✅ Yes |
-| Zone | Read | ✅ Yes |
-| Zone Settings | Read | ✅ Yes |
-| DNS | Read | ✅ Yes |
-| Firewall Services | Read | ✅ Yes |
-| Zone WAF | Read | ✅ Yes |
-
-### Optional permissions (for deeper analysis)
-
-These add coverage but are not required — the tool works without them:
-
-| Permission | Access Level | Adds coverage for |
-|------------|--------------|-------------------|
-| Workers Scripts | Read | Worker zombie scripts, dangling routes |
-| Workers Routes | Read | Worker-to-zone routing |
-| Workers KV Storage | Read | Data-at-rest inventory |
-| D1 | Read | Data-at-rest inventory |
-| Workers R2 Storage | Read | Data-at-rest inventory |
-| Access: Apps and Policies | Read | Access policy review |
-| Access: Identity Providers | Read | IdP and MFA posture |
-| Access: Service Tokens | Read | Token expiry hygiene |
-| Turnstile Widgets | Read | Turnstile inventory |
-| Cloudflare Tunnel | Read | Tunnel-to-Access gap detection |
-| User API Tokens | Read | Token rotation posture |
-| Account API Tokens | Read | Account token inventory |
-| SSL and Certificates | Read | Certificate expiry warnings |
-| Load Balancing | Read | Load balancer health checks |
-| Load Balancer Monitors and Pools | Read | Pool failover posture |
-| Page Rules | Read | Legacy page rule migration signal |
-| Zone Rate Limiting | Read | Legacy rate-limit migration signal |
-| API Gateway Operations | Read | API Shield posture (Enterprise only) |
-| Account Rulesets | Read | Account-level WAF (Enterprise only) |
-
-**Token scope:** All zones in your account(s), read-only access only.
+- Account-level permissions: scope them to the account(s) under review.
+- Zone-level permissions: scope them to all zones of those accounts.
+- Read access only. The tool has no code path that writes.
 
 ### Narrowly-scoped tokens work
 
@@ -226,7 +194,7 @@ https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/
 
 ### Appendix
 
-- **What we checked** — Full list of 35 checks
+- **Web security posture by zone** — one row per zone, one column per key control
 - **What we did NOT collect** — Explicit list of data not recorded (request logs, Worker script contents, Access policy identities, etc.)
 - **How to act on findings** — Prioritization guidance
 
@@ -512,7 +480,7 @@ node dist/cli.js analyze output/collection.json --fail-on high
 
 ### API endpoint inventory
 
-The tool can make up to **25 different API calls** depending on your plan and enabled features. Full list: [docs/endpoints.md](endpoints.md)
+The tool reads **34 endpoints plus 6 ruleset phase entrypoints**, depending on your plan and enabled features. Full list: [docs/endpoints.md](endpoints.md)
 
 Every endpoint is GET-only and read-scoped. See that document for the complete rationale and citation for each endpoint.
 

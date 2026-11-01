@@ -32,4 +32,11 @@ the value or drop it in a file path outside git. On pickup:
 4. Tick off the dogfood item fully in TODO.md (line ~1) once the full-scope
    report is reviewed.
 
+**Update 2026-11-01 (v0.2, branch `web-security-v0.2`):** the collection changed —
+new endpoints (`/zones/{id}/managed_headers`, `/zones/{id}/leaked-credential-checks`),
+new phases (`ddos_l7`, `http_response_headers_transform`), several endpoints removed.
+Build the token from the regenerated docs/endpoints.md, not from the 26-permission
+checklist above. Run the v0.2 collectors (all three; `pwsh` for PowerShell) and check
+the permission names flagged in docs/EVOLUTION-20261101T2214Z.md §8.
+
 **Delete this file when the token run lands.**

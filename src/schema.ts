@@ -11,7 +11,9 @@
  */
 import { z } from "zod";
 
-export const SCHEMA_VERSION = "1.0";
+export const SCHEMA_VERSION = "1.1";
+/** Analyzer accepts any 1.x collection; 1.1 adds optional fields only. */
+export const SCHEMA_MAJOR = "1";
 export const REDACTED = "[redacted]";
 
 export const idSchema = z
@@ -44,10 +46,52 @@ const phaseEntrypointSchema = z.object({
         // Expressions may reference hostnames; collectors redact origin hosts.
         version: z.string().optional(),
         lastUpdated: z.string().optional(),
+        // 1.1: sanitized action_parameters summary (see src/summarize.ts).
+        actionParameters: z
+          .object({
+            executes: z.string().optional(),
+            overrides: z
+              .object({
+                enabled: z.boolean().optional(),
+                action: z.string().optional(),
+                sensitivityLevel: z.string().optional(),
+                disabledCategories: z.array(z.string()).default([]),
+                rulesDisabled: z.number().default(0),
+                rulesActionOverridden: z.number().default(0),
+                scoreThreshold: z.number().optional(),
+              })
+              .optional(),
+            skip: z
+              .object({
+                currentRuleset: z.boolean().default(false),
+                rulesets: z.number().default(0),
+                rules: z.number().default(0),
+                phases: z.array(z.string()).default([]),
+                products: z.array(z.string()).default([]),
+              })
+              .optional(),
+            ratelimit: z
+              .object({
+                characteristics: z.array(z.string()).default([]),
+                period: z.number().optional(),
+                requestsPerPeriod: z.number().optional(),
+                scorePerPeriod: z.number().optional(),
+                mitigationTimeout: z.number().optional(),
+                requestsToOrigin: z.boolean().optional(),
+                hasCountingExpression: z.boolean().default(false),
+              })
+              .optional(),
+            headers: z.array(z.object({ name: z.string(), operation: z.string() })).optional(),
+            cache: z.object({ eligible: z.boolean().optional() }).optional(),
+          })
+          .optional(),
       }),
     )
     .optional(),
 });
+
+/** 1.1: per-phase readability. "absent" = readable, no entrypoint deployed (404). */
+const phaseStatusSchema = z.enum(["present", "absent", "unreadable"]);
 
 const dnsRecordSchema = z.object({
   type: z.string(),
@@ -74,7 +118,7 @@ const httpErrorSchema = z.object({
 });
 
 export const collectionSchema = z.object({
-  schemaVersion: z.string(),
+  schemaVersion: z.string().refine((v) => v.split(".")[0] === SCHEMA_MAJOR, "unsupported schema major version"),
   collectedAt: z.string().datetime({ offset: true }),
   collector: z.enum(["api", "powershell", "bash"]),
   collectorVersion: z.string(),
@@ -228,6 +272,7 @@ export const collectionSchema = z.object({
       z.object({
         name: z.string(),
         plan: z.string().optional(),
+        planLegacyId: z.string().optional(),
         status: z.string().optional(),
         paused: z.boolean().optional(),
         type: z.string().optional(),
@@ -235,6 +280,7 @@ export const collectionSchema = z.object({
         settings: zoneSettingsSchema.optional(),
         rulesets: z.array(rulesetSummarySchema).optional(),
         phaseEntrypoints: z.record(z.string(), phaseEntrypointSchema).optional(),
+        phaseStatus: z.record(z.string(), phaseStatusSchema).optional(),
         botManagement: z.unknown().optional(),
         wafOverrides: z.unknown().optional(),
         ipAccessRules: z.unknown().optional(),
@@ -275,6 +321,32 @@ export const collectionSchema = z.object({
             certCount: z.number().optional(),
           })
           .optional(),
+        // ---- 1.1 additions (all optional; absent = not collected/unreadable) ----
+        ipAccessRuleSummary: z
+          .array(
+            z.object({
+              mode: z.string().optional(),
+              target: z.string().optional(),
+              value: z.string().optional(),
+              scope: z.string().optional(),
+            }),
+          )
+          .optional(),
+        pageRuleSummary: z
+          .array(
+            z.object({
+              status: z.string().optional(),
+              actions: z.array(z.object({ id: z.string(), value: z.string().optional() })),
+            }),
+          )
+          .optional(),
+        managedHeaders: z
+          .object({
+            request: z.array(z.object({ id: z.string(), enabled: z.boolean() })),
+            response: z.array(z.object({ id: z.string(), enabled: z.boolean() })),
+          })
+          .optional(),
+        leakedCredentialChecks: z.object({ enabled: z.boolean().optional() }).optional(),
       }),
     )
     .default([]),

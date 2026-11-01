@@ -1,0 +1,702 @@
+{
+ "/user/tokens/verify": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": {
+    "status": "active"
+   }
+  }
+ },
+ "/user/tokens": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "status": "active",
+     "expires_on": null,
+     "policies": [
+      {
+       "permission_groups": [
+        {
+         "name": "Zone Read"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "/accounts": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "name": "Parity Account"
+    }
+   ]
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/settings": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": {
+    "enforce_twofactor": false,
+    "abuse_contact_email": "abuse@example.com"
+   }
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/members": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "status": "accepted",
+     "user": {
+      "email": "x@example.com",
+      "two_factor_authentication_enabled": true
+     },
+     "policies": [
+      {
+       "permission_groups": [
+        {
+         "name": "Administrator"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/tokens": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": []
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/load_balancers/pools": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "id": "pool1",
+     "name": "p",
+     "enabled": true,
+     "monitor": "mon1",
+     "notification_email": "noc@example.com",
+     "origins": [
+      {
+       "name": "o1",
+       "address": "198.51.100.7",
+       "enabled": true,
+       "weight": 1
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/load_balancers/monitors": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "id": "mon1",
+     "type": "https",
+     "interval": 60,
+     "timeout": 5,
+     "retries": 2,
+     "expected_codes": "200",
+     "header": {
+      "Authorization": [
+       "Basic c2VjcmV0"
+      ]
+     }
+    }
+   ]
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/rulesets": {
+  "status": 403,
+  "body": {
+   "success": false,
+   "errors": [
+    {
+     "message": "forbidden"
+    }
+   ]
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/access/apps": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": []
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/access/identity_providers": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "name": "OTP",
+     "type": "onetimepin"
+    }
+   ]
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/challenges/widgets": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "name": "w",
+     "domains": [
+      "shop.example"
+     ],
+     "mode": "managed",
+     "secret": "0x4AAAAAAA"
+    }
+   ]
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/cfd_tunnel": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "id": "cccccccccccccccccccccccccccccccc",
+     "name": "t1",
+     "status": "healthy"
+    }
+   ]
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/cfd_tunnel/cccccccccccccccccccccccccccccccc/configurations": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": {
+    "config": {
+     "ingress": [
+      {
+       "hostname": "admin.shop.example",
+       "service": "http://10.0.0.5:8080"
+      },
+      {
+       "service": "http_status:404"
+      }
+     ]
+    }
+   }
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workers/scripts": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "id": "edge-fn",
+     "created_on": "2026-01-01T00:00:00Z",
+     "modified_on": "2026-01-02T00:00:00Z",
+     "bindings": [
+      {
+       "name": "API_KEY",
+       "type": "secret_text",
+       "text": "nope"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/storage/kv/namespaces": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "id": "kv1"
+    }
+   ]
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/d1/database": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": []
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/r2/buckets": {
+  "status": 403,
+  "body": {
+   "success": false,
+   "errors": [
+    {
+     "message": "forbidden"
+    }
+   ]
+  }
+ },
+ "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/ai-gateway/gateways": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": []
+  }
+ },
+ "/zones": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+     "name": "shop.example",
+     "status": "active",
+     "paused": false,
+     "type": "full",
+     "plan": {
+      "name": "Enterprise Website",
+      "legacy_id": "enterprise"
+     }
+    }
+   ]
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/settings": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "id": "ssl",
+     "value": "full",
+     "editable": true
+    },
+    {
+     "id": "min_tls_version",
+     "value": "1.2"
+    },
+    {
+     "id": "security_level",
+     "value": "medium"
+    }
+   ]
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "id": "efb7b8c949ac4650a09736fc376e9aee",
+     "name": "Cloudflare Managed Ruleset",
+     "kind": "managed",
+     "phase": "http_request_firewall_managed"
+    },
+    {
+     "id": "zz-owasp-id",
+     "name": "Cloudflare OWASP Core Ruleset",
+     "kind": "managed",
+     "phase": "http_request_firewall_managed"
+    }
+   ]
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_request_firewall_custom/entrypoint": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": {
+    "name": "default",
+    "kind": "zone",
+    "rules": [
+     {
+      "id": "r1",
+      "action": "skip",
+      "enabled": true,
+      "expression": "ip.src in {203.0.113.4}",
+      "description": "ops ops@example.com",
+      "action_parameters": {
+       "ruleset": "current",
+       "phases": [
+        "http_ratelimit"
+       ]
+      }
+     },
+     {
+      "id": "r2",
+      "action": "block",
+      "enabled": true,
+      "expression": "cf.bot_management.score eq 1"
+     }
+    ]
+   }
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_request_firewall_managed/entrypoint": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": {
+    "rules": [
+     {
+      "id": "m1",
+      "action": "execute",
+      "enabled": true,
+      "expression": "true",
+      "action_parameters": {
+       "id": "efb7b8c949ac4650a09736fc376e9aee"
+      }
+     },
+     {
+      "id": "m2",
+      "action": "execute",
+      "enabled": true,
+      "expression": "true",
+      "action_parameters": {
+       "id": "zz-owasp-id",
+       "overrides": {
+        "action": "log",
+        "categories": [
+         {
+          "category": "paranoia-level-3",
+          "enabled": false
+         }
+        ],
+        "rules": [
+         {
+          "id": "6179ae15870a4bb7b2d480d4843b323c",
+          "score_threshold": 40
+         }
+        ]
+       }
+      }
+     }
+    ]
+   }
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_ratelimit/entrypoint": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": {
+    "rules": [
+     {
+      "id": "rl1",
+      "action": "block",
+      "enabled": true,
+      "expression": "http.request.uri.path eq \"/login\"",
+      "action_parameters": {
+       "response": {
+        "status_code": 429
+       }
+      },
+      "ratelimit": {
+       "characteristics": [
+        "ip.src",
+        "cf.colo.id"
+       ],
+       "period": 60,
+       "requests_per_period": 5,
+       "mitigation_timeout": 600,
+       "counting_expression": "http.response.code eq 401"
+      }
+     }
+    ]
+   }
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/ddos_l7/entrypoint": {
+  "status": 404,
+  "body": {
+   "success": false,
+   "errors": [
+    {
+     "message": "not found"
+    }
+   ]
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_request_cache_settings/entrypoint": {
+  "status": 403,
+  "body": {
+   "success": false,
+   "errors": [
+    {
+     "message": "forbidden"
+    }
+   ]
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_response_headers_transform/entrypoint": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": {
+    "rules": [
+     {
+      "id": "h1",
+      "action": "rewrite",
+      "enabled": true,
+      "expression": "true",
+      "action_parameters": {
+       "headers": {
+        "X-Frame-Options": {
+         "operation": "set",
+         "value": "DENY"
+        },
+        "X-Internal-Token": {
+         "operation": "set",
+         "value": "s3cr3t"
+        }
+       }
+      }
+     }
+    ]
+   }
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dns_records": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "type": "A",
+     "name": "shop.example",
+     "content": "192.0.2.10",
+     "proxied": true,
+     "ttl": 1,
+     "comment": "owner bob@example.com"
+    },
+    {
+     "type": "A",
+     "name": "direct.shop.example",
+     "content": "192.0.2.10",
+     "proxied": false,
+     "ttl": 300
+    }
+   ]
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/workers/routes": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "pattern": "shop.example/api/*",
+     "script": "edge-fn"
+    }
+   ]
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/ssl/certificate_packs": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "id": "pk1",
+     "type": "universal",
+     "status": "active",
+     "certificate_authority": "google",
+     "hosts": [
+      "shop.example"
+     ]
+    }
+   ]
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/firewall/access_rules/rules": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "mode": "whitelist",
+     "notes": "vpn by jane@example.com",
+     "configuration": {
+      "target": "ip",
+      "value": "198.51.100.9"
+     },
+     "scope": {
+      "type": "zone"
+     }
+    },
+    {
+     "mode": "whitelist",
+     "configuration": {
+      "target": "country",
+      "value": "US"
+     },
+     "scope": {
+      "type": "zone"
+     }
+    }
+   ]
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/pagerules": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": [
+    {
+     "status": "active",
+     "targets": [
+      {
+       "constraint": {
+        "value": "internal.shop.example/*"
+       }
+      }
+     ],
+     "actions": [
+      {
+       "id": "disable_security"
+      },
+      {
+       "id": "forwarding_url",
+       "value": {
+        "url": "https://origin.shop.example"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rate_limits": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": []
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/bot_management": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": {
+    "enable_js": true,
+    "sbfm_definitely_automated": "allow",
+    "unknown_future": "x"
+   }
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/managed_headers": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": {
+    "managed_request_headers": [
+     {
+      "id": "add_true_client_ip_headers",
+      "enabled": false
+     }
+    ],
+    "managed_response_headers": [
+     {
+      "id": "add_security_headers",
+      "enabled": false
+     },
+     {
+      "id": "remove_x-powered-by_header",
+      "enabled": true
+     }
+    ]
+   }
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/leaked-credential-checks": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": {
+    "enabled": false
+   }
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/page_shield": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": {
+    "enabled": true,
+    "use_cloudflare_reporting_endpoint": true,
+    "use_connection_url_path": false
+   }
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/origin_tls_client_auth/settings": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": {
+    "enabled": false
+   }
+  }
+ },
+ "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/origin_tls_client_auth": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "errors": [],
+   "result": []
+  }
+ }
+}
