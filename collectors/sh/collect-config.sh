@@ -458,7 +458,7 @@ try:
 except Exception:
     zones=[]
 for z in zones:
-    print(z.get('id',''), z.get('name',''))
+    print(f\"{z.get('id','')}\t{z.get('name','')}\")
 ")
 
 # ============================================================================
@@ -631,27 +631,28 @@ def phase_entrypoints(zone_id):
     return out
 
 def page_shield_doc(zone_id):
-    """Extract Page Shield settings."""
-    ps = obj(f"zone-{zone_id}-page_shield")
-    if not ps:
-        return None
-    return {
-        "enabled": ps.get("enabled"),
-        "useCloudflareReportingEndpoint": ps.get("use_cloudflare_reporting_endpoint"),
-        "useConnectionUrlPath": ps.get("use_connection_url_path"),
-    }
+    """Extract Page Shield settings. Always emits the object (fail-closed: absent
+    fields mean unknown, mirroring the TS collector's asRecord() behavior)."""
+    ps = obj(f"zone-{zone_id}-page_shield") or {}
+    out = {}
+    if isinstance(ps.get("enabled"), bool):
+        out["enabled"] = ps["enabled"]
+    if isinstance(ps.get("use_cloudflare_reporting_endpoint"), bool):
+        out["useCloudflareReportingEndpoint"] = ps["use_cloudflare_reporting_endpoint"]
+    if isinstance(ps.get("use_connection_url_path"), bool):
+        out["useConnectionUrlPath"] = ps["use_connection_url_path"]
+    return out
 
 def authenticated_origin_pulls_doc(zone_id):
-    """Extract Authenticated Origin Pulls settings."""
-    settings = obj(f"zone-{zone_id}-origin_tls_settings")
+    """Extract Authenticated Origin Pulls settings. Always emits the object."""
+    settings = obj(f"zone-{zone_id}-origin_tls_settings") or {}
     certs = arr(f"zone-{zone_id}-origin_tls_certs")
-    if not settings:
-        return None
-    return {
-        "enabled": settings.get("enabled"),
-        "hasZoneLevelCert": len(certs) > 0,
-        "certCount": len(certs),
-    }
+    out = {}
+    if isinstance(settings.get("enabled"), bool):
+        out["enabled"] = settings["enabled"]
+    out["hasZoneLevelCert"] = len(certs) > 0
+    out["certCount"] = len(certs)
+    return out
 
 def zone_doc(z):
     """Build a complete zone document with all collected data and redactions applied."""
@@ -691,7 +692,7 @@ def tunnel_doc(acct_id, tunnel):
     configs = arr(f"acct-{acct_id}-tunnel-{tunnel_id}-config")
     public_hostnames = []
     for config in configs:
-        for ingress in config.get("config", {}).get("ingress") or []:
+        for ingress in (config.get("config") or {}).get("ingress") or []:
             hostname = ingress.get("hostname")
             if hostname and hostname != "*":
                 public_hostnames.append(hostname)

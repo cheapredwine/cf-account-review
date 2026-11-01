@@ -13,6 +13,16 @@ const VERDICT_ICON: Record<Verdict, string> = {
   na: "➖",
 };
 
+/**
+ * Partially obscure 32-hex Cloudflare IDs (account/zone) in error paths:
+ * keep the first 8 and last 4 characters, mask the middle with ****.
+ * Zone IDs are low-sensitivity (not free-to-publish) but needlessly
+ * identify infrastructure, so the middle is elided rather than shown in full.
+ */
+export function maskIdsInPath(path: string): string {
+  return path.replace(/[0-9a-f]{32}/g, (m) => `${m.slice(0, 8)}****${m.slice(-4)}`);
+}
+
 export function renderMarkdown(collection: Collection, findings: Finding[]): string {
   const out: string[] = [];
 
@@ -87,7 +97,7 @@ export function renderMarkdown(collection: Collection, findings: Finding[]): str
     out.push("| Path | Status | Error |");
     out.push("| --- | --- | --- |");
     for (const e of collection.collectionErrors.slice(0, 50)) {
-      out.push(`| \`${e.path}\` | ${e.status ?? "-"} | ${e.error.replaceAll("|", "\\|")} |`);
+      out.push(`| \`${maskIdsInPath(e.path)}\` | ${e.status ?? "-"} | ${e.error.replaceAll("|", "\\|")} |`);
     }
     if (collection.collectionErrors.length > 50) {
       out.push(`| … ${collection.collectionErrors.length - 50} more | | |`);
