@@ -1,7 +1,7 @@
 {
   "name": "cf-account-review",
   "version": "0.2.0",
-  "description": "Read-only Cloudflare account configuration review: collect config (API token or offline shell scripts) and analyze it against a YAML best-practice rulebook.",
+  "description": "Read-only Cloudflare account configuration review: collect config (API token, or an offline single binary) and analyze it against a YAML best-practice rulebook.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -18,7 +18,9 @@
     "lint": "oxlint src tests",
     "format": "oxfmt --check src tests",
     "verify": "pnpm run lint && pnpm run test",
-    "analyze": "node dist/cli.js analyze"
+    "analyze": "node dist/cli.js analyze",
+    "build:binaries": "scripts/build-binaries.sh",
+    "verify:build": "scripts/verify-build.sh"
   },
   "dependencies": {
     "yaml": "^2.6.0",
@@ -26,6 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "bun": "1.4.4",
     "oxfmt": "^0.6.0",
     "oxlint": "^1.0.0",
     "typescript": "^5.7.0",

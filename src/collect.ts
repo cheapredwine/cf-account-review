@@ -36,7 +36,7 @@ function mapOpt<T>(v: unknown[] | null, fn: (x: unknown) => T): T[] | undefined 
   return v === null ? undefined : v.map(fn);
 }
 
-export async function collect(token: string): Promise<Collection> {
+export async function collect(token: string, collector: "api" | "binary" = "api"): Promise<Collection> {
   const client = new CfGetClient(token);
 
   // Verify token (status only — never the token value).
@@ -397,7 +397,7 @@ export async function collect(token: string): Promise<Collection> {
   return {
     schemaVersion: SCHEMA_VERSION,
     collectedAt: new Date().toISOString(),
-    collector: "api",
+    collector,
     collectorVersion: COLLECTOR_VERSION,
     tokenStatus,
     planTiersSeen: [...planTiers],

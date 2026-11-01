@@ -66,34 +66,64 @@ You have two options for running this review. Choose based on your security requ
 
 **How it works:**
 
-1. You run a shell script (PowerShell or bash) **inside your environment**
-2. The script collects configuration using your API token — **the token never leaves your machine**
-3. The script writes a JSON file containing your configuration (with sensitive data redacted)
+1. You run the single-file collector **inside your environment**
+2. The collector reads configuration using your API token — **the token never leaves your machine**
+3. It writes a JSON file containing your configuration (with sensitive data redacted)
 4. You send us **only the JSON file** — no tokens, no credentials
 5. We run the analyzer against the JSON and return your report
 
-**PowerShell (Windows):**
+**The single-file collector (nothing to install).**
+Download the file for your platform from the project's GitHub release, together with
+`SHA256SUMS`. Each file contains everything it needs — no Node.js, Python, PowerShell
+modules, or other runtime.
 
-```powershell
-# From the tool directory
-.\collectors\ps\Collect-CFConfig.ps1
-
-# You'll be prompted for your API token (input is hidden)
-# Output: cloudflare-config-YYYYMMDD-HHMMSS.json
-```
-
-**Bash (macOS/Linux):**
+| Platform | File |
+|---|---|
+| macOS (Apple silicon) | `cf-account-review-collect-<version>-darwin-arm64` |
+| macOS (Intel) | `cf-account-review-collect-<version>-darwin-x64` |
+| Linux x64 / arm64 | `cf-account-review-collect-<version>-linux-x64` / `-linux-arm64` |
+| Windows x64 | `cf-account-review-collect-<version>-windows-x64.exe` |
 
 ```bash
-# From the tool directory
-CF_API_TOKEN=your_token_here ./collectors/sh/collect-config.sh output/
-
-# Or use environment variable from your shell
-export CF_API_TOKEN=...
-./collectors/sh/collect-config.sh output/
-
-# Output: output/cloudflare-config-YYYYMMDD-HHMMSS.json
+# macOS / Linux
+shasum -a 256 -c SHA256SUMS --ignore-missing     # verify the download
+chmod +x cf-account-review-collect-*
+./cf-account-review-collect-<version>-darwin-arm64 output/
+# Paste your token when prompted (input is hidden), or set CF_API_TOKEN first.
 ```
+
+```powershell
+# Windows
+Get-FileHash .\cf-account-review-collect-<version>-windows-x64.exe -Algorithm SHA256   # compare with SHA256SUMS
+.\cf-account-review-collect-<version>-windows-x64.exe output
+```
+
+Output: `output/cloudflare-config-YYYY-MM-DD-HHMM.json`. If nothing could be read (bad
+token, no network), the collector says so and writes nothing.
+
+> **First run on macOS/Windows:** the binaries are deliberately not code-signed —
+> trust comes from the open source, the published checksums, and the option to build
+> them yourself. macOS may block
+> a downloaded file ("cannot be opened because the developer cannot be verified"):
+> run `xattr -d com.apple.quarantine <file>` or allow it in System Settings → Privacy &
+> Security. Windows SmartScreen may ask you to confirm ("More info" → "Run anyway").
+> Always verify the SHA-256 checksum first.
+
+**Inspect it, verify it, or build it yourself.** The source is open
+(`github.com/cheapredwine/cf-account-review`). The collector's code lives in
+`src/collect.ts`, `src/summarize.ts` (exactly what leaves your environment),
+`src/redact.ts` and `src/bin/collect.ts`.
+
+- *Verify a release against the source:* each release publishes
+  `cf-account-review-collect-<version>.bundle.js` — the exact JavaScript embedded in
+  every binary — and its hash in `SHA256SUMS`. The bundle is byte-for-byte
+  reproducible: check out the release tag, `pnpm install`, then
+  `scripts/verify-build.sh path/to/SHA256SUMS` rebuilds it and compares.
+- *Build your own binary:* the compiled executables are not bit-identical from build
+  to build (the runtime writes a per-build trailer; macOS builds are ad-hoc signed), so
+  if you don't want to trust ours, build it: `scripts/build-binaries.sh bun-darwin-arm64`
+  (or any target) on the release tag. Building requires the repo's pinned toolchain;
+  running the result requires nothing.
 
 **What you send us:** The generated JSON file only. We run `node dist/cli.js analyze <file>` and return your report plus (future) a Terraform configuration to fix the issues.
 
@@ -388,8 +418,7 @@ pnpm verify    # or npm run verify (runs tests)
 
 **If you're only using Option 1 (offline collector):**
 
-- **PowerShell collector:** No installation needed; just run the `.ps1` script
-- **Bash collector:** Requires `curl` and `python3` (pre-installed on macOS/Linux)
+- **Single-file collector:** nothing to install — download, verify the checksum, run
 
 ---
 
@@ -397,7 +426,7 @@ pnpm verify    # or npm run verify (runs tests)
 
 ### Option 1 workflow (offline collection)
 
-1. **You:** Run the collection script, send us the JSON file
+1. **You:** Run the collector, send us the JSON file
 2. **Us:** Run the analyzer, generate the report
 3. **Delivery:** Markdown report via secure channel (encrypted email, Signal, shared drive)
 4. **Cleanup:** We delete your JSON file after delivery
