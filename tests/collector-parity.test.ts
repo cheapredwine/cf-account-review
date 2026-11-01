@@ -1,5 +1,6 @@
 /**
- * Collector parity: Mode A (TS) and Mode B (bash) must produce the same
+ * Collector parity: Mode A (TS — also compiled as the Mode B binary) and the bash
+ * script must produce the same
  * collection from the same API responses. Both run against a fake Cloudflare
  * API (tests/fixtures/fake-api.json): the TS collector via a stubbed fetch,
  * the bash collector via a fake `curl` on PATH. No network is used.
@@ -79,27 +80,6 @@ function runBash(): unknown {
   return readOutput(out);
 }
 
-/** pwsh from $PWSH or PATH; undefined when PowerShell is not installed. */
-function findPwsh(): string | undefined {
-  const candidates = [process.env.PWSH, "pwsh"].filter((c): c is string => !!c);
-  for (const c of candidates) {
-    if (spawnSync(c, ["-NoProfile", "-Command", "exit 0"]).status === 0) return c;
-  }
-  return undefined;
-}
-const PWSH = findPwsh();
-
-function runPwsh(pwsh: string): unknown {
-  const out = mkdtempSync(join(tmpdir(), "cfar-parity-ps-"));
-  const res = spawnSync(
-    pwsh,
-    ["-NoProfile", "-File", join(ROOT, "tests", "fixtures", "fake-pwsh-api.ps1"), join(ROOT, "collectors", "ps", "Collect-CFConfig.ps1"), out],
-    { env: { ...process.env, CF_API_TOKEN: "fake-token-for-tests", FAKE_API }, encoding: "utf8" },
-  );
-  expect(res.status, res.stderr || res.stdout).toBe(0);
-  return readOutput(out);
-}
-
 describe("collector parity (fake API, no network)", () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -109,16 +89,6 @@ describe("collector parity (fake API, no network)", () => {
     vi.unstubAllGlobals();
     return collectionSchema.parse(JSON.parse(JSON.stringify(ts)));
   }
-
-  it.runIf(PWSH !== undefined)("TS and PowerShell collectors emit equivalent, policy-clean collections", async () => {
-    const tsParsed = await runTs();
-    const psParsed = collectionSchema.parse(runPwsh(PWSH as string));
-    expect(normalize(psParsed)).toEqual(normalize(tsParsed));
-    const paths = (c: typeof tsParsed) => [...new Set(c.collectionErrors.map((e) => e.path))].sort();
-    expect(paths(psParsed)).toEqual(paths(tsParsed));
-    const text = JSON.stringify(psParsed);
-    for (const secret of PLANTED_SECRETS) expect(text, `leaked: ${secret}`).not.toContain(secret);
-  });
 
   it("TS and bash collectors emit equivalent, schema-valid, policy-clean collections", async () => {
     const tsParsed = await runTs();

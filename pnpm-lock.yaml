@@ -19,7 +19,7 @@ importers:
         specifier: ^24.0.0
         version: 24.19.2
       bun:
-        specifier: ^1.4.4
+        specifier: 1.4.4
         version: 1.4.4
       oxfmt:
         specifier: ^0.6.0

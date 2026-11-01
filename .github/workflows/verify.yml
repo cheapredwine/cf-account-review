@@ -50,6 +50,8 @@ jobs:
           version: 12
       - run: pnpm install --frozen-lockfile
       - run: scripts/build-binaries.sh
+      - name: release bundle reproduces from source
+        run: scripts/verify-build.sh dist-bin/SHA256SUMS
       - name: linux-x64 binary runs with no runtimes on PATH
         run: env -i PATH= dist-bin/cf-account-review-collect-*-linux-x64 --version
       - uses: actions/upload-artifact@v4

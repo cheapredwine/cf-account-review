@@ -1,6 +1,6 @@
 /**
  * Redaction helpers — shared by all collectors (TS) and mirrored in the
- * PowerShell and bash collectors. See docs/data-policy.md for the full rules.
+ * bash collector. See docs/data-policy.md for the full rules.
  */
 import { createHash } from "node:crypto";
 import { REDACTED } from "./schema.js";

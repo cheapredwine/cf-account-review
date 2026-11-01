@@ -26,7 +26,6 @@ function walk(dir: string, exts: string[]): string[] {
 
 const TS_FILES = walk(join(ROOT, "src"), [".ts"]);
 const SH_FILES = [join(ROOT, "collectors", "sh", "collect-config.sh")];
-const PS_FILES = walk(join(ROOT, "collectors", "ps"), [".ps1"]);
 
 const MUTATING_HTTP = /(method:\s*["'](?:POST|PUT|PATCH|DELETE)["']|fetch\(\s*[^,)]+,\s*\{?\s*method:\s*["'](POST|PUT|PATCH|DELETE))/i;
 
@@ -50,16 +49,6 @@ describe("read-only enforcement", () => {
     }
   });
 
-  it("PowerShell collector never issues a non-GET Invoke-RestMethod", () => {
-    for (const file of PS_FILES) {
-      const text = readFileSync(file, "utf8");
-      const calls = text.match(/Invoke-RestMethod[\s\S]{0,400}?-Method\s+(\w+)/g) ?? [];
-      expect(calls.length, "collector should call the API").toBeGreaterThan(0);
-      for (const call of calls) {
-        expect(/-Method\s+Get\b/i.test(call), `non-GET call: ${call.slice(0, 120)}`).toBe(true);
-      }
-    }
-  });
 
   it("TS sources only contact api.cloudflare.com", () => {
     const URL_PATTERN = /https?:\/\/[a-zA-Z0-9.-]+/g;

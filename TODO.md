@@ -28,7 +28,7 @@
 - [x] Load balancer health checks (CF-LB-001, CF-LB-002) — DONE
 - [x] Exit code enforcement (--fail-on flag) — DONE
 - [x] **v0.2 web-security pass (2026-11-01, branch `web-security-v0.2`)** — see
-      docs/EVOLUTION-20261101T2222Z.md for the review of v0.1 and the roadmap. Fixed:
+      docs/EVOLUTION-20261101T2231Z.md for the review of v0.1 and the roadmap. Fixed:
       Mode B collected no ruleset rules; Mode B data-policy leaks; plan-tier matching
       for "Enterprise Website"; managed-WAF false pass on disabled/log overrides;
       ddos_l7 never collected; unreadable-vs-empty fail-open; cache check premise.
@@ -36,11 +36,11 @@
       test, citation link check, generated endpoints doc.
 - [x] Mode B single binary (Bun, runtime embedded; 5 targets; CI artifacts + release on v* tags).
 - [ ] Code signing for the binaries (macOS Developer ID + notarization, Windows Authenticode) — decision pending.
-- [ ] Decide whether to retire the PowerShell script now that the binary covers Windows.
+- [x] PowerShell collector retired — the single binary (authoritative) covers Windows.
 - [ ] Full-scope token dogfood of v0.2 (all three collectors) — PENDING-REVIEW.md.
 - [ ] Reconcile token permission names for ddos_l7, managed_headers, bot_management,
       zone rulesets list (EVOLUTION §8).
-- [ ] Roadmap P1/P2/P3 — tracked in docs/EVOLUTION-20261101T2222Z.md §6.
+- [ ] Roadmap P1/P2/P3 — tracked in docs/EVOLUTION-20261101T2231Z.md §6.
 - [ ] Mode A: implement `--include-*` explicit re-inclusion flags (DNS content, IDs)
       documented in docs/data-policy.md.
 - [ ] HTML report renderer.
@@ -55,8 +55,5 @@
 - [ ] Compliance framework mapping: add `compliance: []` to checks.yaml, map to SOC 2/PCI DSS
 - [ ] Extract JSON Schema from zod for customers who want to validate Mode B files
       before sending them back.
-- [ ] PowerShell collector: PSScriptAnalyzer pass + test with Windows PowerShell 5.1
-      (v0.2 is tested with pwsh 7.4 via the parity test; 5.1 lacks `ConvertFrom-Json -AsHashtable`
-      used only by the test harness, not by the collector).
 - [ ] Upstream-friendly: consider contributing the zone-setting check shapes back to
       FlareGuard (or citing cross-links in its README).

@@ -51,15 +51,15 @@ from the same TypeScript collector as Mode A with the Bun runtime embedded.
 ```bash
 ./cf-account-review-collect-0.2.0-darwin-arm64 output/   # prompts for the token (hidden)
 scripts/build-binaries.sh                               # build all targets into dist-bin/
+scripts/verify-build.sh dist-bin/SHA256SUMS             # rebuild the embedded bundle, compare hashes
 ```
+
+The source is open so clients can inspect the collector or build it themselves. The JS
+bundle embedded in each binary is reproducible (published with the release and
+checked by `scripts/verify-build.sh`); the executables are not bit-identical across
+builds, so clients who want zero trust in our artifacts build their own.
 
 **Readable scripts** (for teams that must read what they run):
-
-PowerShell:
-
-```powershell
-.\collectors\ps\Collect-CFConfig.ps1            # writes cloudflare-config-*.json
-```
 
 Bash (macOS/Linux; curl + python3, no jq needed):
 
@@ -117,8 +117,7 @@ Verdicts: `pass | warn | fail | manual | na` — **incomplete evidence can never
 
 ```bash
 pnpm install
-pnpm verify      # lint + tests (the done-check), incl. three-way collector parity
-PWSH=/path/to/pwsh pnpm verify   # also run the PowerShell parity leg locally
+pnpm verify      # lint + tests (the done-check), incl. TS/bash collector parity
 pnpm build       # tsc -> dist/
 ```
 

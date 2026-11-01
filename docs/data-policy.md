@@ -3,12 +3,12 @@
 ## The read-only guarantee (non-negotiable)
 
 1. **No write path exists.** The TS client implements `GET` only. There is no
-   `post`, `put`, `patch`, or `delete` anywhere in `src/`. The PowerShell and
-   bash collectors call the API exclusively through GET-only wrappers
-   (`Invoke-RestMethod -Method Get`, `curl -X GET`).
+   `post`, `put`, `patch`, or `delete` anywhere in `src/`. The bash
+   collector calls the API exclusively through a GET-only wrapper (`curl -X GET`);
+   the single binary is the TS collector compiled.
 2. **Tests enforce it.** `tests/read-only.test.ts` fails the build if any
-   source file declares a mutating HTTP method, if any `curl` is invoked without
-   `-X GET`, or if any `Invoke-RestMethod` uses a non-GET method.
+   source file declares a mutating HTTP method, or if any `curl` is invoked
+   without `-X GET`.
 3. **One host only.** All API traffic goes to `https://api.cloudflare.com/client/v4`,
    pinned by constants and verified by a test. No telemetry, no uploads, no
    third-party calls of any kind.
@@ -52,9 +52,9 @@ collectors redact unconditionally.
 
 `tests/collector-parity.test.ts` plants sensitive values (origin IPs, emails,
 an LB monitor `Authorization` header, a header-transform value, raw IDs, page
-rule targets, a Turnstile secret) in a fake Cloudflare API, runs the TS, bash
-and PowerShell collectors against it, and fails if any planted value appears in
-any output — or if the three outputs differ.
+rule targets, a Turnstile secret) in a fake Cloudflare API, runs the TS and bash
+collectors against it (the binary is covered by `tests/binary-collector.test.ts`), and fails if any planted value appears in
+any output — or if the two outputs differ.
 
 ## Analyzer contract
 

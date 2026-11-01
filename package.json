@@ -18,7 +18,9 @@
     "lint": "oxlint src tests",
     "format": "oxfmt --check src tests",
     "verify": "pnpm run lint && pnpm run test",
-    "analyze": "node dist/cli.js analyze"
+    "analyze": "node dist/cli.js analyze",
+    "build:binaries": "scripts/build-binaries.sh",
+    "verify:build": "scripts/verify-build.sh"
   },
   "dependencies": {
     "yaml": "^2.6.0",
@@ -26,7 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "bun": "^1.4.4",
+    "bun": "1.4.4",
     "oxfmt": "^0.6.0",
     "oxlint": "^1.0.0",
     "typescript": "^5.7.0",

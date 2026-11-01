@@ -3,13 +3,13 @@
 ## What this is
 
 A strictly read-only Cloudflare account configuration review tool: collectors
-(TS client, PowerShell, bash) emit a zod-validated JSON "collection"; an analyzer
+(TS client — also compiled as the Mode B single binary — and a bash script) emit a zod-validated JSON "collection"; an analyzer
 evaluates a YAML findings rulebook against it and renders a Markdown report.
 
 ## Hard rules — do not violate these when editing
 
 1. **READ ONLY.** Never add a mutating HTTP method (`post/put/patch/delete`,
-   `-X POST`, `Invoke-RestMethod -Method Post`…). `tests/read-only.test.ts`
+   `-X POST`…). `tests/read-only.test.ts`
    enforces this and must stay in place. If a feature seems to need a write,
    stop — the tool is read-only by design.
 2. **One outbound host.** All API calls go to `https://api.cloudflare.com/client/v4`
@@ -36,15 +36,15 @@ evaluates a YAML findings rulebook against it and renders a Markdown report.
    an evaluator (only if not declarative), a `citation` to Cloudflare docs, a
    plan-tier, a `scope` if account-level, a domain that belongs to a profile, and
    a fixture-based test in `tests/engine.test.ts` or `tests/web-security.test.ts`.
-7. **One contract, three implementations.** The Mode B single binary
+7. **One contract, two implementations.** The Mode B single binary
    (`src/bin/collect.ts`, built with `scripts/build-binaries.sh`) IS the Mode A
-   collector compiled with Bun — no mirroring. The bash and PowerShell scripts remain
-   as readable alternatives and must still be mirrored: Any collection change goes into
-   `src/collect.ts` + `src/summarize.ts`, the bash assembler, and the PowerShell
-   collector together. `tests/collector-parity.test.ts` must pass (it needs
-   `python3`; the PowerShell leg runs when `pwsh` is on PATH or `$PWSH` is set —
-   CI has it). Add any new sensitive field to `tests/fixtures/fake-api.json` with
-   a planted value and to `PLANTED_SECRETS`.
+   collector compiled with Bun — it is authoritative, nothing to mirror. The bash
+   script is the only other collector, kept for teams that must read what they run;
+   any collection change goes into `src/collect.ts` + `src/summarize.ts` and the bash
+   assembler together, and `tests/collector-parity.test.ts` must pass (needs
+   `python3`). Add any new sensitive field to `tests/fixtures/fake-api.json` with a
+   planted value and to `PLANTED_SECRETS`. The PowerShell collector was retired in
+   v0.2 — do not reintroduce a third implementation.
 
 ## Conventions
 
@@ -68,10 +68,9 @@ evaluates a YAML findings rulebook against it and renders a Markdown report.
 - `src/cli.ts` — `collect` / `analyze` commands
 - `src/bin/collect.ts` — Mode B single-binary entry (hidden token prompt; client installs no runtime)
 - `findings/checks.yaml` — the rulebook
-- `collectors/ps/`, `collectors/sh/` — Mode B collectors
+- `collectors/sh/` — readable bash collector (alternative to the binary)
 - `tests/` — read-only enforcement, redaction, engine + web-security fixtures,
-  three-way collector parity (`tests/fixtures/fake-api.json`, fake `curl`, fake
-  `Invoke-RestMethod`)
+  TS/bash collector parity (`tests/fixtures/fake-api.json`, fake `curl`), binary tests
 - `docs/EVOLUTION-*.md` — design review and roadmap (versioned, newest wins)
 
 ## Known gaps (see TODO.md and the latest docs/EVOLUTION-*.md)

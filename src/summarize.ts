@@ -2,9 +2,9 @@
  * Summarizers — turn raw Cloudflare API objects into the minimal, policy-safe
  * shapes the collection schema allows. Pure functions, no I/O.
  *
- * Mirrored in collectors/sh/collect-config.sh (python assembler) and
- * collectors/ps/Collect-CFConfig.ps1. Keep the three in step; the fixture tests
- * in tests/summarize.test.ts pin the TS behavior.
+ * Used by Mode A and compiled into the Mode B single binary; mirrored in
+ * collectors/sh/collect-config.sh (python assembler). Keep the two in step —
+ * tests/collector-parity.test.ts and tests/web-security.test.ts pin the behavior.
  *
  * Design rule: a summarizer only ever emits enumerations, counts, booleans,
  * numbers, and identifiers that are public Cloudflare constants (managed
