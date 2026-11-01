@@ -37,6 +37,6 @@ new endpoints (`/zones/{id}/managed_headers`, `/zones/{id}/leaked-credential-che
 new phases (`ddos_l7`, `http_response_headers_transform`), several endpoints removed.
 Build the token from the regenerated docs/endpoints.md, not from the 26-permission
 checklist above. Run the v0.2 collectors (all three; `pwsh` for PowerShell) and check
-the permission names flagged in docs/EVOLUTION-20261101T2214Z.md §8.
+the permission names flagged in docs/EVOLUTION-20261101T2222Z.md §8.
 
 **Delete this file when the token run lands.**

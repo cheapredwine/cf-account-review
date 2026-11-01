@@ -3,6 +3,7 @@ name: verify
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
 
 jobs:
@@ -32,3 +33,34 @@ jobs:
         run: |
           node dist/cli.js analyze tests/fixtures/web-security-collection.json --out /tmp/report.md --profile all
           grep -q "CF-WAF-001" /tmp/report.md
+
+  binaries:
+    # Mode B single-binary collector: Bun runtime embedded, clients install nothing.
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # only used on v* tags to attach binaries to the release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - run: pnpm install --frozen-lockfile
+      - run: scripts/build-binaries.sh
+      - name: linux-x64 binary runs with no runtimes on PATH
+        run: env -i PATH= dist-bin/cf-account-review-collect-*-linux-x64 --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cf-account-review-collect-binaries
+          path: dist-bin/
+          retention-days: 30
+      - name: Attach to release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "Read-only collector binaries. Verify with SHA256SUMS."
+          gh release upload "$GITHUB_REF_NAME" dist-bin/* --clobber

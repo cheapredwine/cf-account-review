@@ -72,28 +72,47 @@ You have two options for running this review. Choose based on your security requ
 4. You send us **only the JSON file** — no tokens, no credentials
 5. We run the analyzer against the JSON and return your report
 
-**PowerShell (Windows):**
+**Recommended: the single-file collector (nothing to install).**
+Download the file for your platform from the project's GitHub release, together with
+`SHA256SUMS`. Each file contains everything it needs — no Node.js, Python, PowerShell
+modules, or other runtime.
 
-```powershell
-# From the tool directory
-.\collectors\ps\Collect-CFConfig.ps1
-
-# You'll be prompted for your API token (input is hidden)
-# Output: cloudflare-config-YYYYMMDD-HHMMSS.json
-```
-
-**Bash (macOS/Linux):**
+| Platform | File |
+|---|---|
+| macOS (Apple silicon) | `cf-account-review-collect-<version>-darwin-arm64` |
+| macOS (Intel) | `cf-account-review-collect-<version>-darwin-x64` |
+| Linux x64 / arm64 | `cf-account-review-collect-<version>-linux-x64` / `-linux-arm64` |
+| Windows x64 | `cf-account-review-collect-<version>-windows-x64.exe` |
 
 ```bash
-# From the tool directory
-CF_API_TOKEN=your_token_here ./collectors/sh/collect-config.sh output/
-
-# Or use environment variable from your shell
-export CF_API_TOKEN=...
-./collectors/sh/collect-config.sh output/
-
-# Output: output/cloudflare-config-YYYYMMDD-HHMMSS.json
+# macOS / Linux
+shasum -a 256 -c SHA256SUMS --ignore-missing     # verify the download
+chmod +x cf-account-review-collect-*
+./cf-account-review-collect-<version>-darwin-arm64 output/
+# Paste your token when prompted (input is hidden), or set CF_API_TOKEN first.
 ```
+
+```powershell
+# Windows
+Get-FileHash .\cf-account-review-collect-<version>-windows-x64.exe -Algorithm SHA256   # compare with SHA256SUMS
+.\cf-account-review-collect-<version>-windows-x64.exe output
+```
+
+Output: `output/cloudflare-config-YYYY-MM-DD-HHMM.json`. If nothing could be read (bad
+token, no network), the collector says so and writes nothing.
+
+> **First run on macOS/Windows:** the binaries are not yet code-signed. macOS may block
+> a downloaded file ("cannot be opened because the developer cannot be verified"):
+> run `xattr -d com.apple.quarantine <file>` or allow it in System Settings → Privacy &
+> Security. Windows SmartScreen may ask you to confirm ("More info" → "Run anyway").
+> Always verify the SHA-256 checksum first.
+
+**Alternative: readable scripts.** If your policy requires running only code you can
+read line by line, use the scripts instead (same output format):
+
+- PowerShell 7+: `.\collectors\ps\Collect-CFConfig.ps1`
+- Bash: `CF_API_TOKEN=... ./collectors/sh/collect-config.sh output/` (needs `curl` and
+  `python3`; on macOS `python3` comes with the Xcode Command Line Tools)
 
 **What you send us:** The generated JSON file only. We run `node dist/cli.js analyze <file>` and return your report plus (future) a Terraform configuration to fix the issues.
 
@@ -388,8 +407,9 @@ pnpm verify    # or npm run verify (runs tests)
 
 **If you're only using Option 1 (offline collector):**
 
-- **PowerShell collector:** No installation needed; just run the `.ps1` script
-- **Bash collector:** Requires `curl` and `python3` (pre-installed on macOS/Linux)
+- **Single-file collector (recommended):** nothing to install — download, verify the checksum, run
+- **PowerShell script:** PowerShell 7+, no modules
+- **Bash script:** `curl` and `python3` (macOS: Xcode Command Line Tools)
 
 ---
 

@@ -5,3 +5,4 @@ reports/
 *.log
 .env
 .env.*
+dist-bin/

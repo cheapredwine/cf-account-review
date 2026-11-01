@@ -36,7 +36,10 @@ evaluates a YAML findings rulebook against it and renders a Markdown report.
    an evaluator (only if not declarative), a `citation` to Cloudflare docs, a
    plan-tier, a `scope` if account-level, a domain that belongs to a profile, and
    a fixture-based test in `tests/engine.test.ts` or `tests/web-security.test.ts`.
-7. **Three collectors, one contract.** Any collection change goes into
+7. **One contract, three implementations.** The Mode B single binary
+   (`src/bin/collect.ts`, built with `scripts/build-binaries.sh`) IS the Mode A
+   collector compiled with Bun — no mirroring. The bash and PowerShell scripts remain
+   as readable alternatives and must still be mirrored: Any collection change goes into
    `src/collect.ts` + `src/summarize.ts`, the bash assembler, and the PowerShell
    collector together. `tests/collector-parity.test.ts` must pass (it needs
    `python3`; the PowerShell leg runs when `pwsh` is on PATH or `$PWSH` is set —
@@ -63,6 +66,7 @@ evaluates a YAML findings rulebook against it and renders a Markdown report.
 - `src/collect.ts` — Mode A collector
 - `src/analyzer/` — rulebook engine + Markdown report
 - `src/cli.ts` — `collect` / `analyze` commands
+- `src/bin/collect.ts` — Mode B single-binary entry (hidden token prompt; client installs no runtime)
 - `findings/checks.yaml` — the rulebook
 - `collectors/ps/`, `collectors/sh/` — Mode B collectors
 - `tests/` — read-only enforcement, redaction, engine + web-security fixtures,

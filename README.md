@@ -42,7 +42,18 @@ node dist/cli.js analyze output/collection.json --profile all --out output/all.m
 node dist/cli.js analyze output/collection.json --fail-on high  # Exit 1 if any high-severity fails
 ```
 
-### Mode B — offline shell collectors (token never leaves the customer)
+### Mode B — offline collection (token never leaves the customer)
+
+**Single binary (recommended, nothing to install):** release assets
+`cf-account-review-collect-<version>-<os>-<arch>` for macOS, Linux and Windows, built
+from the same TypeScript collector as Mode A with the Bun runtime embedded.
+
+```bash
+./cf-account-review-collect-0.2.0-darwin-arm64 output/   # prompts for the token (hidden)
+scripts/build-binaries.sh                               # build all targets into dist-bin/
+```
+
+**Readable scripts** (for teams that must read what they run):
 
 PowerShell:
 

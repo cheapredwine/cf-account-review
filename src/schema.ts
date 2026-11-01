@@ -120,7 +120,7 @@ const httpErrorSchema = z.object({
 export const collectionSchema = z.object({
   schemaVersion: z.string().refine((v) => v.split(".")[0] === SCHEMA_MAJOR, "unsupported schema major version"),
   collectedAt: z.string().datetime({ offset: true }),
-  collector: z.enum(["api", "powershell", "bash"]),
+  collector: z.enum(["api", "binary", "powershell", "bash"]),
   collectorVersion: z.string(),
   tokenStatus: z.enum(["active", "verification-failed", "not-verified"]),
   planTiersSeen: z.array(z.string()).optional(),

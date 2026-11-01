@@ -28,16 +28,19 @@
 - [x] Load balancer health checks (CF-LB-001, CF-LB-002) — DONE
 - [x] Exit code enforcement (--fail-on flag) — DONE
 - [x] **v0.2 web-security pass (2026-11-01, branch `web-security-v0.2`)** — see
-      docs/EVOLUTION-20261101T2214Z.md for the review of v0.1 and the roadmap. Fixed:
+      docs/EVOLUTION-20261101T2222Z.md for the review of v0.1 and the roadmap. Fixed:
       Mode B collected no ruleset rules; Mode B data-policy leaks; plan-tier matching
       for "Enterprise Website"; managed-WAF false pass on disabled/log overrides;
       ddos_l7 never collected; unreadable-vs-empty fail-open; cache check premise.
       Added 14 web-security checks, profiles, posture matrix, three-way collector parity
       test, citation link check, generated endpoints doc.
+- [x] Mode B single binary (Bun, runtime embedded; 5 targets; CI artifacts + release on v* tags).
+- [ ] Code signing for the binaries (macOS Developer ID + notarization, Windows Authenticode) — decision pending.
+- [ ] Decide whether to retire the PowerShell script now that the binary covers Windows.
 - [ ] Full-scope token dogfood of v0.2 (all three collectors) — PENDING-REVIEW.md.
 - [ ] Reconcile token permission names for ddos_l7, managed_headers, bot_management,
       zone rulesets list (EVOLUTION §8).
-- [ ] Roadmap P1/P2/P3 — tracked in docs/EVOLUTION-20261101T2214Z.md §6.
+- [ ] Roadmap P1/P2/P3 — tracked in docs/EVOLUTION-20261101T2222Z.md §6.
 - [ ] Mode A: implement `--include-*` explicit re-inclusion flags (DNS content, IDs)
       documented in docs/data-policy.md.
 - [ ] HTML report renderer.
