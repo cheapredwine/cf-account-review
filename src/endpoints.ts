@@ -51,7 +51,7 @@ export const ENDPOINTS: Endpoint[] = [
     scope: "account",
     planTier: "any",
     domain: "account-hygiene",
-    citation: "https://developers.cloudflare.com/fundamentals/account/members/",
+    citation: "https://developers.cloudflare.com/fundamentals/manage-members/manage/",
   },
   {
     path: "/user/tokens",
@@ -114,7 +114,7 @@ export const ENDPOINTS: Endpoint[] = [
     scope: "account",
     planTier: "any",
     domain: "zero-trust",
-    citation: "https://developers.cloudflare.com/cloudflare-one/identity-providers/",
+    citation: "https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/",
   },
   {
     path: "/accounts/{account_id}/challenges/widgets",
@@ -266,7 +266,7 @@ export const ENDPOINTS: Endpoint[] = [
     scope: "zone",
     planTier: "any",
     domain: "workers",
-    citation: "https://developers.cloudflare.com/workers/configuration/routes/",
+    citation: "https://developers.cloudflare.com/workers/configuration/routing/routes/",
   },
   {
     path: "/zones/{zone_id}/rate_limits",

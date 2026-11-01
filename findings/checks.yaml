@@ -503,7 +503,7 @@ checks:
     params: {}
     remediation: >
       Integrate the corporate IdP; OTP-only means no centralized identity control.
-    citation: https://developers.cloudflare.com/cloudflare-one/identity-providers/
+    citation: https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/
 
   - id: CF-TUNNEL-001
     name: Public tunnel routes protected by Access

@@ -25,11 +25,11 @@ check. This file lists the full source set and what was borrowed from each.
   API hardening use case <https://developers.cloudflare.com/use-cases/solutions/discover-secure-api-endpoints/>
 - DNS — DNSSEC <https://developers.cloudflare.com/dns/dnssec/>,
   record types (CAA, MX/SPF) <https://developers.cloudflare.com/dns/manage-dns-records/reference/dns-record-types/>
-- Workers — routes <https://developers.cloudflare.com/workers/configuration/routes/>
+- Workers — routes <https://developers.cloudflare.com/workers/configuration/routing/routes/>
 - Turnstile — <https://developers.cloudflare.com/turnstile/>
 - Zero Trust Access — applications <https://developers.cloudflare.com/cloudflare-one/applications/>,
   policies <https://developers.cloudflare.com/cloudflare-one/policies/access/>,
-  IdPs <https://developers.cloudflare.com/cloudflare-one/identity-providers/>
+  IdPs <https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/>
 - Account security / MFA — <https://developers.cloudflare.com/fundamentals/account/account-security/>
 
 ## Prior art (borrowed, attributed)
