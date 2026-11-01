@@ -422,6 +422,105 @@ const evaluators: Record<string, Evaluator> = {
     }
     return { verdict: "pass", detail: `${gateways.length} gateway(s), all have guardrails configured` };
   },
+
+  page_shield_enabled: (_check, zone) => {
+    if (!zone?.pageShield) {
+      return { verdict: "manual", detail: "Page Shield data not collected" };
+    }
+    if (zone.pageShield.enabled === false) {
+      return { verdict: "fail", detail: "Page Shield disabled" };
+    }
+    if (zone.pageShield.enabled === true) {
+      return { verdict: "pass", detail: "Page Shield enabled" };
+    }
+    return { verdict: "manual", detail: "Page Shield enablement status unknown" };
+  },
+
+  authenticated_origin_pulls_enabled: (_check, zone) => {
+    if (!zone?.authenticatedOriginPulls) {
+      return { verdict: "manual", detail: "Authenticated Origin Pulls data not collected" };
+    }
+    if (zone.authenticatedOriginPulls.enabled === false) {
+      return { verdict: "fail", detail: "Authenticated Origin Pulls disabled" };
+    }
+    if (zone.authenticatedOriginPulls.enabled === true) {
+      return { verdict: "pass", detail: "Authenticated Origin Pulls enabled" };
+    }
+    return { verdict: "manual", detail: "AOP enablement status unknown" };
+  },
+
+  zone_level_aop_preferred: (_check, zone) => {
+    if (!zone?.authenticatedOriginPulls) {
+      return { verdict: "manual", detail: "Authenticated Origin Pulls data not collected" };
+    }
+    if (zone.authenticatedOriginPulls.enabled === false) {
+      return { verdict: "na", detail: "AOP not enabled" };
+    }
+    if (zone.authenticatedOriginPulls.hasZoneLevelCert === false) {
+      return { verdict: "warn", detail: "Using global AOP only (shared certificate); zone-level cert recommended" };
+    }
+    return { verdict: "pass", detail: `Zone-level AOP with ${zone.authenticatedOriginPulls.certCount ?? 0} certificate(s)` };
+  },
+
+  ddos_not_disabled: (_check, zone) => {
+    if (!zone?.phaseEntrypoints) {
+      return { verdict: "manual", detail: "Rulesets not collected" };
+    }
+    const ddosPhase = zone.phaseEntrypoints["ddos_l7"];
+    if (!ddosPhase) {
+      return { verdict: "manual", detail: "DDoS L7 phase not readable" };
+    }
+    const disabledRules = (ddosPhase.rules ?? []).filter(
+      (r) => r.action === "execute" && r.enabled === false,
+    );
+    if (disabledRules.length > 0) {
+      return { verdict: "fail", detail: `${disabledRules.length} DDoS managed ruleset(s) disabled via override` };
+    }
+    return { verdict: "pass", detail: "HTTP DDoS managed rulesets not disabled" };
+  },
+
+  html_cache_check: (_check, zone) => {
+    if (!zone?.settings) {
+      return { verdict: "manual", detail: "Zone settings not collected" };
+    }
+    const cacheLevel = zone.settings.cache_level?.value;
+    if (cacheLevel === "aggressive") {
+      return { verdict: "warn", detail: "cache_level set to 'aggressive' (caches HTML by default)" };
+    }
+    return { verdict: "pass", detail: `cache_level is '${String(cacheLevel ?? "basic")}' (HTML not cached by default)` };
+  },
+
+  tunnel_access_gap: (_check, _zone, collection) => {
+    const tunnels = collection.accounts.flatMap((a) => a.cfdTunnels ?? []);
+    if (tunnels.length === 0) {
+      return { verdict: "na", detail: "no Cloudflare Tunnels found" };
+    }
+
+    const publicHostnames = tunnels.flatMap((t) => t.publicHostnames ?? []);
+    if (publicHostnames.length === 0) {
+      return { verdict: "pass", detail: `${tunnels.length} tunnel(s), no public hostnames configured` };
+    }
+
+    const accessApps = collection.accounts.flatMap((a) => a.accessApps ?? []);
+    const protectedDomains = new Set<string>();
+    
+    for (const app of accessApps) {
+      if (app.domain) protectedDomains.add(app.domain.toLowerCase());
+      for (const selfHosted of app.selfHostedDomains ?? []) {
+        protectedDomains.add(selfHosted.toLowerCase());
+      }
+    }
+
+    const unprotected = publicHostnames.filter((h) => !protectedDomains.has(h.toLowerCase()));
+    if (unprotected.length > 0) {
+      return {
+        verdict: "fail",
+        detail: `${unprotected.length} public tunnel hostname(s) without Access protection: ${unprotected.slice(0, 3).join(", ")}${unprotected.length > 3 ? "..." : ""}`,
+      };
+    }
+
+    return { verdict: "pass", detail: `${publicHostnames.length} public tunnel hostname(s), all protected by Access` };
+  },
 };
 
 export function evaluate(collection: Collection, checks: Check[]): Finding[] {
@@ -440,7 +539,7 @@ export function evaluate(collection: Collection, checks: Check[]): Finding[] {
     const tier = check.applies?.planTier ?? "any";
     if (tier !== "any") {
       // account-level checks run once; zone checks run per zone
-      if (["turnstile", "access_apps", "access_idps", "account_setting_flag", "token_expiry", "zombie_workers", "lb_pool_health", "lb_monitor_health", "aig_rate_limiting", "aig_authentication", "aig_logging", "aig_dlp", "aig_guardrails"].includes(check.type)) {
+      if (["turnstile", "access_apps", "access_idps", "account_setting_flag", "token_expiry", "zombie_workers", "lb_pool_health", "lb_monitor_health", "aig_rate_limiting", "aig_authentication", "aig_logging", "aig_dlp", "aig_guardrails", "tunnel_access_gap"].includes(check.type)) {
         const res = evaluator(check, null, collection);
         findings.push({ check, scope: "account", ...res });
       } else {
@@ -459,7 +558,7 @@ export function evaluate(collection: Collection, checks: Check[]): Finding[] {
         }
       }
     } else {
-      if (["turnstile", "access_apps", "access_idps", "account_setting_flag", "token_expiry", "zombie_workers", "lb_pool_health", "lb_monitor_health", "aig_rate_limiting", "aig_authentication", "aig_logging", "aig_dlp", "aig_guardrails"].includes(check.type)) {
+      if (["turnstile", "access_apps", "access_idps", "account_setting_flag", "token_expiry", "zombie_workers", "lb_pool_health", "lb_monitor_health", "aig_rate_limiting", "aig_authentication", "aig_logging", "aig_dlp", "aig_guardrails", "tunnel_access_gap"].includes(check.type)) {
         const res = evaluator(check, null, collection);
         findings.push({ check, scope: "account", ...res });
       } else {

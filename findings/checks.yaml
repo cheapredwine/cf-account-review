@@ -412,3 +412,93 @@ checks:
       Configure guardrails to protect against prompt injection and other AI-specific
       attacks. Set up guardrail policies via Settings > Guardrails.
     citation: https://developers.cloudflare.com/ai-gateway/
+
+  # ----------------------------------------------------- Client-Side Security
+  - id: CF-PS-001
+    name: Page Shield (Client-side security) enabled
+    domain: client-side-security
+    severity: medium
+    type: page_shield_enabled
+    applies: { planTier: business-plus }
+    evidence: zones[].pageShield
+    params: {}
+    remediation: >
+      Enable Page Shield to monitor client-side scripts, connections, and cookies
+      loaded by your website visitors. Detect supply chain attacks and malicious
+      third-party scripts.
+    citation: https://developers.cloudflare.com/client-side-security/
+
+  # --------------------------------------------------------- Origin Security
+  - id: CF-AOP-001
+    name: Authenticated Origin Pulls enabled
+    domain: origin-security
+    severity: high
+    type: authenticated_origin_pulls_enabled
+    applies: { planTier: any }
+    evidence: zones[].authenticatedOriginPulls
+    params: {}
+    remediation: >
+      Enable Authenticated Origin Pulls to ensure requests to your origin server
+      come from the Cloudflare network. Without AOP, anyone who discovers your
+      origin IP can bypass Cloudflare protections.
+    citation: https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/
+
+  - id: CF-AOP-002
+    name: Zone-level Authenticated Origin Pulls preferred
+    domain: origin-security
+    severity: medium
+    type: zone_level_aop_preferred
+    applies: { planTier: any }
+    evidence: zones[].authenticatedOriginPulls
+    params: {}
+    warnIf: ["global_only"]
+    remediation: >
+      Global AOP uses a shared Cloudflare certificate that only proves requests
+      come from the Cloudflare network. Upload a zone-level certificate to guarantee
+      requests come from YOUR account specifically.
+    citation: https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/zone-level/
+
+  # ------------------------------------------------------------- DDoS / Cache
+  - id: CF-DDOS-001
+    name: HTTP DDoS managed ruleset not disabled
+    domain: ddos
+    severity: high
+    type: ddos_not_disabled
+    applies: { planTier: any }
+    evidence: zones[].phaseEntrypoints
+    params: {}
+    remediation: >
+      HTTP DDoS managed rulesets should not be overridden to "disabled". This leaves
+      your zone exposed to DDoS attacks. If you need to reduce sensitivity, use
+      "log" mode or adjust sensitivity rather than disabling.
+    citation: https://developers.cloudflare.com/ddos-protection/
+
+  - id: CF-CACHE-001
+    name: HTML not cached aggressively by default
+    domain: cache
+    severity: medium
+    type: html_cache_check
+    applies: { planTier: any }
+    evidence: zones[].settings
+    params: {}
+    warnIf: ["aggressive_html_cache"]
+    remediation: >
+      Cloudflare does not cache HTML by default. Setting cache_level to "aggressive"
+      caches HTML, which can serve stale content and bypass dynamic personalization.
+      Use Cache Rules for selective HTML caching instead.
+    citation: https://developers.cloudflare.com/cache/
+
+  # -------------------------------------------------------------- Zero Trust
+  - id: CF-TUNNEL-001
+    name: Public tunnel routes protected by Access
+    domain: zero-trust
+    severity: high
+    type: tunnel_access_gap
+    applies: { planTier: any }
+    evidence: accounts[].cfdTunnels, accounts[].accessApps
+    params: {}
+    remediation: >
+      Create Access applications BEFORE adding public hostname routes to Cloudflare
+      Tunnels. The moment a public hostname is added, a live DNS record is created.
+      Without an Access app, your origin is exposed to the entire Internet.
+    citation: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/

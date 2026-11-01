@@ -163,7 +163,23 @@ export async function collect(token: string): Promise<Collection> {
           mode: typeof wid.mode === "string" ? wid.mode : undefined,
         };
       }),
-      cfdTunnels: tunnels,
+      cfdTunnels: await Promise.all(
+        tunnels.map(async (t) => {
+          const tun = asRecord(t);
+          const tunnelId = String(tun.id ?? "");
+          const config = asRecord(await client.get(`/accounts/${accountId}/cfd_tunnel/${tunnelId}/configurations`));
+          const ingress = asArray(asRecord(config.config).ingress);
+          const publicHostnames = ingress
+            .map((i) => String(asRecord(i).hostname ?? ""))
+            .filter((h) => h.length > 0 && h !== "*");
+          return {
+            id: tun.id ? hashId(tunnelId) : undefined,
+            name: typeof tun.name === "string" ? tun.name : undefined,
+            status: typeof tun.status === "string" ? tun.status : undefined,
+            publicHostnames,
+          };
+        }),
+      ),
       workersScripts: scripts.map((s) => {
         const sc = asRecord(s);
         const bindings = asArray(sc.bindings).map((b) => asRecord(b));
@@ -322,6 +338,25 @@ export async function collect(token: string): Promise<Collection> {
       legacyRateLimits: asArray(await client.list(`/zones/${zoneId}/rate_limits`)),
       apiGatewayDiscovery: asArray(await client.list(`/zones/${zoneId}/api_gateway/discovery`)),
     });
+
+    // Page Shield and AOP collection
+    const ps = asRecord(await client.get(`/zones/${zoneId}/page_shield`));
+    const aopSettings = asRecord(await client.get(`/zones/${zoneId}/origin_tls_client_auth/settings`));
+    const aopCerts = asArray(await client.list(`/zones/${zoneId}/origin_tls_client_auth`));
+
+    const currentZone = zones[zones.length - 1];
+    if (currentZone) {
+      currentZone.pageShield = {
+        enabled: typeof ps.enabled === "boolean" ? ps.enabled : undefined,
+        useCloudflareReportingEndpoint: typeof ps.use_cloudflare_reporting_endpoint === "boolean" ? ps.use_cloudflare_reporting_endpoint : undefined,
+        useConnectionUrlPath: typeof ps.use_connection_url_path === "boolean" ? ps.use_connection_url_path : undefined,
+      };
+      currentZone.authenticatedOriginPulls = {
+        enabled: typeof aopSettings.enabled === "boolean" ? aopSettings.enabled : undefined,
+        hasZoneLevelCert: aopCerts.length > 0,
+        certCount: aopCerts.length,
+      };
+    }
   }
 
   return {

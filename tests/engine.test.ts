@@ -464,21 +464,103 @@ describe("findings engine", () => {
     const findings = evaluate(c, checks);
     const aigFindings = findings.filter((f: Finding) => f.check.domain === "ai-gateway");
     
-    // Debug: log any non-na findings
-    const nonNa = aigFindings.filter((f) => f.verdict !== "na");
-    if (nonNa.length > 0) {
-      console.log("Non-na AI Gateway findings:", nonNa.map((f) => ({ 
-        id: f.check.id, 
-        type: f.check.type,
-        verdict: f.verdict, 
-        detail: f.detail 
-      })));
-    }
-    
     // Should have at least the 5 AI Gateway checks
     expect(aigFindings.length).toBeGreaterThan(0);
     
     // All should return na when no gateways present
     expect(aigFindings.every((f) => f.verdict === "na")).toBe(true);
+  });
+
+  it("Page Shield: enabled passes, disabled fails", () => {
+    const makeC = (enabled: boolean) => {
+      const c = baseCollection();
+      c.zones = [zoneWith({ pageShield: { enabled } })];
+      return c;
+    };
+
+    const failing = evaluate(makeC(false), checks).find((f: Finding) => f.check.id === "CF-PS-001");
+    expect(failing?.verdict).toBe("fail");
+
+    const passing = evaluate(makeC(true), checks).find((f: Finding) => f.check.id === "CF-PS-001");
+    expect(passing?.verdict).toBe("pass");
+  });
+
+  it("Authenticated Origin Pulls: enabled passes, disabled fails", () => {
+    const makeC = (enabled: boolean) => {
+      const c = baseCollection();
+      c.zones = [zoneWith({ authenticatedOriginPulls: { enabled, hasZoneLevelCert: false, certCount: 0 } })];
+      return c;
+    };
+
+    const failing = evaluate(makeC(false), checks).find((f: Finding) => f.check.id === "CF-AOP-001");
+    expect(failing?.verdict).toBe("fail");
+
+    const passing = evaluate(makeC(true), checks).find((f: Finding) => f.check.id === "CF-AOP-001");
+    expect(passing?.verdict).toBe("pass");
+  });
+
+  it("Zone-level AOP: warns when using global only, passes with zone cert", () => {
+    const makeC = (hasZoneLevelCert: boolean) => {
+      const c = baseCollection();
+      c.zones = [zoneWith({ authenticatedOriginPulls: { enabled: true, hasZoneLevelCert, certCount: hasZoneLevelCert ? 1 : 0 } })];
+      return c;
+    };
+
+    const warning = evaluate(makeC(false), checks).find((f: Finding) => f.check.id === "CF-AOP-002");
+    expect(warning?.verdict).toBe("warn");
+
+    const passing = evaluate(makeC(true), checks).find((f: Finding) => f.check.id === "CF-AOP-002");
+    expect(passing?.verdict).toBe("pass");
+  });
+
+  it("DDoS: passes when not disabled, fails when override disables", () => {
+    const makeC = (disabledCount: number) => {
+      const c = baseCollection();
+      const rules = [];
+      for (let i = 0; i < disabledCount; i++) {
+        rules.push({ action: "execute", enabled: false });
+      }
+      c.zones = [zoneWith({ phaseEntrypoints: { ddos_l7: { id: "test", rules } } })];
+      return c;
+    };
+
+    const passing = evaluate(makeC(0), checks).find((f: Finding) => f.check.id === "CF-DDOS-001");
+    expect(passing?.verdict).toBe("pass");
+
+    const failing = evaluate(makeC(1), checks).find((f: Finding) => f.check.id === "CF-DDOS-001");
+    expect(failing?.verdict).toBe("fail");
+  });
+
+  it("Cache: warns on aggressive, passes otherwise", () => {
+    const makeC = (cacheLevel: string) => {
+      const c = baseCollection();
+      c.zones = [zoneWith({ settings: { cache_level: { id: "cache_level", value: cacheLevel } } })];
+      return c;
+    };
+
+    const warning = evaluate(makeC("aggressive"), checks).find((f: Finding) => f.check.id === "CF-CACHE-001");
+    expect(warning?.verdict).toBe("warn");
+
+    const passing = evaluate(makeC("basic"), checks).find((f: Finding) => f.check.id === "CF-CACHE-001");
+    expect(passing?.verdict).toBe("pass");
+  });
+
+  it("Tunnel-Access gap: fails when public hostname unprotected, passes when protected", () => {
+    const makeC = (hasAccessApp: boolean) => {
+      const c = baseCollection();
+      c.accounts = [
+        {
+          cfdTunnels: [{ id: "t1", name: "my-tunnel", status: "active", publicHostnames: ["app.example.com"] }],
+          accessApps: hasAccessApp ? [{ domain: "app.example.com", hasPolicies: true }] : [],
+        },
+      ];
+      return c;
+    };
+
+    const failing = evaluate(makeC(false), checks).find((f: Finding) => f.check.id === "CF-TUNNEL-001");
+    expect(failing?.verdict).toBe("fail");
+
+    const passing = evaluate(makeC(true), checks).find((f: Finding) => f.check.id === "CF-TUNNEL-001");
+    expect(passing?.verdict).toBe("pass");
   });
 });

@@ -32,6 +32,7 @@ describe("endpoint registry coverage", () => {
       const normalized = path
         .replace("${accountId}", "{account_id}")
         .replace("${zoneId}", "{zone_id}")
+        .replace("${tunnelId}", "{tunnel_id}")
         .replace("${phase}", "{phase}");
       const template = normalized
         .replace(/\$\{[^}]+\}/g, "{param}")
@@ -41,6 +42,7 @@ describe("endpoint registry coverage", () => {
         p
           .replace("{account_id}", "\\{[^}]+\\}")
           .replace("{zone_id}", "\\{[^}]+\\}")
+          .replace("{tunnel_id}", "\\{[^}]+\\}")
           .replace("{phase}", "\\{[^}]+\\}"),
       );
       const ok = candidates.some((c) => new RegExp(`^${c}$`).test(template));

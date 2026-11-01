@@ -12,8 +12,10 @@
 - [ ] Add CI-scheduled smoke: analyze a committed fixture collection so rulebook
       regressions fail visibly.
 - [x] AI Gateway security checks (CF-AIG-001 through CF-AIG-005) — DONE
-- [ ] Check batch 2 (from detailed review): Page Shield, Logpush, Authenticated Origin Pulls,
-      DDoS Protection, Cache rules, Email Routing, Waiting Room.
+- [x] Check batch 2: Page Shield, Authenticated Origin Pulls (2 checks), DDoS, Cache, Tunnel-Access gap — DONE
+- [ ] Check batch 3 (deferred after dogfood): Email Security misconfigurations (hop count, MX hygiene),
+      Logpush enabled for security events, cloudflared version check, Security headers via Transform Rules,
+      Waiting Room.
 - [ ] Diff mode: `--compare-to previous-collection.json --diff-only` for quarterly check-ins
 - [ ] Multi-zone batch: `--zones zone1,zone2,zone3` for Enterprise multi-zone customers
 - [ ] Compliance framework mapping: add `compliance: []` to checks.yaml, map to SOC 2/PCI DSS

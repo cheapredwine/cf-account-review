@@ -336,6 +336,42 @@ export const ENDPOINTS: Endpoint[] = [
     domain: "ai-gateway",
     citation: "https://developers.cloudflare.com/ai-gateway/",
   },
+  {
+    path: "/zones/{zone_id}/page_shield",
+    rationale: "Client-side security (Page Shield) enablement: script/connection/cookie monitoring, malicious script detection.",
+    tokenPermission: "Page Shield: Read",
+    scope: "zone",
+    planTier: "business-plus",
+    domain: "client-side-security",
+    citation: "https://developers.cloudflare.com/client-side-security/",
+  },
+  {
+    path: "/zones/{zone_id}/origin_tls_client_auth/settings",
+    rationale: "Authenticated Origin Pulls (mTLS) enablement: verifies requests come from Cloudflare network.",
+    tokenPermission: "SSL and Certificates: Read",
+    scope: "zone",
+    planTier: "any",
+    domain: "origin-security",
+    citation: "https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/",
+  },
+  {
+    path: "/zones/{zone_id}/origin_tls_client_auth",
+    rationale: "Authenticated Origin Pulls zone-level certificates: custom cert preferred over shared global cert.",
+    tokenPermission: "SSL and Certificates: Read",
+    scope: "zone",
+    planTier: "any",
+    domain: "origin-security",
+    citation: "https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/zone-level/",
+  },
+  {
+    path: "/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations",
+    rationale: "Tunnel public hostname inventory: cross-reference with Access apps to detect unprotected public routes.",
+    tokenPermission: "Cloudflare Tunnel: Read",
+    scope: "account",
+    planTier: "any",
+    domain: "zero-trust",
+    citation: "https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/",
+  },
 ];
 
 /** Security/traffic phases whose entrypoint rules are collected. */

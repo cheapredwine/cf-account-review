@@ -7,8 +7,9 @@
 A **strictly read-only** Cloudflare account configuration review tool. It collects
 configuration through the public Cloudflare API and evaluates it against a YAML
 best-practice rulebook (WAF, rate limiting, bot management, SSL/TLS, DNS, Workers,
-Turnstile, Access, AI Gateway, account hygiene), producing a customer-ready Markdown
-report where every finding cites the Cloudflare documentation that justifies it.
+Turnstile, Access, AI Gateway, Page Shield, Authenticated Origin Pulls, DDoS, Cache,
+Zero Trust Tunnels, account hygiene), producing a customer-ready Markdown report where
+every finding cites the Cloudflare documentation that justifies it.
 
 ## The guarantees
 
@@ -62,8 +63,8 @@ work: unreadable endpoints are skipped and listed in `collectionErrors`.
 
 ## What it checks
 
-The rulebook lives in [`findings/checks.yaml`](./findings/checks.yaml) — 34 checks across
-11 domains. Add a check there (and an evaluator if it needs logic beyond a setting
+The rulebook lives in [`findings/checks.yaml`](./findings/checks.yaml) — 41 checks across
+16 domains. Add a check there (and an evaluator if it needs logic beyond a setting
 expectation). v1 covers:
 
 - **SSL/TLS:** Full(strict) mode, min TLS ≥ 1.2, HSTS, Always Use HTTPS, certificate expiry
@@ -76,6 +77,11 @@ expectation). v1 covers:
 - **Workers:** zombie (unrouted) scripts, dangling routes
 - **Load Balancing:** pool failover (multiple origins), monitor intervals
 - **AI Gateway:** rate limiting, authentication, logging, DLP policies, guardrails
+- **Client-Side Security:** Page Shield enabled
+- **Origin Security:** Authenticated Origin Pulls enabled, zone-level cert preferred
+- **DDoS:** HTTP DDoS managed rulesets not disabled
+- **Cache:** HTML not cached aggressively by default
+- **Zero Trust:** Tunnel public routes protected by Access
 - **Access & account:** policy-less Access apps, bypass decisions, OTP-only IdPs,
   2FA enforcement, token expiry posture
 

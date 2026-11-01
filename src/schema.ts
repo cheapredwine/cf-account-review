@@ -168,7 +168,16 @@ export const collectionSchema = z.object({
             }),
           )
           .optional(),
-        cfdTunnels: z.unknown().optional(),
+        cfdTunnels: z
+          .array(
+            z.object({
+              id: idSchema.optional(),
+              name: z.string().optional(),
+              status: z.string().optional(),
+              publicHostnames: z.array(z.string()).optional(),
+            }),
+          )
+          .optional(),
         workersScripts: z
           .array(
             z.object({
@@ -252,6 +261,20 @@ export const collectionSchema = z.object({
         dnsRecords: z.array(dnsRecordSchema).optional(),
         legacyRateLimits: z.unknown().optional(),
         apiGatewayDiscovery: z.unknown().optional(),
+        pageShield: z
+          .object({
+            enabled: z.boolean().optional(),
+            useCloudflareReportingEndpoint: z.boolean().optional(),
+            useConnectionUrlPath: z.boolean().optional(),
+          })
+          .optional(),
+        authenticatedOriginPulls: z
+          .object({
+            enabled: z.boolean().optional(),
+            hasZoneLevelCert: z.boolean().optional(),
+            certCount: z.number().optional(),
+          })
+          .optional(),
       }),
     )
     .default([]),
