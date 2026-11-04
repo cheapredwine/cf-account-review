@@ -11,11 +11,12 @@
 #   pass | warn | fail | manual | na — and INCOMPLETE OR UNREADABLE EVIDENCE
 #   CAN NEVER PASS. Missing data yields "manual", not "pass".
 #
-# Build phases (2026-11-03): every check carries an optional `phase` field.
-# Checks without one default to phase 1. Phase 1 = web performance and
-# security + AI controls. Phase 2 = Developer Platform (Workers). Cloudforce
-# One is out of product scope entirely. `analyze --phase 1` filters the
-# report to phase-1 checks; no flag = all checks (back-compat).
+# Build phases (2026-11-03, corrected 2026-11-03): every check carries an
+# optional `phase` field. Checks without one default to phase 1.
+#   Phase 1 = web performance and security + AI controls.
+#   Phase 2+ = Cloudflare One (Zero Trust / ZTNA: Access apps, IdPs, tunnels)
+#   and Developer Platform (Workers). `analyze --phase 1` filters the report
+#   to phase-1 checks; no flag = all checks (back-compat).
 
 checks:
   # ------------------------------------------------------------------ SSL/TLS
@@ -198,11 +199,13 @@ checks:
     citation: https://developers.cloudflare.com/turnstile/get-started/
 
   # ------------------------------------------------------------------ Access
+  # PHASE 2+ (Cloudflare One / ZTNA) — excluded from --phase 1 reports.
   - id: CF-ZT-001
     name: Access applications have policies attached
     domain: zero-trust
     severity: high
     type: access_apps
+    phase: 2
     applies: { planTier: any }
     evidence: accounts[].accessApps
     params: {}
@@ -216,6 +219,7 @@ checks:
     domain: zero-trust
     severity: medium
     type: access_idps
+    phase: 2
     applies: { planTier: any }
     evidence: accounts[].accessIdentityProviders
     params: {}
@@ -491,11 +495,13 @@ checks:
     citation: https://developers.cloudflare.com/cache/
 
   # -------------------------------------------------------------- Zero Trust
+  # PHASE 2+ (Cloudflare One / ZTNA) — excluded from --phase 1 reports.
   - id: CF-TUNNEL-001
     name: Public tunnel routes protected by Access
     domain: zero-trust
     severity: high
     type: tunnel_access_gap
+    phase: 2
     applies: { planTier: any }
     evidence: accounts[].cfdTunnels, accounts[].accessApps
     params: {}

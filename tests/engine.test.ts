@@ -570,11 +570,18 @@ describe("findings engine", () => {
     const doc = parse(readFileSync(join(ROOT, "findings", "checks.yaml"), "utf8")) as { checks?: Check[] };
     const all = doc.checks ?? [];
     const phase1 = filterChecksByPhase(all, 1);
-    expect(phase1.length).toBeGreaterThan(all.length - 5); // only a few checks live in phase 2
+    // phase 2 currently holds 5 checks (2 Workers + 3 Cloudflare One/ZTNA)
+    expect(all.length - phase1.length).toBe(5);
     const ids = (cs: Check[]) => new Set(cs.map((c) => c.id));
     const p1 = ids(phase1);
     expect(p1.has("CF-WRK-001")).toBe(false);
     expect(p1.has("CF-WRK-002")).toBe(false);
+    expect(p1.has("CF-ZT-001")).toBe(false);
+    expect(p1.has("CF-ZT-002")).toBe(false);
+    expect(p1.has("CF-TUNNEL-001")).toBe(false);
+    // account-hygiene checks are NOT Cloudflare One product checks
+    expect(p1.has("CF-ZT-003")).toBe(true);
+    expect(p1.has("CF-IAM-001")).toBe(true);
     // AI controls stay in phase 1
     for (const id of ["CF-AIG-001", "CF-AIG-002", "CF-AIG-003", "CF-AIG-004", "CF-AIG-005"]) {
       expect(p1.has(id)).toBe(true);
