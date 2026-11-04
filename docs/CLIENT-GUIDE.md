@@ -165,7 +165,7 @@ Token** → **Custom token**.
 
 | Permission (dashboard name) | Covers |
 |------------|-----------|
-| API Tokens (under User) | User-token rotation posture |
+| API Tokens: Read (User section) | User-token rotation posture |
 
 *Zone-scoped — "Include · All zones from an account · *your account*":*
 

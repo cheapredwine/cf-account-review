@@ -14,7 +14,7 @@ the doc that justifies its check.
 | `/accounts` | Enumerate accounts; everything else is scoped per account. | Account Settings: Read | any |
 | `/accounts/{id}` | Account posture: enforce-2FA flag, API access, abuse contact (under `result.settings`; the `/settings` subpath 404s). | Account Settings: Read | any |
 | `/accounts/{id}/members` | 2FA adoption and role concentration. Only role names + 2FA booleans are exported; no names or emails. | Account Settings: Read | any |
-| `/user/tokens` | Token expiry/rotation posture (status, expiry, last-use only). | User API Tokens: Read | any |
+| `/user/tokens` | Token expiry/rotation posture (status, expiry, last-use only). | API Tokens: Read (User section) | any |
 | `/accounts/{id}/tokens` | Account-owned token inventory (metadata only). | Account API Tokens: Read | any |
 | `/accounts/{id}/load_balancers/pools` | Pool health-check hygiene and failover posture. | Load Balancing: Monitors and Pools: Read | any |
 | `/accounts/{id}/load_balancers/monitors` | Monitor configuration sanity (intervals, expected codes). | Load Balancing: Monitors and Pools: Read | any |

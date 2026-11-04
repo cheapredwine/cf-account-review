@@ -31,8 +31,9 @@
       (waf/overrides, rate_limits + vacuous-pass CF-RL-002), opaque-string redaction
       (96-char generated ruleset name tripped the pre-write scan; reproduced as a test),
       and docs/CLIENT-GUIDE drift corrected from the live permission-group registry.
-      Full-token verdicts: 17 fail / 20 warn / 23 pass / 31 manual vs the OAuth
-      baseline 0/7/13/70 — the narrow token's 70 manuals masked 17 real fails.
+      Full-token verdicts (per the report's own summary):
+      17 fail / 20 warn / 22 pass / 26 manual / 25 n/a vs the OAuth
+      baseline 0/7/13/70/25 — the narrow token's 70 manuals masked 17 real fails.
       Mode B (bash + pwsh) rerun clean with the fixes; pwsh writes repo-root by
       default (default $OutputDir) and 0644 perms (fixed to chmod 600 in the same
       session); collections moved to output/.
@@ -50,6 +51,10 @@
       Logpush enabled for security events, cloudflared version check, Security headers via Transform Rules,
       Waiting Room.
 - [ ] Diff mode: `--compare-to previous-collection.json --diff-only` for quarterly check-ins
+- [ ] Report write path: `cmdAnalyze` writes the report with a bare `writeFileSync`
+      (no opaque redaction / secret scan). Analyzing a pre-redaction collection would
+      pass raw values into the report. Add the same guarded write as the collect path.
+      (Found in the 2026-11-03 evaluator pass; pre-existing, deferred.)
 - [ ] Multi-zone batch: `--zones zone1,zone2,zone3` for Enterprise multi-zone customers
 - [ ] Compliance framework mapping: add `compliance: []` to checks.yaml, map to SOC 2/PCI DSS
 - [ ] Extract JSON Schema from zod for customers who want to validate Mode B files

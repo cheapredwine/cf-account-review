@@ -57,7 +57,7 @@ export const ENDPOINTS: Endpoint[] = [
   {
     path: "/user/tokens",
     rationale: "Token expiry/rotation posture (status, expiry, last-use only).",
-    tokenPermission: "User API Tokens: Read",
+    tokenPermission: "API Tokens: Read (User section)",
     scope: "account",
     planTier: "any",
     domain: "account-hygiene",
@@ -75,7 +75,7 @@ export const ENDPOINTS: Endpoint[] = [
   {
     path: "/accounts/{account_id}/load_balancers/pools",
     rationale: "Pool health-check hygiene and failover posture.",
-    tokenPermission: "Load Balancer Monitors and Pools: Read",
+    tokenPermission: "Load Balancing: Monitors and Pools: Read",
     scope: "account",
     planTier: "any",
     domain: "traffic",
@@ -84,7 +84,7 @@ export const ENDPOINTS: Endpoint[] = [
   {
     path: "/accounts/{account_id}/load_balancers/monitors",
     rationale: "Monitor configuration sanity (intervals, expected codes).",
-    tokenPermission: "Load Balancer Monitors and Pools: Read",
+    tokenPermission: "Load Balancing: Monitors and Pools: Read",
     scope: "account",
     planTier: "any",
     domain: "traffic",
@@ -129,7 +129,7 @@ export const ENDPOINTS: Endpoint[] = [
   {
     path: "/accounts/{account_id}/challenges/widgets",
     rationale: "Turnstile inventory: widgets present, domains bound, mode.",
-    tokenPermission: "Turnstile Widgets: Read",
+    tokenPermission: "Turnstile Sites: Read",
     scope: "account",
     planTier: "any",
     domain: "bots",
@@ -204,7 +204,7 @@ export const ENDPOINTS: Endpoint[] = [
   {
     path: "/zones/{zone_id}/rulesets",
     rationale: "Ruleset inventory: which phases have deployed rulesets at all.",
-    tokenPermission: "Zone Rulesets: Read",
+    tokenPermission: "Zone WAF: Read (covers zone rulesets)",
     scope: "zone",
     planTier: "any",
     domain: "waf",
@@ -213,7 +213,7 @@ export const ENDPOINTS: Endpoint[] = [
   {
     path: "/zones/{zone_id}/rulesets/phases/{phase}/entrypoint",
     rationale: "Live rules for each security/traffic phase (custom WAF, managed WAF, rate limiting, transforms).",
-    tokenPermission: "Zone Rulesets: Read",
+    tokenPermission: "Zone WAF: Read (covers zone rulesets)",
     scope: "zone",
     planTier: "any",
     domain: "waf",
@@ -277,7 +277,7 @@ export const ENDPOINTS: Endpoint[] = [
   {
     path: "/zones/{zone_id}/load_balancers",
     rationale: "Zone LB posture.",
-    tokenPermission: "Load Balancing: Read",
+    tokenPermission: "Load Balancers: Read",
     scope: "zone",
     planTier: "any",
     domain: "traffic",
@@ -295,7 +295,7 @@ export const ENDPOINTS: Endpoint[] = [
   {
     path: "/zones/{zone_id}/api_gateway/discovery",
     rationale: "API discovery inventory (Enterprise): API endpoints known to Cloudflare.",
-    tokenPermission: "API Gateway Operations: Read",
+    tokenPermission: "Domain API Gateway: Read",
     scope: "zone",
     planTier: "enterprise",
     domain: "unsecured-endpoints",
@@ -304,7 +304,7 @@ export const ENDPOINTS: Endpoint[] = [
   {
     path: "/zones/{zone_id}/api_gateway/configuration",
     rationale: "API Shield session/JWT posture (Enterprise).",
-    tokenPermission: "API Gateway Operations: Read",
+    tokenPermission: "Domain API Gateway: Read",
     scope: "zone",
     planTier: "enterprise",
     domain: "unsecured-endpoints",
@@ -322,7 +322,7 @@ export const ENDPOINTS: Endpoint[] = [
   {
     path: "/zones/{zone_id}/page_shield",
     rationale: "Client-side security (Page Shield) enablement: script/connection/cookie monitoring, malicious script detection.",
-    tokenPermission: "Page Shield: Read",
+    tokenPermission: "Domain Page Shield: Read",
     scope: "zone",
     planTier: "business-plus",
     domain: "client-side-security",

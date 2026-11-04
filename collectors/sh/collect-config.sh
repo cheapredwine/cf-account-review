@@ -106,17 +106,18 @@
 #     • Access: Apps and Policies: Read (Access policy review)
 #     • Access: Identity Providers: Read (IdP and MFA posture)
 #     • Access: Service Tokens: Read (token expiry hygiene)
-#     • Turnstile Widgets: Read (Turnstile inventory)
+#     • Turnstile Sites: Read (Turnstile inventory)
 #     • Cloudflare Tunnel: Read (Tunnel-to-Access gap detection)
-#     • User API Tokens: Read (token rotation posture)
+#     • API Tokens: Read (User section) (token rotation posture)
 #     • Account API Tokens: Read (account token inventory)
 #     • SSL and Certificates: Read (certificate expiry warnings)
-#     • Load Balancing: Read (load balancer health checks)
-#     • Load Balancer Monitors and Pools: Read (pool failover)
+#     • Load Balancing: Monitors and Pools: Read (pool failover)
 #     • Page Rules: Read (legacy page rule migration)
-#     • Zone Rate Limiting: Read (legacy rate-limit migration)
-#     • API Gateway Operations: Read (API Shield, Enterprise only)
+#     • Domain API Gateway: Read (API Shield, Enterprise only)
 #     • Account Rulesets: Read (account-level WAF, Enterprise only)
+#   NOTE: there is no "Zone Rulesets" or "Zone Rate Limiting" permission
+#   group — zone rulesets are covered by Zone WAF: Read, and the legacy
+#   rate_limits endpoint returns 410 Gone (removed from collection).
 #
 #   NARROWLY-SCOPED TOKENS WORK:
 #     If your token lacks some permissions, the script will:
@@ -159,7 +160,6 @@
 #       • Rulesets (which phases have deployed rulesets)
 #       • Phase entrypoints (live rules per phase: WAF, rate limiting, transforms, etc.)
 #       • Bot management settings (Pro+ only)
-#       • WAF overrides (legacy WAF package overrides)
 #       • IP access rules (allow/block lists)
 #       • Page rules (legacy page rules still active)
 #       • Certificate packs (custom SSL cert expiry)
@@ -167,7 +167,6 @@
 #       • Load balancers (LB posture)
 #       • Workers routes (Worker-to-zone bindings)
 #       • DNS records (STRUCTURE only: type, name, proxied status; content redacted)
-#       • Legacy rate limits (legacy rate-limiting product)
 #
 # PHASE 4: ACCOUNT COLLECTION
 #   → Call GET /accounts to enumerate all accounts the token can access
@@ -670,7 +669,6 @@ def zone_doc(z):
                       "phase": r.get("phase"), "version": r.get("version")} for r in arr(f"zone-{zone_id}-rulesets")],
         "phaseEntrypoints": phase_entrypoints(zone_id),
         "botManagement": obj(f"zone-{zone_id}-bot_management"),
-        "wafOverrides": arr(f"zone-{zone_id}-waf_overrides"),
         "ipAccessRules": arr(f"zone-{zone_id}-ip_access_rules"),
         "pageRules": arr(f"zone-{zone_id}-page_rules"),
         "certificatePacks": arr(f"zone-{zone_id}-certificate_packs"),
@@ -680,7 +678,6 @@ def zone_doc(z):
         "dnsRecordCount": len(dns),
         "dnsRecords": [{"type": d.get("type"), "name": d.get("name"), "content": REDACTED if d.get("content") is not None else None,
                         "proxied": d.get("proxied"), "ttl": d.get("ttl"), "comment": d.get("comment")} for d in dns],
-        "legacyRateLimits": arr(f"zone-{zone_id}-legacy_rate_limits"),
         "pageShield": page_shield_doc(zone_id),
         "authenticatedOriginPulls": authenticated_origin_pulls_doc(zone_id),
     }
@@ -705,7 +702,9 @@ def tunnel_doc(acct_id, tunnel):
 def account_doc(a):
     """Build a complete account document with all collected data and redactions applied."""
     acct_id = a.get("id", "")
-    settings = obj(f"acct-{acct_id}-settings") or {}
+    # Posture data lives under result.settings of the bare /accounts/{id} fetch
+    # (the /accounts/{id}/settings subpath does not exist — 404).
+    settings = (obj(f"acct-{acct_id}-account") or {}).get("settings") or {}
     
     # Member identities → role names + 2FA booleans only
     members = []
