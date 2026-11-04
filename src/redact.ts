@@ -50,6 +50,31 @@ export function redactEmails(text: string): string {
 }
 
 /**
+ * Rule action_parameters are collected for rule-shape checks (e.g. the
+ * response-header transform audit). Header NAMES and operations are kept;
+ * header VALUES set by a rule are redacted — a short secret value assigned
+ * by a transform rule would otherwise pass the opaque-string scan untouched.
+ * All other parameters pass through unchanged.
+ */
+export function redactRuleActionParameters(params: unknown): unknown {
+  if (params === null || typeof params !== "object") return params;
+  const out: Record<string, unknown> = { ...(params as Record<string, unknown>) };
+  const headers = out.headers;
+  if (headers !== null && typeof headers === "object") {
+    const redacted: Record<string, unknown> = {};
+    for (const [name, op] of Object.entries(headers as Record<string, unknown>)) {
+      if (op !== null && typeof op === "object" && "value" in (op as Record<string, unknown>)) {
+        redacted[name] = { ...(op as Record<string, unknown>), value: REDACTED };
+      } else {
+        redacted[name] = op;
+      }
+    }
+    out.headers = redacted;
+  }
+  return out;
+}
+
+/**
  * Opaque material never leaves a collection: any whitespace-free run of 64+
  * token-class characters is redacted regardless of where it appears. Legitimate
  * collected posture data (settings, booleans, counts, names, statuses) never

@@ -4,6 +4,7 @@ import {
   redactDnsContent,
   redactEmails,
   redactExpression,
+  redactRuleActionParameters,
   redactOpaqueStrings,
   scanForSecrets,
 } from "../src/redact.js";
@@ -53,6 +54,24 @@ describe("redaction", () => {
   it("secret scan flags kv-style assignments of secrets", () => {
     const hits = scanForSecrets("api_key: aaaabbbbccccddddeeeeffff00001111");
     expect(hits.some((h) => h.severity === "fail")).toBe(true);
+  });
+
+  it("redactRuleActionParameters keeps names/operations, redacts header values", () => {
+    const params = {
+      headers: {
+        "content-security-policy": { operation: "set", value: "default-src 'self'" },
+        "x-custom-header": { operation: "remove" },
+      },
+      passthrough: { nested: true },
+    };
+    const out = redactRuleActionParameters(params) as typeof params;
+    expect((out.headers["content-security-policy"] as { value: string }).value).toBe("[redacted]");
+    expect(out.headers["content-security-policy"]).toMatchObject({ operation: "set" });
+    expect(out.headers["x-custom-header"]).toMatchObject({ operation: "remove" });
+    expect(out.passthrough).toEqual({ nested: true });
+    // non-object input passes through
+    expect(redactRuleActionParameters(undefined)).toBeUndefined();
+    expect(redactRuleActionParameters(null)).toBeNull();
   });
 
   it("clean config text does not produce fail hits", () => {

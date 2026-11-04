@@ -608,7 +608,7 @@ def phase_entrypoints(zone_id):
     """Collect ruleset phase entrypoints with redacted expressions."""
     phases = ["http_request_firewall_custom", "http_request_firewall_managed", "http_ratelimit",
               "http_request_transform", "http_request_dynamic_redirect", "http_request_cache_settings",
-              "http_request_origin", "http_request_redirect"]
+              "http_request_origin", "http_request_redirect", "http_response_headers_transform"]
     out = {}
     for phase in phases:
         ep = obj(f"zone-{zone_id}-phase-{phase}")
@@ -616,12 +616,23 @@ def phase_entrypoints(zone_id):
             continue
         rules = []
         for r in ep.get("rules") or []:
+            # Header NAMES and operations are kept (drive CF-HDR-001); header
+            # VALUES set by a rule are redacted — a short secret value would
+            # otherwise pass the opaque-string scan untouched.
+            ap = r.get("action_parameters")
+            if isinstance(ap, dict) and isinstance(ap.get("headers"), dict):
+                ap = dict(ap)
+                ap["headers"] = {
+                    h: ({**op, "value": REDACTED} if "value" in op else op)
+                    for h, op in ap["headers"].items() if isinstance(op, dict)
+                }
             rules.append({
                 "id": hash_id(r.get("id")),
                 "description": r.get("description"),
                 "enabled": r.get("enabled"),
                 "action": r.get("action"),
                 "expression": redact_expr(r.get("expression")),
+                "action_parameters": ap,
                 "version": r.get("version"),
                 "lastUpdated": r.get("last_updated"),
             })

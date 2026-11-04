@@ -607,12 +607,32 @@ foreach ($z in $zones) {
             name  = $epRow.name
             kind  = $epRow.kind
             rules = @(Get-Array $epRow.rules) | ForEach-Object {
+                # Header NAMES and operations kept (drive CF-HDR-001); header
+                # VALUES set by a rule are redacted (short secrets would pass
+                # the opaque-string scan untouched).
+                $ap = $_.action_parameters
+                if ($ap -and $ap.headers) {
+                    $headers = [ordered]@{}
+                    foreach ($h in $ap.headers.PSObject.Properties) {
+                        $op = $h.Value
+                        if ($op -and ($op.PSObject.Properties.Name -contains "value")) {
+                            $newOp = [ordered]@{}
+                            foreach ($k in $op.PSObject.Properties) {
+                                $newOp[$k.Name] = if ($k.Name -eq "value") { "[redacted]" } else { $k.Value }
+                            }
+                            $op = $newOp
+                        }
+                        $headers[$h.Name] = $op
+                    }
+                    $ap = [ordered]@{ headers = $headers }
+                }
                 [ordered]@{
                     id          = (Protect-Id $_.id)
                     description = $_.description
                     enabled     = $_.enabled
                     action      = $_.action
                     expression  = (Protect-Expression $_.expression $z.name)
+                    action_parameters = $ap
                     version     = $_.version
                     lastUpdated = $_.last_updated
                 }

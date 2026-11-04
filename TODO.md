@@ -41,9 +41,9 @@ Chosen by broad category (user, 2026-11-04); scoped at report time via
 ## Open
 
 - [ ] Windows binary artifact (SEA on a windows runner) + PSScriptAnalyzer/PS 5.1 pass.
-- [ ] Redact header **values** set by response/request transform rules (header names
-      are collected for CF-HDR-001; a short secret header value set by a rule would
-      pass the opaque-string redaction — see docs/data-policy.md rule-bodies row).
+- [x] Redact header **values** set by transform rules (header names + operations
+      kept for CF-HDR-001; values redacted at collection time in all three
+      collectors — closes the short-secret gap noted 2026-11-03).
 - [ ] Mode A: implement `--include-*` explicit re-inclusion flags (DNS content, IDs)
       documented in docs/data-policy.md.
 - [ ] HTML report renderer (Markdown is the customer deliverable today).

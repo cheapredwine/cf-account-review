@@ -60,3 +60,41 @@ jobs:
         with:
           name: cf-account-review-linux-x64
           path: dist/cf-account-review-linux-x64
+
+  windows-binary:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - run: pnpm install --frozen-lockfile
+      - name: build standalone binary (windows x64)
+        shell: pwsh
+        run: ./scripts/build-binary.ps1
+      - name: smoke the binary
+        shell: pwsh
+        run: ./dist/cf-account-review-win-x64.exe analyze tests/fixtures/collection-fixture.json --out $env:TEMP\smoke.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cf-account-review-win-x64
+          path: dist/cf-account-review-win-x64.exe
+      - name: PowerShell 5.1 syntax check (customer machines run Windows PowerShell)
+        shell: powershell
+        run: |
+          $tokens = $null; $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'collectors/ps/Collect-CFConfig.ps1'), [ref]$tokens, [ref]$errors)
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Host $_.Message }; exit 1 }
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable PSScriptAnalyzer)) {
+            Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          }
+          $results = Invoke-ScriptAnalyzer -Path collectors/ps/Collect-CFConfig.ps1 -Severity Error
+          if ($results.Count -gt 0) { $results | Format-Table; exit 1 }
+          Write-Host "PSScriptAnalyzer: no errors"
