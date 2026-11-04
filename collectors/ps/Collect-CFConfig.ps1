@@ -718,6 +718,11 @@ if (-not (Test-Path $OutputDir)) {
 $outFile = Join-Path $OutputDir ("cloudflare-config-{0}.json" -f (Get-Date -Format "yyyy-MM-dd-HHmm"))
 $json | Out-File -FilePath $outFile -Encoding UTF8
 
+# Owner-only perms (bash collector writes 0600; match it on POSIX)
+if (-not (Get-Variable IsWindows -ErrorAction SilentlyContinue) -or -not $IsWindows) {
+    & /bin/chmod 600 $outFile
+}
+
 # ---------------------------------------------------------------------------
 # PHASE 7: DONE
 # ---------------------------------------------------------------------------

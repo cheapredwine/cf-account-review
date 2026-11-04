@@ -24,6 +24,18 @@
       per AGENTS.md rule 5 (added 2026-11-01) future runs must STOP and ask the
       user for a scope-sufficient token rather than running with partial scope.
       The SRP account (read token pending) is the first real customer run.
+- [x] Full-scope token dogfood — DONE 2026-11-03 with the `cf-account-review-readonly`
+      token (26 read permissions minted via the API from a bootstrap token; scope-gate
+      probe passed 24/26, residuals plan-tier). Four defects found and fixed in PR #4:
+      account-settings 404 (bare /accounts/{id}), two 410-dead legacy endpoints removed
+      (waf/overrides, rate_limits + vacuous-pass CF-RL-002), opaque-string redaction
+      (96-char generated ruleset name tripped the pre-write scan; reproduced as a test),
+      and docs/CLIENT-GUIDE drift corrected from the live permission-group registry.
+      Full-token verdicts: 17 fail / 20 warn / 23 pass / 31 manual vs the OAuth
+      baseline 0/7/13/70 — the narrow token's 70 manuals masked 17 real fails.
+      Mode B (bash + pwsh) rerun clean with the fixes; pwsh writes repo-root by
+      default (default $OutputDir) and 0644 perms (fixed to chmod 600 in the same
+      session); collections moved to output/.
 - [x] Certificate expiry check (CF-SSL-005) — DONE
 - [x] Load balancer health checks (CF-LB-001, CF-LB-002) — DONE
 - [x] Exit code enforcement (--fail-on flag) — DONE
