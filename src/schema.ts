@@ -54,7 +54,10 @@ const phaseEntrypointSchema = z.object({
 const dnsRecordSchema = z.object({
   type: z.string(),
   name: z.string(),
-  content: z.string().optional().describe("Redacted unless explicitly authorized"),
+  content: z
+    .string()
+    .optional()
+    .describe("Redacted unless explicitly authorized"),
   proxied: z.boolean().nullable().optional(),
   ttl: z.number().optional(),
   comment: z.string().optional().nullable(),
@@ -119,14 +122,20 @@ export const collectionSchema = z.object({
                 .array(
                   z.object({
                     name: z.string().optional(),
-                    address: z.string().optional().describe("IP or hostname, may be redacted"),
+                    address: z
+                      .string()
+                      .optional()
+                      .describe("IP or hostname, may be redacted"),
                     enabled: z.boolean().optional(),
                     weight: z.number().optional(),
                   }),
                 )
                 .optional(),
               monitor: idSchema.nullable().optional(),
-              notificationEmail: z.string().optional().describe("Redacted by default"),
+              notificationEmail: z
+                .string()
+                .optional()
+                .describe("Redacted by default"),
             }),
           )
           .optional(),
@@ -159,7 +168,12 @@ export const collectionSchema = z.object({
           )
           .optional(),
         accessIdentityProviders: z
-          .array(z.object({ name: z.string().optional(), type: z.string().optional() }))
+          .array(
+            z.object({
+              name: z.string().optional(),
+              type: z.string().optional(),
+            }),
+          )
           .optional(),
         turnstileWidgets: z
           .array(
@@ -207,7 +221,10 @@ export const collectionSchema = z.object({
         aiGateways: z
           .array(
             z.object({
-              id: z.string().optional().describe("Gateway identifier, not hashed — part of config"),
+              id: z
+                .string()
+                .optional()
+                .describe("Gateway identifier, not hashed — part of config"),
               authentication: z.boolean().optional(),
               rateLimitingLimit: z.number().nullable().optional(),
               rateLimitingInterval: z.number().nullable().optional(),
@@ -236,7 +253,9 @@ export const collectionSchema = z.object({
         createdOn: z.string().optional(),
         settings: zoneSettingsSchema.optional(),
         rulesets: z.array(rulesetSummarySchema).optional(),
-        phaseEntrypoints: z.record(z.string(), phaseEntrypointSchema).optional(),
+        phaseEntrypoints: z
+          .record(z.string(), phaseEntrypointSchema)
+          .optional(),
         botManagement: z.unknown().optional(),
         wafOverrides: z.unknown().optional(), // removed endpoint (410) — key kept optional for old collections
         ipAccessRules: z.unknown().optional(),
@@ -257,7 +276,12 @@ export const collectionSchema = z.object({
         sslVerification: z.unknown().optional(),
         loadBalancers: z.unknown().optional(),
         workersRoutes: z
-          .array(z.object({ pattern: z.string().optional(), script: z.string().optional() }))
+          .array(
+            z.object({
+              pattern: z.string().optional(),
+              script: z.string().optional(),
+            }),
+          )
           .optional(),
         dnsRecordCount: z.number().optional(),
         dnsRecords: z.array(dnsRecordSchema).optional(),

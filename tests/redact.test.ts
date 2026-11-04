@@ -24,7 +24,8 @@ describe("redaction", () => {
   });
 
   it("redacts IPs, emails, and internal hostnames in expressions", () => {
-    const expr = 'ip.src eq 203.0.113.5 and http.host eq "app.internal" and any(bob@example.com)';
+    const expr =
+      'ip.src eq 203.0.113.5 and http.host eq "app.internal" and any(bob@example.com)';
     const out = redactExpression(expr) ?? "";
     expect(out).not.toContain("203.0.113.5");
     expect(out).not.toContain("app.internal");
@@ -33,13 +34,15 @@ describe("redaction", () => {
   });
 
   it("keeps expressions otherwise readable", () => {
-    expect(redactExpression("http.request.uri.path eq \"/login\"")).toBe(
+    expect(redactExpression('http.request.uri.path eq "/login"')).toBe(
       'http.request.uri.path eq "/login"',
     );
   });
 
   it("redacts emails in plain text", () => {
-    expect(redactEmails("contact admin@corp.example now")).toBe("contact [redacted] now");
+    expect(redactEmails("contact admin@corp.example now")).toBe(
+      "contact [redacted] now",
+    );
   });
 
   it("secret scan flags Bearer tokens as fail", () => {
@@ -56,7 +59,9 @@ describe("redaction", () => {
     const text = JSON.stringify({
       schemaVersion: "1.0",
       settings: { id: "ssl", value: "strict" },
-      rules: [{ action: "block", expression: 'http.request.uri.path eq "/login"' }],
+      rules: [
+        { action: "block", expression: 'http.request.uri.path eq "/login"' },
+      ],
     });
     const failHits = scanForSecrets(text).filter((h) => h.severity === "fail");
     expect(failHits).toHaveLength(0);
@@ -64,17 +69,26 @@ describe("redaction", () => {
 
   it("redactOpaqueStrings redacts 64+ char opaque runs", () => {
     // A generated ruleset name tripped the pre-write scan before the write:
-    const generatedName = "rulesets-ams-production-7800186fe3060227028a430821e6ddf8-pytest-xlvfiTaF2dEgWQPtRgoPM9LaGRWiURvY";
-    const text = JSON.stringify({ accountRulesets: [{ id: "h1a2b3c4d5e6f7a8", name: generatedName }] });
+    const generatedName =
+      "rulesets-ams-production-7800186fe3060227028a430821e6ddf8-pytest-xlvfiTaF2dEgWQPtRgoPM9LaGRWiURvY";
+    const text = JSON.stringify({
+      accountRulesets: [{ id: "h1a2b3c4d5e6f7a8", name: generatedName }],
+    });
     const redacted = redactOpaqueStrings(text);
     expect(redacted).not.toContain(generatedName);
     expect(redacted).toContain("[redacted]:opaque-96");
     // after redaction the scan is clean
-    expect(scanForSecrets(redacted).some((h) => h.severity === "fail")).toBe(false);
+    expect(scanForSecrets(redacted).some((h) => h.severity === "fail")).toBe(
+      false,
+    );
   });
 
   it("redactOpaqueStrings leaves normal values untouched", () => {
-    const text = JSON.stringify({ name: "demo-platform-primary", id: "h1a2b3c4d5e6f7a8", ssl: "strict" });
+    const text = JSON.stringify({
+      name: "demo-platform-primary",
+      id: "h1a2b3c4d5e6f7a8",
+      ssl: "strict",
+    });
     expect(redactOpaqueStrings(text)).toBe(text);
   });
 });

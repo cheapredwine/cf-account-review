@@ -392,7 +392,7 @@ mkdir -p "$WORK/files"
 : >"$WORK/errors.tsv"
 
 # Ruleset phases to collect (these are Cloudflare's standard phases)
-PHASES="http_request_firewall_custom http_request_firewall_managed http_ratelimit http_request_transform http_request_dynamic_redirect http_request_cache_settings http_request_origin http_request_redirect" http_response_headers_transform
+PHASES="http_request_firewall_custom http_request_firewall_managed http_ratelimit http_request_transform http_request_dynamic_redirect http_request_cache_settings http_request_origin http_request_redirect http_response_headers_transform"
 
 # ============================================================================
 # PHASE 2: TOKEN VERIFICATION

@@ -69,7 +69,7 @@ if [ "$OS" = "darwin" ]; then
 fi
 # The SEA fuse sentinel string differs across node versions — read it from
 # the binary rather than hardcoding the value from older docs.
-SENTINEL="$(grep -aoE 'NODE_SEA_FUSE_[a-f0-9]{32}' "${SEA_NODE}" | head -1)"
+SENTINEL="$(grep -aoE 'NODE_SEA_FUSE_[a-f0-9]{32}' "${SEA_NODE}" | awk 'NR==1{print; exit}')"
 if [ -z "$SENTINEL" ]; then
 	echo "error: no SEA fuse sentinel found in the node binary" >&2
 	exit 1
@@ -83,5 +83,10 @@ fi
 chmod +x "$OUT"
 
 echo "smoke:"
-"$OUT" --help >/dev/null && echo "  --help ok"
+if "$OUT" --help >/dev/null 2>&1; then
+	echo "  --help ok"
+else
+	echo "  error: binary --help failed" >&2
+	exit 1
+fi
 echo "binary ready: $OUT"

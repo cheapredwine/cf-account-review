@@ -32,6 +32,12 @@ jobs:
         run: |
           node dist/cli.js schema --out /tmp/collection.schema.json
           diff -q /tmp/collection.schema.json collection.schema.json
+      - name: shellcheck + shfmt check
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck collectors/sh/collect-config.sh
+      - name: bash syntax check
+        run: bash -n collectors/sh/collect-config.sh
 
   linux-binary:
     runs-on: ubuntu-latest
@@ -54,9 +60,3 @@ jobs:
         with:
           name: cf-account-review-linux-x64
           path: dist/cf-account-review-linux-x64
-      - name: shellcheck + shfmt check
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          shellcheck collectors/sh/collect-config.sh
-      - name: bash syntax check
-        run: bash -n collectors/sh/collect-config.sh

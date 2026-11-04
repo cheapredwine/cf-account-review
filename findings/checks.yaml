@@ -161,7 +161,7 @@ checks:
       (Strict-Transport-Security, Content-Security-Policy, X-Frame-Options, or
       X-Content-Type-Options) before it reaches the browser. Remove the header
       from the rule's headers_remove list unless there is a documented reason.
-    citation: https://developers.cloudflare.com/rules/transform/#
+    citation: https://developers.cloudflare.com/rules/transform/response-header-modification/
 
   # ------------------------------------------------------------------ Bots
   - id: CF-BOT-001

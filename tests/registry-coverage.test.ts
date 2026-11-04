@@ -15,10 +15,15 @@ describe("endpoint registry coverage", () => {
   it("Mode A collector only requests registered paths", () => {
     const collectSrc = readFileSync(join(ROOT, "src", "collect.ts"), "utf8");
     const used = new Set<string>();
-    for (const match of collectSrc.matchAll(/client\.(?:list|get)\(\s*[`"]([^`"]+)[`"]/g)) {
+    for (const match of collectSrc.matchAll(
+      /client\.(?:list|get)\(\s*[`"]([^`"]+)[`"]/g,
+    )) {
       used.add(match[1] ?? "");
     }
-    expect(used.size, "collector should request several endpoints").toBeGreaterThan(10);
+    expect(
+      used.size,
+      "collector should request several endpoints",
+    ).toBeGreaterThan(10);
 
     const registered = new Set<string>(ENDPOINTS.map((e) => e.path));
     // phase entrypoints are part of the registry semantics via PHASES
