@@ -1,13 +1,16 @@
 # TODO — cf-account-review
 
-## Phase plan (2026-11-03, per customer scoping)
+## Phase plan (2026-11-03; ZTNA corrected to Cloudflare One same day)
 
 - **Phase 1 — web performance + security + AI controls** (default): all
-  current checks except the two Workers ones; 31 checks as of the
-  phase-filter merge (b7d62a8). `analyze --phase 1` filters reports.
-- **Phase 2 — Developer Platform (Workers)**: CF-WRK-001/002 (`phase: 2`
-  in the rulebook). Deferral matches the first customer's purchases.
-- **Out of product scope: Cloudforce One** — zero checks, zero endpoints.
+  current checks except the Workers ones and the Cloudflare One (ZTNA)
+  ones. `analyze --phase 1` filters reports. Live smoke on the full-token
+  collection: 17 fail / 19 warn / 21 pass / 26 manual / 25 n/a.
+- **Phase 2 (or 3 — exact cutoff open) — Cloudflare One (Zero Trust/ZTNA):**
+  CF-ZT-001, CF-ZT-002, CF-TUNNEL-001 (`phase: 2` in the rulebook).
+- **Phase 2 — Developer Platform (Workers):** CF-WRK-001/002 (`phase: 2`).
+- Account-hygiene checks (CF-ZT-003 2FA, CF-IAM-001 token expiry) are
+  **not** Cloudflare One product checks — they stay in phase 1.
 - **OPEN (user decision):** the first customer is an Area 1 (email
   security) subscriber; phase 1 as scoped has no email checks (batch 3:
   hop count, MX hygiene — CF-DNS-003 partially covers). Pull batch-3
