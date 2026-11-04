@@ -26,8 +26,10 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "esbuild": "^0.28.2",
     "oxfmt": "^0.6.0",
     "oxlint": "^1.0.0",
+    "postject": "1.0.0-alpha.6",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }
