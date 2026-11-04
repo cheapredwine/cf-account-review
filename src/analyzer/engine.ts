@@ -65,6 +65,36 @@ function rules(zone: Zone, phase: string) {
 type Evaluator = (check: Check, zone: Zone | null, collection: Collection) => { verdict: Verdict; detail: string };
 
 const evaluators: Record<string, Evaluator> = {
+  response_header_transform: (_check, zone, _c) => {
+    if (!zone) return { verdict: "na", detail: "no zone in scope" };
+    const rs = rules(zone, "http_response_headers_transform");
+    if (rs === undefined) {
+      return { verdict: "manual", detail: "response header transform phase not readable (not deployed, or scope gap)" };
+    }
+    const securityHeaders = [
+      "strict-transport-security",
+      "content-security-policy",
+      "x-frame-options",
+      "x-content-type-options",
+    ];
+    const stripping = rs.filter((r) => {
+      const rule = r as { action?: string; enabled?: boolean; action_parameters?: unknown };
+      if (rule.action !== "set_config" || rule.enabled === false) return false;
+      const remove = (rule.action_parameters as { headers_remove?: unknown } | undefined)?.headers_remove;
+      if (!Array.isArray(remove)) return false;
+      return remove.some((h: unknown) => securityHeaders.includes(String(h).toLowerCase()));
+    });
+    if (stripping.length > 0) {
+      return {
+        verdict: "fail",
+        detail: `${stripping.length} response transform rule(s) remove security headers (CSP/HSTS/XFO/XCTO)`,
+      };
+    }
+    if (rs.length === 0) {
+      return { verdict: "na", detail: "no edge response-header transforms configured" };
+    }
+    return { verdict: "pass", detail: "response transforms do not strip security headers" };
+  },
   zone_setting: (check, zone, _c) => {
     if (!zone) return { verdict: "na", detail: "no zone in scope" };
     const settingId = String(check.params.settingId ?? "");
@@ -524,6 +554,39 @@ export function filterChecksByDomains(checks: Check[], domains: Iterable<string>
   const wanted = new Set(domains);
   if (wanted.size === 0) return checks;
   return checks.filter((c) => wanted.has(c.domain));
+}
+
+export interface FindingDiff {
+  check: string;
+  scope: string;
+  name: string;
+  before: Verdict;
+  after: Verdict;
+  /** new | resolved | changed */
+  kind: "new" | "resolved" | "changed";
+  detail: string;
+}
+
+/** Diff two evaluation runs over the same rulebook, keyed by (check id, scope). */
+export function diffFindings(before: Finding[], after: Finding[]): FindingDiff[] {
+  const key = (f: Finding) => `${f.check.id}|${f.scope}`;
+  const beforeMap = new Map(before.map((f) => [key(f), f]));
+  const afterMap = new Map(after.map((f) => [key(f), f]));
+  const diffs: FindingDiff[] = [];
+  for (const [k, f] of afterMap) {
+    const old = beforeMap.get(k);
+    if (!old) {
+      diffs.push({ check: f.check.id, scope: f.scope, name: f.check.name, before: "na", after: f.verdict, kind: "new", detail: f.detail });
+    } else if (old.verdict !== f.verdict) {
+      diffs.push({ check: f.check.id, scope: f.scope, name: f.check.name, before: old.verdict, after: f.verdict, kind: "changed", detail: f.detail });
+    }
+  }
+  for (const [k, f] of beforeMap) {
+    if (!afterMap.has(k)) {
+      diffs.push({ check: f.check.id, scope: f.scope, name: f.check.name, before: f.verdict, after: "na", kind: "resolved", detail: f.detail });
+    }
+  }
+  return diffs;
 }
 
 export function evaluate(collection: Collection, checks: Check[]): Finding[] {

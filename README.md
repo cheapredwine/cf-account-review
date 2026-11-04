@@ -38,6 +38,15 @@ node dist/cli.js analyze output/collection.json --out output/report.md
 # Exit code enforcement (CI integration)
 node dist/cli.js analyze output/collection.json --fail-on high  # Exit 1 if any high-severity fails
 
+# Standalone binary (no Node needed on the customer machine)
+pnpm binary      # -> dist/cf-account-review-<os>-<arch>
+
+# Collection JSON schema for customers validating Mode B files
+pnpm schema      # -> collection.schema.json
+
+# Diff two collections (quarterly re-reviews)
+node dist/cli.js analyze output/collection.json --compare-to output/previous.json --diff-only
+
 # Scope the report to categories (domain names from findings/checks.yaml)
 node dist/cli.js analyze output/collection.json --domains "ssl-tls,waf,dns"
 ```

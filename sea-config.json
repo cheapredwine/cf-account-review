@@ -1,5 +1,5 @@
 {
-  "main": "dist/cli.bundle.mjs",
-  "output": "dist/sea.blob",
-  "disableExperimentalSEAWarning": true
+	"main": "dist/cli.bundle.cjs",
+	"output": "dist/sea.blob",
+	"disableExperimentalSEAWarning": true
 }

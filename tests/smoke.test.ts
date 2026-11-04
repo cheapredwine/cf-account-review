@@ -81,6 +81,12 @@ function fixtureCollection(): Collection {
             { action: "skip", enabled: true, expression: "(http.user_agent contains \"bot\")" },
           ],
         },
+        http_response_headers_transform: {
+          phase: "http_response_headers_transform",
+          rules: [
+            { action: "set_config", enabled: true, action_parameters: { headers_remove: ["content-security-policy"] } }, // CF-HDR-001 fail
+          ],
+        },
         http_ratelimit: {
           phase: "http_ratelimit",
           rules: [{ action: "block", enabled: true, expression: 'http.request.uri.path contains "/login"' }], // CF-RL-001 pass

@@ -1,11 +1,8 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { baseCollection, loadChecks, zoneWith } from "./helpers.js";
 import { collectionSchema, type Collection } from "../src/schema.js";
-import { evaluate, filterChecksByDomains, type Check, type Finding } from "../src/analyzer/engine.js";
-
-const ROOT = new URL("..", import.meta.url).pathname;
+import { diffFindings, evaluate, filterChecksByDomains, type Finding } from "../src/analyzer/engine.js";
 
 describe("findings engine", () => {
   const checks = loadChecks();
@@ -550,12 +547,47 @@ describe("findings engine", () => {
       expect(scopedIds.has(id)).toBe(true);
     }
     // out: the categories the user did not select
+    const outDomains = new Set(["client-side-security", "traffic", "workers", "zero-trust", "response-headers"]);
+    const expectedOut = all.filter((c) => outDomains.has(c.domain));
     for (const id of ["CF-PS-001", "CF-LB-001", "CF-LB-002", "CF-WRK-001", "CF-WRK-002",
-      "CF-ZT-001", "CF-ZT-002", "CF-TUNNEL-001"]) {
+      "CF-ZT-001", "CF-ZT-002", "CF-TUNNEL-001", "CF-HDR-001"]) {
       expect(scopedIds.has(id)).toBe(false);
     }
-    expect(scoped.length).toBe(all.length - 8);
+    expect(scoped.length).toBe(all.length - expectedOut.length);
     // empty/absent scope = every check
     expect(filterChecksByDomains(all, []).length).toBe(all.length);
+  });
+
+  it("diffFindings classifies new, resolved, and changed findings", () => {
+    const mk = (id: string, scope: string, verdict: Finding["verdict"]): Finding => ({
+      check: { id, name: id, domain: "test", severity: "low", type: "x", evidence: "", params: {}, remediation: "", citation: "" },
+      scope,
+      verdict,
+      detail: "d",
+    });
+    const before = [mk("CF-A", "z", "fail"), mk("CF-B", "z", "warn"), mk("CF-C", "z", "pass")];
+    const after = [mk("CF-A", "z", "pass"), mk("CF-B", "z", "warn"), mk("CF-D", "z", "fail")];
+    const diffs = diffFindings(before, after);
+    expect(diffs.find((d) => d.check === "CF-A")).toMatchObject({ kind: "changed", before: "fail", after: "pass" });
+    expect(diffs.find((d) => d.check === "CF-D")).toMatchObject({ kind: "new" });
+    expect(diffs.find((d) => d.check === "CF-C")).toMatchObject({ kind: "resolved" });
+    expect(diffs.find((d) => d.check === "CF-B")).toBeUndefined(); // unchanged → not in diff
+    expect(diffFindings([], [])).toHaveLength(0);
+  });
+
+  it("diffFindings: remediating DNSSEC in the fixture resolves CF-DNS-001 and nothing else", () => {
+    const fixture = collectionSchema.parse(JSON.parse(readFileSync(new URL("./fixtures/collection-fixture.json", import.meta.url), "utf8"))) as Collection;
+    const remediated = {
+      ...fixture,
+      zones: fixture.zones.map((z) => ({
+        ...z,
+        settings: { ...z.settings, dnssec: { id: "dnssec", value: "active" } },
+      })),
+    };
+    const before = evaluate(fixture, loadChecks());
+    const after = evaluate(remediated, loadChecks());
+    const diffs = diffFindings(before, after);
+    expect(diffs).toHaveLength(1);
+    expect(diffs[0]).toMatchObject({ check: "CF-DNS-001", kind: "changed", before: "fail", after: "pass" });
   });
 });

@@ -22,6 +22,38 @@ jobs:
       - run: pnpm run build
       - name: CLI smoke — analyze committed fixture (exercises guarded report write)
         run: node dist/cli.js analyze tests/fixtures/collection-fixture.json --out /tmp/smoke-report.md
+      - name: CLI smoke — diff mode (same collection → no changes)
+        run: |
+          node dist/cli.js analyze tests/fixtures/collection-fixture.json \
+            --compare-to tests/fixtures/collection-fixture.json --diff-only \
+            --out /tmp/smoke-diff.md
+          grep -q "No findings changed since the previous collection." /tmp/smoke-diff.md
+      - name: CLI smoke — collection JSON schema is committed and current
+        run: |
+          node dist/cli.js schema --out /tmp/collection.schema.json
+          diff -q /tmp/collection.schema.json collection.schema.json
+
+  linux-binary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - run: pnpm install --frozen-lockfile
+      - name: build standalone binary (linux x64)
+        run: ./scripts/build-binary.sh
+      - name: smoke the binary
+        run: |
+          ./dist/cf-account-review-linux-x64 --help
+          ./dist/cf-account-review-linux-x64 analyze tests/fixtures/collection-fixture.json --out /tmp/smoke.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cf-account-review-linux-x64
+          path: dist/cf-account-review-linux-x64
       - name: shellcheck + shfmt check
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck

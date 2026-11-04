@@ -147,6 +147,22 @@ checks:
   # the check could only pass vacuously on absent data. CF-RL-001 covers
   # current rate-limiting posture (http_ratelimit phase).
 
+  # -------------------------------------------------- Response headers
+  - id: CF-HDR-001
+    name: Edge response transforms do not strip security headers
+    domain: response-headers
+    severity: medium
+    type: response_header_transform
+    applies: { planTier: any }
+    evidence: zones[].phaseEntrypoints["http_response_headers_transform"]
+    params: {}
+    remediation: >
+      A response header Transform Rule removes a security header
+      (Strict-Transport-Security, Content-Security-Policy, X-Frame-Options, or
+      X-Content-Type-Options) before it reaches the browser. Remove the header
+      from the rule's headers_remove list unless there is a documented reason.
+    citation: https://developers.cloudflare.com/rules/transform/#
+
   # ------------------------------------------------------------------ Bots
   - id: CF-BOT-001
     name: Definite-bot block excludes verified bots

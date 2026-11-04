@@ -41,6 +41,8 @@ const phaseEntrypointSchema = z.object({
         enabled: z.boolean().optional(),
         action: z.string().optional(),
         expression: z.string().optional(),
+        // Raw rule body — used by header-transform checks (headers_remove etc.).
+        action_parameters: z.unknown().optional(),
         // Expressions may reference hostnames; collectors redact origin hosts.
         version: z.string().optional(),
         lastUpdated: z.string().optional(),

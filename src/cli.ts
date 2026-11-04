@@ -12,23 +12,27 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import process from "node:process";
 import { parse } from "yaml";
-import { evaluate, filterChecksByDomains } from "./analyzer/engine.js";
-import { renderMarkdown } from "./analyzer/report.js";
+import { evaluate, diffFindings, filterChecksByDomains, type Check, type Finding, type FindingDiff } from "./analyzer/engine.js";
+import { renderMarkdown, renderDiffSection, renderDiffMarkdown } from "./analyzer/report.js";
 import { collect } from "./collect.js";
 import { guardedWrite } from "./analyzer/guarded-write.js";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import { SCHEMA_VERSION, collectionSchema, type Collection } from "./schema.js";
-import type { Check } from "./analyzer/engine.js";
 
 function usage(): never {
   console.error(`Usage:
   cf-account-review collect  [--out output/collection.json]
-  cf-account-review analyze  <collection.json> [--checks findings/checks.yaml] [--out output/report.md] [--fail-on <severity>] [--domains <list>]
+  cf-account-review analyze  <collection.json> [--checks findings/checks.yaml] [--out output/report.md] [--fail-on <severity>] [--domains <list>] [--zones <list>] [--compare-to <old-collection.json>] [--diff-only]
+  cf-account-review schema   [--out collection.schema.json]
 
 Environment: CF_API_TOKEN for \`collect\`.
 
 Flags:
   --fail-on <severity>    Exit 1 if findings at or above this severity exist (high|medium|low). Default: no exit code enforcement.
   --domains <list>        Comma-separated domain names to scope the report (see findings/checks.yaml). Default: all checks.
+  --zones <list>          Comma-separated zone names to include (analyze only). Default: every collected zone.
+  --compare-to <file>     Diff findings against an earlier collection (same rulebook).
+  --diff-only             With --compare-to: render only new/resolved/changed findings.
 `);
   process.exit(2);
 }
@@ -45,6 +49,12 @@ function parseArgs(argv: string[]): Map<string, string> {
       args.set("fail-on", argv[++i] ?? "");
     } else if (a === "--domains") {
       args.set("domains", argv[++i] ?? "");
+    } else if (a === "--zones") {
+      args.set("zones", argv[++i] ?? "");
+    } else if (a === "--compare-to") {
+      args.set("compare-to", argv[++i] ?? "");
+    } else if (a === "--diff-only") {
+      args.set("diff-only", "1");
     } else if (a.startsWith("--")) {
       console.error(`unknown flag: ${a}`);
       usage();
@@ -84,7 +94,16 @@ async function cmdCollect(outArg: string | undefined): Promise<void> {
   );
 }
 
-function cmdAnalyze(positional: string | undefined, outArg: string | undefined, checksArg: string | undefined, failOnArg: string | undefined, domainsArg: string | undefined): void {
+function cmdAnalyze(
+  positional: string | undefined,
+  outArg: string | undefined,
+  checksArg: string | undefined,
+  failOnArg: string | undefined,
+  domainsArg: string | undefined,
+  zonesArg: string | undefined,
+  compareArg: string | undefined,
+  diffOnlyArg: string | undefined,
+): void {
   if (!positional) usage();
   const collectionPath = resolve(positional);
   const raw = JSON.parse(readFileSync(collectionPath, "utf8")) as unknown;
@@ -114,20 +133,47 @@ function cmdAnalyze(positional: string | undefined, outArg: string | undefined, 
     scopedChecks = filterChecksByDomains(checks, domains);
     console.log(`domain scope: ${scopedChecks.length}/${checks.length} checks (${domains.join(", ")})`);
   }
-  const findings = evaluate(collection, scopedChecks);
-  const report = renderMarkdown(collection, findings);
-  const out = resolve(outArg ?? "output/report.md");
-  try {
-    guardedWrite(out, report);
-  } catch (err) {
-    console.error(`ABORTING: ${err instanceof Error ? err.message : String(err)}.`);
-    process.exit(1);
+  let reviewable = collection;
+  if (zonesArg !== undefined) {
+    const wanted = zonesArg.split(",").map((z) => z.trim()).filter((z) => z.length > 0);
+    const knownZones = collection.zones.map((z) => z.name);
+    const missing = wanted.filter((z) => !knownZones.includes(z));
+    if (missing.length > 0) {
+      console.error(`zone(s) not in collection: ${missing.join(", ")} — collected: ${knownZones.join(", ")}`);
+      process.exit(2);
+    }
+    const wantedSet = new Set(wanted);
+    reviewable = { ...collection, zones: collection.zones.filter((z) => wantedSet.has(z.name)) };
+    console.log(`zone scope: ${reviewable.zones.length}/${collection.zones.length} zones`);
   }
+  const findings = evaluate(reviewable, scopedChecks);
+  let diffs: FindingDiff[] | undefined;
+  if (compareArg !== undefined) {
+    const oldParsed = collectionSchema.safeParse(JSON.parse(readFileSync(resolve(compareArg), "utf8")));
+    if (!oldParsed.success) {
+      console.error(`--compare-to file does not match schema ${SCHEMA_VERSION}: ${oldParsed.error.message}`);
+      process.exit(2);
+    }
+    const oldFindings = evaluate(oldParsed.data, scopedChecks);
+    diffs = diffFindings(oldFindings, findings);
+    const text = diffOnlyArg ? renderDiffMarkdown(diffs) : renderDiffSection(renderMarkdown(reviewable, findings), diffs);
+    const out = resolve(outArg ?? "output/report.md");
+    writeGuardedOrExit(out, text);
+    console.log(`report: ${out}`);
+    printCounts(findings, failOnArg);
+    return;
+  }
+  const report = renderMarkdown(reviewable, findings);
+  const out = resolve(outArg ?? "output/report.md");
+  writeGuardedOrExit(out, report);
   console.log(`report: ${out}`);
+  printCounts(findings, failOnArg);
+}
+
+function printCounts(findings: Finding[], failOnArg: string | undefined): void {
   const fail = findings.filter((f) => f.verdict === "fail").length;
   const warn = findings.filter((f) => f.verdict === "warn").length;
   console.log(`findings: ${fail} fail, ${warn} warn`);
-  
   // Exit code enforcement
   if (failOnArg) {
     const severityOrder = { high: 3, medium: 2, low: 1 };
@@ -148,12 +194,49 @@ function cmdAnalyze(positional: string | undefined, outArg: string | undefined, 
   }
 }
 
+function writeGuardedOrExit(path: string, text: string): void {
+  try {
+    guardedWrite(path, text);
+  } catch (err) {
+    console.error(`ABORTING: ${err instanceof Error ? err.message : String(err)}.`);
+    process.exit(1);
+  }
+}
+
+function cmdSchema(outArg: string | undefined): void {
+  const schema = zodToJsonSchema(collectionSchema, { name: `cf-account-review collection ${SCHEMA_VERSION}` });
+  const out = resolve(outArg ?? "collection.schema.json");
+  try {
+    guardedWrite(out, JSON.stringify(schema, null, 2) + "\n");
+  } catch (err) {
+    console.error(`ABORTING: ${err instanceof Error ? err.message : String(err)}.`);
+    process.exit(1);
+  }
+  console.log(`schema: ${out}`);
+}
+
 const [command, ...rest] = process.argv.slice(2);
 if (command === "collect") {
-  await cmdCollect(parseArgs(rest).get("out"));
+  // Not awaited: keeps this file free of top-level await so the SEA bundle can
+  // be CommonJS (Node single-executable entries run as CJS).
+  void cmdCollect(parseArgs(rest).get("out")).catch((err: unknown) => {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  });
 } else if (command === "analyze") {
   const args = parseArgs(rest);
-  cmdAnalyze(args.get("positional"), args.get("out"), args.get("checks"), args.get("fail-on"), args.get("domains"));
+  cmdAnalyze(
+    args.get("positional"),
+    args.get("out"),
+    args.get("checks"),
+    args.get("fail-on"),
+    args.get("domains"),
+    args.get("zones"),
+    args.get("compare-to"),
+    args.get("diff-only"),
+  );
+} else if (command === "schema") {
+  cmdSchema(parseArgs(rest).get("out"));
 } else {
   usage();
 }

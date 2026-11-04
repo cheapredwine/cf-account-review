@@ -553,7 +553,8 @@ $phases = @(
     "http_request_dynamic_redirect",
     "http_request_cache_settings",
     "http_request_origin",
-    "http_request_redirect"
+    "http_request_redirect",
+    "http_response_headers_transform"
 )
 
 foreach ($z in $zones) {
