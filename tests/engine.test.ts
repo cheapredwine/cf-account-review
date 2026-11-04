@@ -6,6 +6,8 @@ import {
   diffFindings,
   evaluate,
   filterChecksByDomains,
+  planAtLeast,
+  planTier,
   type Finding,
 } from "../src/analyzer/engine.js";
 
@@ -638,6 +640,113 @@ describe("findings engine", () => {
       (f: Finding) => f.check.id === "CF-DDOS-001",
     );
     expect(failing?.verdict).toBe("fail");
+  });
+
+  it("DDoS: no override ruleset (entrypoint 404) passes only when the ruleset list confirms it", () => {
+    const managedOnly = [
+      { kind: "managed", phase: "ddos_l7", name: "DDoS L7 ruleset" },
+    ];
+    const withOverride = [
+      ...managedOnly,
+      { kind: "zone", phase: "ddos_l7", name: "default" },
+    ];
+    const find = (c: ReturnType<typeof baseCollection>) =>
+      evaluate(c, checks).find((f: Finding) => f.check.id === "CF-DDOS-001");
+
+    const c1 = baseCollection();
+    c1.zones = [zoneWith({ phaseEntrypoints: {}, rulesets: managedOnly })];
+    expect(find(c1)?.verdict).toBe("pass");
+
+    // override ruleset exists but its rules were not readable → scope gap
+    const c2 = baseCollection();
+    c2.zones = [zoneWith({ phaseEntrypoints: {}, rulesets: withOverride })];
+    expect(find(c2)?.verdict).toBe("manual");
+
+    // ruleset list itself unreadable → cannot distinguish 404 from 403
+    const c3 = baseCollection();
+    c3.zones = [zoneWith({ phaseEntrypoints: {} })];
+    expect(find(c3)?.verdict).toBe("manual");
+
+    // deployed override that sets the managed ruleset to log → fail
+    const c4 = baseCollection();
+    c4.zones = [
+      zoneWith({
+        rulesets: withOverride,
+        phaseEntrypoints: {
+          ddos_l7: {
+            phase: "ddos_l7",
+            rules: [
+              {
+                action: "execute",
+                enabled: true,
+                action_parameters: { id: "x", overrides: { action: "log" } },
+              },
+            ],
+          },
+        },
+      }),
+    ];
+    expect(find(c4)?.verdict).toBe("fail");
+  });
+
+  it("managed WAF: override-disabled deployment fails, log-only deployment warns", () => {
+    const make = (overrides: Record<string, unknown>) => {
+      const c = baseCollection();
+      c.zones = [
+        zoneWith({
+          phaseEntrypoints: {
+            http_request_firewall_managed: {
+              phase: "http_request_firewall_managed",
+              rules: [
+                {
+                  action: "execute",
+                  enabled: true,
+                  action_parameters: { id: "efb7b8c9", overrides },
+                },
+              ],
+            },
+          },
+        }),
+      ];
+      return evaluate(c, checks).find(
+        (f: Finding) => f.check.id === "CF-WAF-001",
+      );
+    };
+    expect(make({ enabled: false })?.verdict).toBe("fail");
+    expect(make({ action: "log" })?.verdict).toBe("warn");
+    expect(make({ action: "block" })?.verdict).toBe("pass");
+  });
+
+  it("plan tier: API display names resolve to tiers (Enterprise Website is Enterprise, not Free)", () => {
+    expect(planTier("Enterprise Website")).toBe("enterprise");
+    expect(planTier("Business Website")).toBe("business");
+    expect(planTier("Pro Plan")).toBe("pro");
+    expect(planTier("Free Website")).toBe("free");
+    expect(planTier("Enterprise")).toBe("enterprise");
+    expect(planTier("Partner Custom")).toBeUndefined();
+    expect(planAtLeast("Enterprise Website", "pro-plus")).toBe(true);
+    expect(planAtLeast("Enterprise Website", "enterprise")).toBe(true);
+    expect(planAtLeast("Free Website", "pro-plus")).toBe(false);
+    expect(planAtLeast("Partner Custom", "pro-plus")).toBe(false);
+    expect(planAtLeast(undefined, "any")).toBe(true);
+
+    // end to end: a tiered check on an "Enterprise Website" zone is evaluated, not na
+    const c = baseCollection();
+    c.zones = [
+      zoneWith({
+        plan: "Enterprise Website",
+        phaseEntrypoints: {
+          http_request_firewall_managed: {
+            phase: "http_request_firewall_managed",
+            rules: [{ action: "execute", enabled: true }],
+          },
+        },
+      }),
+    ];
+    const f = evaluate(c, checks).find(
+      (x: Finding) => x.check.id === "CF-WAF-001",
+    );
+    expect(f?.verdict).toBe("pass");
   });
 
   it("Cache: warns on aggressive, passes otherwise", () => {

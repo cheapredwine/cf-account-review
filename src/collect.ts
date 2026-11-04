@@ -32,6 +32,39 @@ function asRecord(v: unknown): Record<string, unknown> {
     : {};
 }
 
+function optString(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+
+function optBool(v: unknown): boolean | undefined {
+  return typeof v === "boolean" ? v : undefined;
+}
+
+function optBoolOrNull(v: unknown): boolean | null {
+  return typeof v === "boolean" ? v : null;
+}
+
+function optStringOrNull(v: unknown): string | null {
+  return typeof v === "string" ? v : null;
+}
+
+/**
+ * API Discovery returns `{ schemas: [...], timestamp }` (or nothing when the
+ * zone is not entitled). Only the count is kept — endpoint paths are
+ * customer API surface and are never collected.
+ */
+function apiGatewayDiscoverySummary(
+  v: unknown,
+): { discoveredSchemaCount: number } | undefined {
+  const rows = asArray(v);
+  if (rows.length === 0) return undefined;
+  const count = rows.reduce<number>(
+    (n, row) => n + asArray(asRecord(row).schemas).length,
+    0,
+  );
+  return { discoveredSchemaCount: count };
+}
+
 export async function collect(token: string): Promise<Collection> {
   const client = new CfGetClient(token);
 
@@ -52,7 +85,17 @@ export async function collect(token: string): Promise<Collection> {
     // Account posture data lives on the bare account object (result.settings);
     // the /accounts/{id}/settings subpath does not exist (404).
     const acctFull = asRecord(await client.get(`/accounts/${accountId}`));
-    const settings = asRecord(acctFull.settings ?? {});
+    const rawSettings = asRecord(acctFull.settings ?? {});
+    const settings = {
+      enforce_twofactor: optBoolOrNull(rawSettings.enforce_twofactor),
+      api_access_enabled: optBoolOrNull(rawSettings.api_access_enabled),
+      access_approval_expiry: optStringOrNull(
+        rawSettings.access_approval_expiry,
+      ),
+      oauth_app_access_enabled: optBoolOrNull(
+        rawSettings.oauth_app_access_enabled,
+      ),
+    };
     const members = asArray(
       await client.list(`/accounts/${accountId}/members`),
     );
@@ -74,9 +117,6 @@ export async function collect(token: string): Promise<Collection> {
     );
     const idps = asArray(
       await client.list(`/accounts/${accountId}/access/identity_providers`),
-    );
-    const serviceTokens = asArray(
-      await client.list(`/accounts/${accountId}/access/service_tokens`),
     );
     const widgets = asArray(
       await client.list(`/accounts/${accountId}/challenges/widgets`),
@@ -219,7 +259,6 @@ export async function collect(token: string): Promise<Collection> {
       turnstileWidgets: widgets.map((w) => {
         const wid = asRecord(w);
         const domains = asArray(wid.domains).map((d) => String(d));
-        void serviceTokens; // collected above; expiry posture read in analyzer
         return {
           name: typeof wid.name === "string" ? wid.name : undefined,
           domains: domains.length > 0 ? domains : undefined,
@@ -399,7 +438,7 @@ export async function collect(token: string): Promise<Collection> {
         ),
         proxied: typeof d.proxied === "boolean" ? d.proxied : null,
         ttl: typeof d.ttl === "number" ? d.ttl : undefined,
-        comment: typeof d.comment === "string" ? d.comment : null,
+        comment: typeof d.comment === "string" ? redactEmails(d.comment) : null,
       };
     });
 
@@ -431,8 +470,27 @@ export async function collect(token: string): Promise<Collection> {
       ),
       ipAccessRules: asArray(
         await client.list(`/zones/${zoneId}/firewall/access_rules/rules`),
+      ).map((rule) => {
+        const r = asRecord(rule);
+        const cfg = asRecord(r.configuration);
+        const scope = asRecord(r.scope);
+        return {
+          mode: optString(r.mode),
+          target: optString(cfg.target),
+          scope: optString(scope.type),
+        };
+      }),
+      pageRules: asArray(await client.list(`/zones/${zoneId}/pagerules`)).map(
+        (rule) => {
+          const r = asRecord(rule);
+          return {
+            status: optString(r.status),
+            actions: asArray(r.actions)
+              .map((a) => asRecord(a).id)
+              .filter((id): id is string => typeof id === "string"),
+          };
+        },
       ),
-      pageRules: asArray(await client.list(`/zones/${zoneId}/pagerules`)),
       certificatePacks: asArray(
         await client.list(`/zones/${zoneId}/ssl/certificate_packs`),
       ).map((pack) => {
@@ -455,10 +513,26 @@ export async function collect(token: string): Promise<Collection> {
       }),
       sslVerification: asArray(
         await client.list(`/zones/${zoneId}/ssl/verification`),
-      ),
+      ).map((row) => {
+        const v = asRecord(row);
+        return {
+          certificateStatus: optString(v.certificate_status),
+          validationMethod: optString(v.validation_method),
+          verificationType: optString(v.verification_type),
+        };
+      }),
       loadBalancers: asArray(
         await client.list(`/zones/${zoneId}/load_balancers`),
-      ),
+      ).map((row) => {
+        const lb = asRecord(row);
+        return {
+          name: optString(lb.name),
+          enabled: optBool(lb.enabled),
+          proxied: optBool(lb.proxied),
+          steeringPolicy: optString(lb.steering_policy),
+          poolCount: asArray(lb.default_pools).length,
+        };
+      }),
       workersRoutes: routes.map((r) => {
         const route = asRecord(r);
         return {
@@ -469,7 +543,7 @@ export async function collect(token: string): Promise<Collection> {
       }),
       dnsRecordCount: dnsRecords.length,
       dnsRecords,
-      apiGatewayDiscovery: asArray(
+      apiGatewayDiscovery: apiGatewayDiscoverySummary(
         await client.list(`/zones/${zoneId}/api_gateway/discovery`),
       ),
     });

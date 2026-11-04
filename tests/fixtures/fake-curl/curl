@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Test double for curl: serves tests/fixtures/fake-api.json (FAKE_API) by path.
+# Only supports the flags the collector uses: -sS -X GET -o <file> -w "%{http_code}" -H ... --max-time N <url>
+out="" url=""
+while [ $# -gt 0 ]; do
+	case "$1" in
+	-o) out="$2"; shift 2 ;;
+	-w | -H | -X | --max-time) shift 2 ;;
+	-*) shift ;;
+	*) url="$1"; shift ;;
+	esac
+done
+exec python3 - "$FAKE_API" "$url" "$out" <<'PY'
+import json, sys, urllib.parse
+api = json.load(open(sys.argv[1]))
+path = urllib.parse.urlparse(sys.argv[2]).path.replace("/client/v4", "", 1)
+entry = api.get(path, {"status": 404, "body": {"success": False, "errors": [{"message": "not found"}]}})
+open(sys.argv[3], "w").write(json.dumps(entry["body"]))
+sys.stdout.write(str(entry["status"]))
+PY

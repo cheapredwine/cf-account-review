@@ -1,0 +1,765 @@
+{
+  "/accounts": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "Parity Account"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+    "body": {
+      "errors": [],
+      "result": {
+        "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "name": "Parity Account",
+        "settings": {
+          "abuse_contact_email": "abuse@example.com",
+          "enforce_twofactor": false
+        }
+      },
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/access/apps": {
+    "body": {
+      "errors": [],
+      "result": [],
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/access/identity_providers": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "name": "OTP",
+          "type": "onetimepin"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/ai-gateway/gateways": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "authentication": false,
+          "byok_only": false,
+          "collect_logs": true,
+          "dlp": {
+            "enabled": false,
+            "policies": []
+          },
+          "guardrails": {},
+          "id": "gw-prod",
+          "rate_limiting_interval": null,
+          "rate_limiting_limit": null,
+          "rate_limiting_technique": null,
+          "retry_max_attempts": 0,
+          "spend_limits": {
+            "enabled": false
+          }
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/cfd_tunnel": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "id": "cccccccccccccccccccccccccccccccc",
+          "name": "t1",
+          "status": "healthy"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/cfd_tunnel/cccccccccccccccccccccccccccccccc/configurations": {
+    "body": {
+      "errors": [],
+      "result": {
+        "config": {
+          "ingress": [
+            {
+              "hostname": "admin.shop.example",
+              "service": "http://10.0.0.5:8080"
+            },
+            {
+              "service": "http_status:404"
+            }
+          ]
+        }
+      },
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/challenges/widgets": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "domains": [
+            "shop.example"
+          ],
+          "mode": "managed",
+          "name": "w",
+          "secret": "0x4AAAAAAA"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/d1/database": {
+    "body": {
+      "errors": [],
+      "result": [],
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/load_balancers/monitors": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "expected_codes": "200",
+          "header": {
+            "Authorization": [
+              "Basic c2VjcmV0"
+            ]
+          },
+          "id": "mon1",
+          "interval": 60,
+          "retries": 2,
+          "timeout": 5,
+          "type": "https"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/load_balancers/pools": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "enabled": true,
+          "id": "pool1",
+          "monitor": "mon1",
+          "name": "p",
+          "notification_email": "noc@example.com",
+          "origins": [
+            {
+              "address": "198.51.100.7",
+              "enabled": true,
+              "name": "o1",
+              "weight": 1
+            }
+          ]
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/members": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "policies": [
+            {
+              "permission_groups": [
+                {
+                  "name": "Administrator"
+                }
+              ]
+            }
+          ],
+          "status": "accepted",
+          "user": {
+            "email": "x@example.com",
+            "two_factor_authentication_enabled": true
+          }
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/r2/buckets": {
+    "body": {
+      "errors": [
+        {
+          "message": "forbidden"
+        }
+      ],
+      "success": false
+    },
+    "status": 403
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/rulesets": {
+    "body": {
+      "errors": [
+        {
+          "message": "forbidden"
+        }
+      ],
+      "success": false
+    },
+    "status": 403
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/storage/kv/namespaces": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "id": "kv1"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/tokens": {
+    "body": {
+      "errors": [],
+      "result": [],
+      "success": true
+    },
+    "status": 200
+  },
+  "/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workers/scripts": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "bindings": [
+            {
+              "name": "API_KEY",
+              "text": "nope",
+              "type": "secret_text"
+            }
+          ],
+          "created_on": "2026-01-01T00:00:00Z",
+          "id": "edge-fn",
+          "modified_on": "2026-01-02T00:00:00Z"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/user/tokens": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "expires_on": null,
+          "policies": [
+            {
+              "permission_groups": [
+                {
+                  "name": "Zone Read"
+                }
+              ]
+            }
+          ],
+          "status": "active"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/user/tokens/verify": {
+    "body": {
+      "errors": [],
+      "result": {
+        "status": "active"
+      },
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "name": "shop.example",
+          "paused": false,
+          "plan": {
+            "legacy_id": "enterprise",
+            "name": "Enterprise Website"
+          },
+          "status": "active",
+          "type": "full"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/api_gateway/discovery": {
+    "body": {
+      "errors": [
+        {
+          "message": "not entitled"
+        }
+      ],
+      "success": false
+    },
+    "status": 403
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/bot_management": {
+    "body": {
+      "errors": [],
+      "result": {
+        "enable_js": true,
+        "sbfm_definitely_automated": "allow",
+        "unknown_future": "x"
+      },
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/dns_records": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "comment": "owner bob@example.com",
+          "content": "192.0.2.10",
+          "name": "shop.example",
+          "proxied": true,
+          "ttl": 1,
+          "type": "A"
+        },
+        {
+          "content": "192.0.2.10",
+          "name": "direct.shop.example",
+          "proxied": false,
+          "ttl": 300,
+          "type": "A"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/firewall/access_rules/rules": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "configuration": {
+            "target": "ip",
+            "value": "198.51.100.9"
+          },
+          "mode": "whitelist",
+          "notes": "vpn by jane@example.com",
+          "scope": {
+            "type": "zone"
+          }
+        },
+        {
+          "configuration": {
+            "target": "country",
+            "value": "US"
+          },
+          "mode": "whitelist",
+          "scope": {
+            "type": "zone"
+          }
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/load_balancers": {
+    "body": {
+      "errors": [],
+      "result": [],
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/origin_tls_client_auth": {
+    "body": {
+      "errors": [],
+      "result": [],
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/origin_tls_client_auth/settings": {
+    "body": {
+      "errors": [],
+      "result": {
+        "enabled": false
+      },
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/page_shield": {
+    "body": {
+      "errors": [],
+      "result": {
+        "enabled": true,
+        "use_cloudflare_reporting_endpoint": true,
+        "use_connection_url_path": false
+      },
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/pagerules": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "actions": [
+            {
+              "id": "disable_security"
+            },
+            {
+              "id": "forwarding_url",
+              "value": {
+                "url": "https://origin.shop.example"
+              }
+            }
+          ],
+          "status": "active",
+          "targets": [
+            {
+              "constraint": {
+                "value": "internal.shop.example/*"
+              }
+            }
+          ]
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "id": "efb7b8c949ac4650a09736fc376e9aee",
+          "kind": "managed",
+          "name": "Cloudflare Managed Ruleset",
+          "phase": "http_request_firewall_managed"
+        },
+        {
+          "id": "zz-owasp-id",
+          "kind": "managed",
+          "name": "Cloudflare OWASP Core Ruleset",
+          "phase": "http_request_firewall_managed"
+        },
+        {
+          "id": "4d21379b4f9f4bb088e0729962c8b3cf",
+          "kind": "managed",
+          "name": "DDoS L7 ruleset",
+          "phase": "ddos_l7"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/ddos_l7/entrypoint": {
+    "body": {
+      "errors": [
+        {
+          "message": "not found"
+        }
+      ],
+      "success": false
+    },
+    "status": 404
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_ratelimit/entrypoint": {
+    "body": {
+      "errors": [],
+      "result": {
+        "rules": [
+          {
+            "action": "block",
+            "action_parameters": {
+              "response": {
+                "status_code": 429
+              }
+            },
+            "enabled": true,
+            "expression": "http.request.uri.path eq \"/login\"",
+            "id": "rl1",
+            "ratelimit": {
+              "characteristics": [
+                "ip.src",
+                "cf.colo.id"
+              ],
+              "counting_expression": "http.response.code eq 401",
+              "mitigation_timeout": 600,
+              "period": 60,
+              "requests_per_period": 5
+            }
+          }
+        ]
+      },
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_request_cache_settings/entrypoint": {
+    "body": {
+      "errors": [
+        {
+          "message": "forbidden"
+        }
+      ],
+      "success": false
+    },
+    "status": 403
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_request_dynamic_redirect/entrypoint": {
+    "body": {
+      "errors": [
+        {
+          "message": "not found"
+        }
+      ],
+      "success": false
+    },
+    "status": 404
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_request_firewall_custom/entrypoint": {
+    "body": {
+      "errors": [],
+      "result": {
+        "kind": "zone",
+        "name": "default",
+        "rules": [
+          {
+            "action": "skip",
+            "action_parameters": {
+              "phases": [
+                "http_ratelimit"
+              ],
+              "ruleset": "current"
+            },
+            "description": "ops ops@example.com",
+            "enabled": true,
+            "expression": "ip.src in {203.0.113.4}",
+            "id": "r1"
+          },
+          {
+            "action": "block",
+            "enabled": true,
+            "expression": "cf.bot_management.score eq 1",
+            "id": "r2"
+          }
+        ]
+      },
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_request_firewall_managed/entrypoint": {
+    "body": {
+      "errors": [],
+      "result": {
+        "rules": [
+          {
+            "action": "execute",
+            "action_parameters": {
+              "id": "efb7b8c949ac4650a09736fc376e9aee"
+            },
+            "enabled": true,
+            "expression": "true",
+            "id": "m1"
+          },
+          {
+            "action": "execute",
+            "action_parameters": {
+              "id": "zz-owasp-id",
+              "overrides": {
+                "action": "log",
+                "categories": [
+                  {
+                    "category": "paranoia-level-3",
+                    "enabled": false
+                  }
+                ],
+                "rules": [
+                  {
+                    "id": "6179ae15870a4bb7b2d480d4843b323c",
+                    "score_threshold": 40
+                  }
+                ]
+              }
+            },
+            "enabled": true,
+            "expression": "true",
+            "id": "m2"
+          }
+        ]
+      },
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_request_origin/entrypoint": {
+    "body": {
+      "errors": [
+        {
+          "message": "not found"
+        }
+      ],
+      "success": false
+    },
+    "status": 404
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_request_redirect/entrypoint": {
+    "body": {
+      "errors": [
+        {
+          "message": "not found"
+        }
+      ],
+      "success": false
+    },
+    "status": 404
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_request_transform/entrypoint": {
+    "body": {
+      "errors": [
+        {
+          "message": "not found"
+        }
+      ],
+      "success": false
+    },
+    "status": 404
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/rulesets/phases/http_response_headers_transform/entrypoint": {
+    "body": {
+      "errors": [],
+      "result": {
+        "rules": [
+          {
+            "action": "rewrite",
+            "action_parameters": {
+              "headers": {
+                "X-Frame-Options": {
+                  "operation": "set",
+                  "value": "DENY"
+                },
+                "X-Internal-Token": {
+                  "operation": "set",
+                  "value": "s3cr3t"
+                }
+              }
+            },
+            "enabled": true,
+            "expression": "true",
+            "id": "h1"
+          }
+        ]
+      },
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/settings": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "editable": true,
+          "id": "ssl",
+          "value": "full"
+        },
+        {
+          "id": "min_tls_version",
+          "value": "1.2"
+        },
+        {
+          "id": "security_level",
+          "value": "medium"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/ssl/certificate_packs": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "certificate_authority": "google",
+          "hosts": [
+            "shop.example"
+          ],
+          "id": "pk1",
+          "status": "active",
+          "type": "universal"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/ssl/verification": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "cert_pack_uuid": "pk1",
+          "certificate_status": "active",
+          "validation_method": "txt"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  },
+  "/zones/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/workers/routes": {
+    "body": {
+      "errors": [],
+      "result": [
+        {
+          "pattern": "shop.example/api/*",
+          "script": "edge-fn"
+        }
+      ],
+      "success": true
+    },
+    "status": 200
+  }
+}

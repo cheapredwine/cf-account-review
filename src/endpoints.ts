@@ -125,16 +125,6 @@ export const ENDPOINTS: Endpoint[] = [
       "https://developers.cloudflare.com/cloudflare-one/identity-providers/",
   },
   {
-    path: "/accounts/{account_id}/access/service_tokens",
-    rationale: "Service token expiry posture (metadata only).",
-    tokenPermission: "Access: Service Tokens: Read",
-    scope: "account",
-    planTier: "any",
-    domain: "zero-trust",
-    citation:
-      "https://developers.cloudflare.com/cloudflare-one/identity-providers/service-tokens/",
-  },
-  {
     path: "/accounts/{account_id}/challenges/widgets",
     rationale: "Turnstile inventory: widgets present, domains bound, mode.",
     tokenPermission: "Turnstile Sites: Read",
@@ -390,6 +380,10 @@ export const ENDPOINTS: Endpoint[] = [
 
 /** Security/traffic phases whose entrypoint rules are collected. */
 export const PHASES = [
+  // HTTP DDoS managed-ruleset overrides (CF-DDOS-001). A 404 here means no
+  // override ruleset is deployed — the evaluator confirms that against the
+  // zone ruleset list rather than treating absence as a pass on its own.
+  "ddos_l7",
   "http_request_firewall_custom",
   "http_request_firewall_managed",
   "http_ratelimit",

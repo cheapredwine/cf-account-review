@@ -63,6 +63,45 @@ const dnsRecordSchema = z.object({
   comment: z.string().optional().nullable(),
 });
 
+/** Account posture flags (allowlist; identities such as abuse_contact_email excluded). */
+const accountSettingsSchema = z.object({
+  enforce_twofactor: z.boolean().nullable().optional(),
+  api_access_enabled: z.boolean().nullable().optional(),
+  access_approval_expiry: z.string().nullable().optional(),
+  oauth_app_access_enabled: z.boolean().nullable().optional(),
+});
+
+/** IP access rule posture: mode/target/scope only — the matched value (an IP,
+ *  range, ASN or country) and free-text notes are never collected. */
+const ipAccessRuleSchema = z.object({
+  mode: z.string().optional(),
+  target: z.string().optional(),
+  scope: z.string().optional(),
+});
+
+/** Page rule posture: status + action ids only — URL targets and forwarding
+ *  destinations are never collected. */
+const pageRuleSchema = z.object({
+  status: z.string().optional(),
+  actions: z.array(z.string()).optional(),
+});
+
+/** Certificate validation posture only — validation records are never collected. */
+const sslVerificationSchema = z.object({
+  certificateStatus: z.string().optional(),
+  validationMethod: z.string().optional(),
+  verificationType: z.string().optional(),
+});
+
+/** Zone load balancer posture — pool ids reduced to a count. */
+const zoneLoadBalancerSchema = z.object({
+  name: z.string().optional(),
+  enabled: z.boolean().optional(),
+  proxied: z.boolean().optional(),
+  steeringPolicy: z.string().optional(),
+  poolCount: z.number().optional(),
+});
+
 const rulesetSummarySchema = z.object({
   id: idSchema.optional(),
   name: z.string().optional(),
@@ -90,7 +129,9 @@ export const collectionSchema = z.object({
       z.object({
         id: idSchema.optional(),
         name: z.string().optional(),
-        settings: z.unknown().optional(),
+        // Posture keys only — the raw account settings object also carries
+        // abuse_contact_email (an identity), which is never collected.
+        settings: accountSettingsSchema.optional(),
         enforceTwofactor: z.boolean().nullable().optional(),
         accountMembers: z
           .array(
@@ -258,8 +299,8 @@ export const collectionSchema = z.object({
           .optional(),
         botManagement: z.unknown().optional(),
         wafOverrides: z.unknown().optional(), // removed endpoint (410) — key kept optional for old collections
-        ipAccessRules: z.unknown().optional(),
-        pageRules: z.unknown().optional(),
+        ipAccessRules: z.array(ipAccessRuleSchema).optional(),
+        pageRules: z.array(pageRuleSchema).optional(),
         certificatePacks: z
           .array(
             z.object({
@@ -273,8 +314,8 @@ export const collectionSchema = z.object({
             }),
           )
           .optional(),
-        sslVerification: z.unknown().optional(),
-        loadBalancers: z.unknown().optional(),
+        sslVerification: z.array(sslVerificationSchema).optional(),
+        loadBalancers: z.array(zoneLoadBalancerSchema).optional(),
         workersRoutes: z
           .array(
             z.object({
@@ -286,7 +327,10 @@ export const collectionSchema = z.object({
         dnsRecordCount: z.number().optional(),
         dnsRecords: z.array(dnsRecordSchema).optional(),
         legacyRateLimits: z.unknown().optional(), // removed endpoint (410) — key kept optional for old collections
-        apiGatewayDiscovery: z.unknown().optional(),
+        // API Discovery inventory reduced to a count — endpoint paths are never collected.
+        apiGatewayDiscovery: z
+          .object({ discoveredSchemaCount: z.number().optional() })
+          .optional(),
         pageShield: z
           .object({
             enabled: z.boolean().optional(),
