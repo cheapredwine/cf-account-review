@@ -42,7 +42,9 @@ Chosen by broad category (user, 2026-11-04); scoped at report time via
 
 ## Open
 
-- [ ] Windows binary artifact (SEA on a windows runner) + PSScriptAnalyzer/PS 5.1 pass.
+- [x] Windows binary artifact (SEA on a windows runner) + PSScriptAnalyzer/PS 5.1 pass.
+      Binary builds and uploads successfully on every CI run; PSScriptAnalyzer
+      passes (Severity Error only); PS 5.1 syntax check passes.
 - [x] Redact header **values** set by transform rules (header names + operations
       kept for CF-HDR-001; values redacted at collection time in all three
       collectors — closes the short-secret gap noted 2026-11-03).
