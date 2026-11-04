@@ -36,13 +36,52 @@ const PLAN_ORDER: Record<string, number> = {
   enterprise: 3,
 };
 
-function planAtLeast(plan: string | undefined, tier: string): boolean {
-  if (tier === "any" || !plan) return tier === "any" ? true : false;
-  const planKey = plan.toLowerCase().replace(" plan", "").trim();
+/**
+ * Reduce a zone plan display name to its tier. The API returns names such as
+ * "Enterprise Website", "Business Website", "Pro Plan" or "Free Website"
+ * (legacy_id is not collected), so the tier is the first known tier word in
+ * the name rather than an exact match — an exact match silently treated every
+ * Enterprise zone as Free and marked all tiered checks `na`.
+ */
+export function planTier(plan: string | undefined): string | undefined {
+  if (!plan) return undefined;
+  const words = plan.toLowerCase().split(/[^a-z]+/);
+  return words.find((w) => w in PLAN_ORDER);
+}
+
+export function planAtLeast(plan: string | undefined, tier: string): boolean {
+  if (tier === "any") return true;
+  const planKey = planTier(plan);
+  if (planKey === undefined) return false;
   const need = PLAN_ORDER[tier.replace("-plus", "")] ?? 0;
   const have = PLAN_ORDER[planKey] ?? 0;
   if (tier.endsWith("-plus")) return have >= need;
   return planKey === tier;
+}
+
+/** Rule-level overrides on an `execute` rule (managed ruleset deployments). */
+function executeOverrides(r: { action?: string; action_parameters?: unknown }) {
+  if (r.action !== "execute") return undefined;
+  const ap = r.action_parameters;
+  if (typeof ap !== "object" || ap === null) return undefined;
+  const ov = (ap as Record<string, unknown>).overrides;
+  if (typeof ov !== "object" || ov === null) return undefined;
+  const o = ov as Record<string, unknown>;
+  return {
+    enabled: typeof o.enabled === "boolean" ? o.enabled : undefined,
+    action: typeof o.action === "string" ? o.action : undefined,
+  };
+}
+
+/** True when the rule is on AND, for execute rules, its managed ruleset is not
+ *  switched off wholesale via `overrides.enabled: false`. */
+function ruleEffectivelyEnabled(r: {
+  enabled?: boolean;
+  action?: string;
+  action_parameters?: unknown;
+}): boolean {
+  if (r.enabled === false) return false;
+  return executeOverrides(r)?.enabled !== false;
 }
 
 function settingValue(
@@ -183,9 +222,12 @@ const evaluators: Record<string, Evaluator> = {
         detail: `phase ${phase} not readable (no ruleset deployed, or scope gap)`,
       };
     }
-    const enabledRules = rs.filter((r) => r.enabled !== false);
+    const enabledRules = rs.filter(ruleEffectivelyEnabled);
     if (enabledRules.length === 0) {
-      return { verdict: "fail", detail: `phase ${phase} has no enabled rules` };
+      return {
+        verdict: "fail",
+        detail: `phase ${phase} has no enabled rules (rule-level or override-level disabled)`,
+      };
     }
     if (check.params.requireEnabledExecuteRule) {
       const execute = enabledRules.filter((r) => r.action === "execute");
@@ -193,6 +235,15 @@ const evaluators: Record<string, Evaluator> = {
         return {
           verdict: "fail",
           detail: `no enabled "execute" rule deploys a managed ruleset in ${phase}`,
+        };
+      }
+      const logOnly = execute.filter(
+        (r) => executeOverrides(r)?.action === "log",
+      );
+      if (logOnly.length === execute.length) {
+        return {
+          verdict: "warn",
+          detail: `all ${execute.length} managed ruleset deployment(s) in ${phase} are overridden to log only`,
         };
       }
     }
@@ -768,20 +819,46 @@ const evaluators: Record<string, Evaluator> = {
     }
     const ddosPhase = zone.phaseEntrypoints["ddos_l7"];
     if (!ddosPhase) {
-      return { verdict: "manual", detail: "DDoS L7 phase not readable" };
+      // The ddos_l7 entrypoint 404s when no override ruleset exists. That is
+      // only a pass if the (readable) ruleset list agrees no zone-kind
+      // ddos_l7 ruleset is deployed — otherwise it was a scope gap.
+      if (!zone.rulesets) {
+        return {
+          verdict: "manual",
+          detail: "DDoS L7 phase not readable and zone ruleset list not collected",
+        };
+      }
+      const overrideRuleset = zone.rulesets.find(
+        (r) => r.phase === "ddos_l7" && r.kind === "zone",
+      );
+      if (overrideRuleset) {
+        return {
+          verdict: "manual",
+          detail:
+            "a DDoS override ruleset exists but its rules were not readable",
+        };
+      }
+      return {
+        verdict: "pass",
+        detail: "no HTTP DDoS override ruleset deployed — managed protection at defaults",
+      };
     }
-    const disabledRules = (ddosPhase.rules ?? []).filter(
-      (r) => r.action === "execute" && r.enabled === false,
-    );
-    if (disabledRules.length > 0) {
+    const neutered = (ddosPhase.rules ?? []).filter((r) => {
+      if (r.action !== "execute") return false;
+      const ov = executeOverrides(r);
+      return (
+        r.enabled === false || ov?.enabled === false || ov?.action === "log"
+      );
+    });
+    if (neutered.length > 0) {
       return {
         verdict: "fail",
-        detail: `${disabledRules.length} DDoS managed ruleset(s) disabled via override`,
+        detail: `${neutered.length} HTTP DDoS managed ruleset deployment(s) disabled or set to log via override`,
       };
     }
     return {
       verdict: "pass",
-      detail: "HTTP DDoS managed rulesets not disabled",
+      detail: "HTTP DDoS managed rulesets deployed with overrides that keep mitigation active",
     };
   },
 

@@ -50,7 +50,36 @@
               "name": {
                 "type": "string"
               },
-              "settings": {},
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "enforce_twofactor": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "api_access_enabled": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "access_approval_expiry": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "oauth_app_access_enabled": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
               "enforceTwofactor": {
                 "type": [
                   "boolean",
@@ -576,8 +605,42 @@
               },
               "botManagement": {},
               "wafOverrides": {},
-              "ipAccessRules": {},
-              "pageRules": {},
+              "ipAccessRules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string"
+                    },
+                    "target": {
+                      "type": "string"
+                    },
+                    "scope": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "pageRules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
               "certificatePacks": {
                 "type": "array",
                 "items": {
@@ -615,8 +678,48 @@
                   "additionalProperties": false
                 }
               },
-              "sslVerification": {},
-              "loadBalancers": {},
+              "sslVerification": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "certificateStatus": {
+                      "type": "string"
+                    },
+                    "validationMethod": {
+                      "type": "string"
+                    },
+                    "verificationType": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "loadBalancers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "proxied": {
+                      "type": "boolean"
+                    },
+                    "steeringPolicy": {
+                      "type": "string"
+                    },
+                    "poolCount": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
               "workersRoutes": {
                 "type": "array",
                 "items": {
@@ -685,7 +788,15 @@
                 }
               },
               "legacyRateLimits": {},
-              "apiGatewayDiscovery": {},
+              "apiGatewayDiscovery": {
+                "type": "object",
+                "properties": {
+                  "discoveredSchemaCount": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              },
               "pageShield": {
                 "type": "object",
                 "properties": {

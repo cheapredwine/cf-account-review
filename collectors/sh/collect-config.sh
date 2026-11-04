@@ -392,7 +392,7 @@ mkdir -p "$WORK/files"
 : >"$WORK/errors.tsv"
 
 # Ruleset phases to collect (these are Cloudflare's standard phases)
-PHASES="http_request_firewall_custom http_request_firewall_managed http_ratelimit http_request_transform http_request_dynamic_redirect http_request_cache_settings http_request_origin http_request_redirect http_response_headers_transform"
+PHASES="ddos_l7 http_request_firewall_custom http_request_firewall_managed http_ratelimit http_request_transform http_request_dynamic_redirect http_request_cache_settings http_request_origin http_request_redirect http_response_headers_transform"
 
 # ============================================================================
 # PHASE 2: TOKEN VERIFICATION
@@ -438,7 +438,8 @@ while IFS=$'\t' read -r zone_id zone_name; do
 		"dns_records:/dns_records" \
 		"page_shield:/page_shield" \
 		"origin_tls_settings:/origin_tls_client_auth/settings" \
-		"origin_tls_certs:/origin_tls_client_auth"; do
+		"origin_tls_certs:/origin_tls_client_auth" \
+		"api_gateway_discovery:/api_gateway/discovery"; do
 		label="${ep%%:*}"
 		suffix="${ep#*:}"
 		cf_get "zone-${zone_id}-${label}" "/zones/${zone_id}${suffix}" >/dev/null 2>&1 || true
@@ -485,7 +486,8 @@ while IFS= read -r account_id; do
 		"worker_scripts:/workers/scripts" \
 		"kv:/storage/kv/namespaces" \
 		"d1:/d1/database" \
-		"r2:/r2/buckets"; do
+		"r2:/r2/buckets" \
+		"ai_gateways:/ai-gateway/gateways"; do
 		label="${ep%%:*}"
 		suffix="${ep#*:}"
 		cf_get "acct-${account_id}-${label}" "/accounts/${account_id}${suffix}" >/dev/null 2>&1 || true
@@ -574,9 +576,28 @@ def arr(name):
     return v if isinstance(v, list) else [v]
 
 def obj(name):
-    """Load a JSON file and ensure it's an object."""
+    """Load a single-object result. cf_get stores every result through the
+    pagination accumulator, so a single object arrives as a one-element list —
+    unwrap it. (v0.1 rejected lists here and silently dropped every phase
+    entrypoint, bot_management, page_shield and AOP settings.)"""
     v = load(name)
+    if isinstance(v, list):
+        v = v[0] if len(v) == 1 else None
     return v if isinstance(v, dict) else None
+
+def compact(d, keep=()):
+    """Drop None values the way the TS collector drops `undefined`; keys in
+    `keep` are intentionally nullable and stay as null."""
+    return {k: v for k, v in d.items() if v is not None or k in keep}
+
+def opt_str(v):
+    return v if isinstance(v, str) else None
+
+def opt_bool(v):
+    return v if isinstance(v, bool) else None
+
+def opt_num(v):
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
 def hash_id(value):
     """Hash an ID (account, zone, rule) using SHA-256, truncate to 16 hex chars."""
@@ -587,26 +608,31 @@ def hash_id(value):
 # Regex patterns for redaction
 EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 IP = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
-INTERNAL_HOST = re.compile(r"\b(?:[a-z0-9-]+\.)*(?:internal|corp|intranet|local)\b", re.I)
+INTERNAL_HOST = re.compile(r"\b(?:[a-z0-9-]+\.)*(?:internal|corp|intranet|local|internal\.[a-z]{2,}|origin\.[-a-z0-9.]+)\b", re.I)
 REDACTED = "[redacted]"
 
 def redact_expr(expr):
     """Redact IPs, emails, and internal hostnames from firewall rule expressions."""
     if not isinstance(expr, str):
         return expr
-    out = IP.sub(REDACTED, expr)
-    out = EMAIL.sub(REDACTED, out)
+    out = EMAIL.sub(REDACTED, expr)
+    out = IP.sub(REDACTED, out)
     out = INTERNAL_HOST.sub(REDACTED, out)
     return out
+
+def redact_emails(text):
+    """Redact email addresses from arbitrary text (e.g. DNS comments)."""
+    return EMAIL.sub(REDACTED, text) if isinstance(text, str) else text
 
 def settings_map(zone_id):
     """Build a map of zone settings (id → {id, value, editable})."""
     rows = arr(f"zone-{zone_id}-settings")
-    return {r["id"]: {"id": r["id"], "value": r.get("value"), "editable": r.get("editable")} for r in rows if isinstance(r, dict) and "id" in r}
+    return {r["id"]: compact({"id": r["id"], "value": r.get("value"), "editable": opt_bool(r.get("editable"))}, keep=("value",))
+            for r in rows if isinstance(r, dict) and "id" in r}
 
 def phase_entrypoints(zone_id):
     """Collect ruleset phase entrypoints with redacted expressions."""
-    phases = ["http_request_firewall_custom", "http_request_firewall_managed", "http_ratelimit",
+    phases = ["ddos_l7", "http_request_firewall_custom", "http_request_firewall_managed", "http_ratelimit",
               "http_request_transform", "http_request_dynamic_redirect", "http_request_cache_settings",
               "http_request_origin", "http_request_redirect", "http_response_headers_transform"]
     out = {}
@@ -626,17 +652,17 @@ def phase_entrypoints(zone_id):
                     h: ({**op, "value": REDACTED} if "value" in op else op)
                     for h, op in ap["headers"].items() if isinstance(op, dict)
                 }
-            rules.append({
+            rules.append(compact({
                 "id": hash_id(r.get("id")),
-                "description": r.get("description"),
-                "enabled": r.get("enabled"),
-                "action": r.get("action"),
-                "expression": redact_expr(r.get("expression")),
+                "description": EMAIL.sub(REDACTED, r["description"]) if isinstance(r.get("description"), str) else None,
+                "enabled": opt_bool(r.get("enabled")),
+                "action": opt_str(r.get("action")),
+                "expression": redact_expr(r.get("expression")) if isinstance(r.get("expression"), str) else None,
                 "action_parameters": ap,
-                "version": r.get("version"),
-                "lastUpdated": r.get("last_updated"),
-            })
-        out[phase] = {"phase": phase, "name": ep.get("name"), "kind": ep.get("kind"), "rules": rules}
+                "version": opt_str(r.get("version")),
+                "lastUpdated": opt_str(r.get("last_updated")),
+            }))
+        out[phase] = compact({"phase": phase, "name": opt_str(ep.get("name")), "kind": opt_str(ep.get("kind")), "rules": rules})
     return out
 
 def page_shield_doc(zone_id):
@@ -663,35 +689,67 @@ def authenticated_origin_pulls_doc(zone_id):
     out["certCount"] = len(certs)
     return out
 
+def api_gateway_discovery_doc(zone_id):
+    """API Discovery reduced to a count — endpoint paths are never collected."""
+    rows = arr(f"zone-{zone_id}-api_gateway_discovery")
+    if not rows:
+        return None
+    return {"discoveredSchemaCount": sum(len(r.get("schemas") or []) for r in rows if isinstance(r, dict))}
+
 def zone_doc(z):
     """Build a complete zone document with all collected data and redactions applied."""
     zone_id, zone_name = z.get("id", ""), z.get("name", "")
-    plan = (z.get("plan") or {}).get("name")
+    plan = opt_str((z.get("plan") or {}).get("name"))
     dns = arr(f"zone-{zone_id}-dns_records")
-    return {
+    return compact({
         "name": zone_name,
         "plan": plan,
-        "status": z.get("status"),
-        "paused": z.get("paused"),
-        "type": z.get("type"),
-        "createdOn": z.get("created_on"),
+        "status": opt_str(z.get("status")),
+        "paused": opt_bool(z.get("paused")),
+        "type": opt_str(z.get("type")),
+        "createdOn": opt_str(z.get("created_on")),
         "settings": settings_map(zone_id),
-        "rulesets": [{"id": hash_id(r.get("id")), "name": r.get("name"), "kind": r.get("kind"),
-                      "phase": r.get("phase"), "version": r.get("version")} for r in arr(f"zone-{zone_id}-rulesets")],
+        "rulesets": [compact({"id": hash_id(r.get("id")), "name": opt_str(r.get("name")), "kind": opt_str(r.get("kind")),
+                              "phase": opt_str(r.get("phase")), "version": opt_str(r.get("version"))})
+                     for r in arr(f"zone-{zone_id}-rulesets")],
         "phaseEntrypoints": phase_entrypoints(zone_id),
-        "botManagement": obj(f"zone-{zone_id}-bot_management"),
-        "ipAccessRules": arr(f"zone-{zone_id}-ip_access_rules"),
-        "pageRules": arr(f"zone-{zone_id}-page_rules"),
-        "certificatePacks": arr(f"zone-{zone_id}-certificate_packs"),
-        "sslVerification": arr(f"zone-{zone_id}-ssl_verification"),
-        "loadBalancers": arr(f"zone-{zone_id}-load_balancers"),
-        "workersRoutes": [{"pattern": r.get("pattern"), "script": r.get("script")} for r in arr(f"zone-{zone_id}-workers_routes")],
+        "botManagement": obj(f"zone-{zone_id}-bot_management") or {},
+        # mode/target/scope only — matched values and notes never collected
+        "ipAccessRules": [compact({"mode": opt_str(r.get("mode")),
+                                   "target": opt_str((r.get("configuration") or {}).get("target")),
+                                   "scope": opt_str((r.get("scope") or {}).get("type"))})
+                          for r in arr(f"zone-{zone_id}-ip_access_rules")],
+        # status + action ids only — URL targets never collected
+        "pageRules": [compact({"status": opt_str(r.get("status")),
+                               "actions": [a.get("id") for a in (r.get("actions") or []) if isinstance(a.get("id"), str)]})
+                      for r in arr(f"zone-{zone_id}-page_rules")],
+        "certificatePacks": [compact({
+            "id": hash_id(c.get("id")) if isinstance(c.get("id"), str) else None,
+            "type": opt_str(c.get("type")), "status": opt_str(c.get("status")),
+            "validityDays": opt_num(c.get("validity_days")),
+            "certificateAuthority": opt_str(c.get("certificate_authority")),
+            "expiresOn": opt_str(c.get("expires_on")),
+            "hosts": [h for h in (c.get("hosts") or []) if isinstance(h, str)],
+        }, keep=("expiresOn",)) for c in arr(f"zone-{zone_id}-certificate_packs")],
+        "sslVerification": [compact({"certificateStatus": opt_str(v.get("certificate_status")),
+                                     "validationMethod": opt_str(v.get("validation_method")),
+                                     "verificationType": opt_str(v.get("verification_type"))})
+                            for v in arr(f"zone-{zone_id}-ssl_verification")],
+        "loadBalancers": [compact({"name": opt_str(lb.get("name")), "enabled": opt_bool(lb.get("enabled")),
+                                   "proxied": opt_bool(lb.get("proxied")), "steeringPolicy": opt_str(lb.get("steering_policy")),
+                                   "poolCount": len(lb.get("default_pools") or [])})
+                          for lb in arr(f"zone-{zone_id}-load_balancers")],
+        "workersRoutes": [compact({"pattern": opt_str(r.get("pattern")), "script": opt_str(r.get("script"))})
+                          for r in arr(f"zone-{zone_id}-workers_routes")],
         "dnsRecordCount": len(dns),
-        "dnsRecords": [{"type": d.get("type"), "name": d.get("name"), "content": REDACTED if d.get("content") is not None else None,
-                        "proxied": d.get("proxied"), "ttl": d.get("ttl"), "comment": d.get("comment")} for d in dns],
+        "dnsRecords": [compact({"type": str(d.get("type") or ""), "name": str(d.get("name") or ""),
+                                "content": REDACTED if isinstance(d.get("content"), str) else None,
+                                "proxied": opt_bool(d.get("proxied")), "ttl": opt_num(d.get("ttl")),
+                                "comment": redact_emails(opt_str(d.get("comment"))) if d.get("comment") else None}, keep=("proxied", "comment")) for d in dns],
+        "apiGatewayDiscovery": api_gateway_discovery_doc(zone_id),
         "pageShield": page_shield_doc(zone_id),
         "authenticatedOriginPulls": authenticated_origin_pulls_doc(zone_id),
-    }
+    })
 
 def tunnel_doc(acct_id, tunnel):
     """Build a tunnel document with public hostnames extracted from config."""
@@ -702,98 +760,157 @@ def tunnel_doc(acct_id, tunnel):
         for ingress in (config.get("config") or {}).get("ingress") or []:
             hostname = ingress.get("hostname")
             if hostname and hostname != "*":
-                public_hostnames.append(hostname)
-    return {
-        "id": hash_id(tunnel_id),
-        "name": tunnel.get("name"),
-        "status": tunnel.get("status"),
+                public_hostnames.append(str(hostname))
+    return compact({
+        "id": hash_id(tunnel_id) if tunnel_id else None,
+        "name": opt_str(tunnel.get("name")),
+        "status": opt_str(tunnel.get("status")),
         "publicHostnames": public_hostnames,
-    }
+    })
+
+def group_names(policies):
+    names = []
+    for p in policies or []:
+        names.extend(str((g or {}).get("name") or "") for g in (p or {}).get("permission_groups") or [])
+    return names
 
 def account_doc(a):
     """Build a complete account document with all collected data and redactions applied."""
     acct_id = a.get("id", "")
     # Posture data lives under result.settings of the bare /accounts/{id} fetch
-    # (the /accounts/{id}/settings subpath does not exist — 404). cf_get wraps
-    # single-object results in a one-element list, so unwrap it.
-    account_payload = load(f"acct-{acct_id}-account")
-    if isinstance(account_payload, list):
-        account_payload = account_payload[0] if account_payload else None
-    settings = (account_payload or {}).get("settings") or {}
-    
+    # (the /accounts/{id}/settings subpath does not exist — 404).
+    raw_settings = (obj(f"acct-{acct_id}-account") or {}).get("settings") or {}
+    # Allowlisted posture keys only: abuse_contact_email is an identity.
+    settings = {
+        "enforce_twofactor": opt_bool(raw_settings.get("enforce_twofactor")),
+        "api_access_enabled": opt_bool(raw_settings.get("api_access_enabled")),
+        "access_approval_expiry": opt_str(raw_settings.get("access_approval_expiry")),
+        "oauth_app_access_enabled": opt_bool(raw_settings.get("oauth_app_access_enabled")),
+    }
+
     # Member identities → role names + 2FA booleans only
     members = []
     for m in arr(f"acct-{acct_id}-members"):
-        roles = []
-        for p in m.get("policies") or []:
-            roles.extend(g.get("name") for g in p.get("permission_groups") or [])
         user = m.get("user") or {}
-        members.append({
-            "roleNames": [r for r in roles if r],
-            "twofactorEnabled": user.get("two_factor_authentication_enabled"),
-            "status": m.get("status"),
-        })
-    
+        members.append(compact({
+            "roleNames": group_names(m.get("policies")),
+            "twofactorEnabled": opt_bool(user.get("two_factor_authentication_enabled")),
+            "status": opt_str(m.get("status")),
+        }, keep=("twofactorEnabled",)))
+
     # API tokens → metadata only (values never in responses)
     tokens = []
     for t in arr(f"acct-{acct_id}-user-tokens") + arr(f"acct-{acct_id}-tokens"):
-        groups = []
-        for p in t.get("policies") or []:
-            groups.extend(g.get("name") for g in p.get("permission_groups") or [])
-        tokens.append({
-            "status": t.get("status"), "expiresOn": t.get("expires_on"),
-            "lastUsedOn": t.get("last_used_on"), "permissionGroupNames": [g for g in groups if g],
-        })
-    
-    # Worker scripts → names, routes, binding names/types only (never values)
+        tokens.append(compact({
+            "status": opt_str(t.get("status")), "expiresOn": opt_str(t.get("expires_on")),
+            "lastUsedOn": opt_str(t.get("last_used_on")), "permissionGroupNames": group_names(t.get("policies")),
+        }, keep=("expiresOn", "lastUsedOn")))
+
+    # Load balancer pools/monitors → origin addresses, notification emails and
+    # monitor headers never exported
+    pools = []
+    for pool in arr(f"acct-{acct_id}-lb_pools"):
+        pools.append(compact({
+            "id": hash_id(pool.get("id")) if isinstance(pool.get("id"), str) else None,
+            "name": opt_str(pool.get("name")), "enabled": opt_bool(pool.get("enabled")),
+            "origins": [compact({"name": opt_str(o.get("name")),
+                                 "address": REDACTED if isinstance(o.get("address"), str) else None,
+                                 "enabled": opt_bool(o.get("enabled")), "weight": opt_num(o.get("weight"))})
+                        for o in pool.get("origins") or []],
+            "monitor": hash_id(pool.get("monitor")) if isinstance(pool.get("monitor"), str) else None,
+            "notificationEmail": REDACTED,
+        }, keep=("monitor",)))
+    monitors = []
+    for m in arr(f"acct-{acct_id}-lb_monitors"):
+        monitors.append(compact({
+            "id": hash_id(m.get("id")) if isinstance(m.get("id"), str) else None,
+            "type": opt_str(m.get("type")), "interval": opt_num(m.get("interval")),
+            "timeout": opt_num(m.get("timeout")), "retries": opt_num(m.get("retries")),
+            "expectedCodes": opt_str(m.get("expected_codes")),
+            "followRedirects": opt_bool(m.get("follow_redirects")),
+            "allowInsecure": opt_bool(m.get("allow_insecure")),
+        }))
+
+    # Worker scripts → names, binding names/types only (never values)
     scripts = []
-    for s in arr(f"acct-{acct_id}-worker_scripts"):
-        bindings = [{"name": b.get("name"), "type": b.get("type")}
-                    for b in s.get("bindings") or [] if b.get("type") in ("plain_text", "secret_text")]
-        scripts.append({
-            "id": hash_id(s.get("id")), "scriptName": s.get("id"),
-            "createdOn": s.get("created_on"), "modifiedOn": s.get("modified_on"),
+    for sc in arr(f"acct-{acct_id}-worker_scripts"):
+        bindings = [{"name": str(b.get("name") or ""), "type": str(b.get("type") or "")}
+                    for b in sc.get("bindings") or [] if b.get("type") in ("plain_text", "secret_text")]
+        scripts.append(compact({
+            "id": hash_id(str(sc.get("id"))) if sc.get("id") else None,
+            "scriptName": opt_str(sc.get("id")),
+            "createdOn": opt_str(sc.get("created_on")), "modifiedOn": opt_str(sc.get("modified_on")),
             "plainTextBindings": bindings,
-        })
-    
+            "routesBound": False,
+        }))
+
     # Storage inventory → counts only (never contents)
     storage = {
         "kvNamespaces": len(arr(f"acct-{acct_id}-kv")),
         "d1Databases": len(arr(f"acct-{acct_id}-d1")),
         "r2Buckets": len(arr(f"acct-{acct_id}-r2")),
     }
-    
+
     # Access apps → decisions only (identities never exported)
     access_apps = []
     for app in arr(f"acct-{acct_id}-access_apps"):
         policies = app.get("policies") or []
-        access_apps.append({
-            "name": app.get("name"), "type": app.get("type"), "domain": app.get("domain"),
-            "selfHostedDomains": app.get("self_hosted_domains") or [],
+        self_hosted = [str(d) for d in app.get("self_hosted_domains") or []]
+        access_apps.append(compact({
+            "name": opt_str(app.get("name")), "type": opt_str(app.get("type")), "domain": opt_str(app.get("domain")),
+            "selfHostedDomains": self_hosted or None,
             "hasPolicies": len(policies) > 0,
-            "policyDecisions": [p.get("decision") for p in policies if p.get("decision")],
-        })
-    
-    # Tunnels with public hostnames
+            "policyDecisions": [str(p.get("decision")) for p in policies if p.get("decision")],
+        }))
+
+    widgets = []
+    for w in arr(f"acct-{acct_id}-turnstile"):
+        domains = [str(d) for d in w.get("domains") or []]
+        widgets.append(compact({"name": opt_str(w.get("name")), "domains": domains or None, "mode": opt_str(w.get("mode"))}))
+
+    # AI Gateway posture (authentication, rate limiting, DLP, guardrails, spend limits)
+    gateways = []
+    for g in arr(f"acct-{acct_id}-ai_gateways"):
+        dlp = g.get("dlp") if isinstance(g.get("dlp"), dict) else {}
+        guardrails = g.get("guardrails") if isinstance(g.get("guardrails"), dict) else {}
+        spend = g.get("spend_limits") if isinstance(g.get("spend_limits"), dict) else {}
+        gateways.append(compact({
+            "id": opt_str(g.get("id")),
+            "authentication": opt_bool(g.get("authentication")),
+            "rateLimitingLimit": opt_num(g.get("rate_limiting_limit")),
+            "rateLimitingInterval": opt_num(g.get("rate_limiting_interval")),
+            "rateLimitingTechnique": opt_str(g.get("rate_limiting_technique")),
+            "collectLogs": opt_bool(g.get("collect_logs")),
+            "dlpEnabled": opt_bool(dlp.get("enabled")),
+            "dlpPoliciesCount": len(dlp["policies"]) if isinstance(dlp.get("policies"), list) else None,
+            "guardrailsConfigured": True if guardrails else None,
+            "retryMaxAttempts": opt_num(g.get("retry_max_attempts")),
+            "spendLimitsEnabled": opt_bool(spend.get("enabled")),
+            "byokOnly": opt_bool(g.get("byok_only")),
+        }, keep=("rateLimitingLimit", "rateLimitingInterval", "rateLimitingTechnique", "retryMaxAttempts")))
+
     tunnels = [tunnel_doc(acct_id, t) for t in arr(f"acct-{acct_id}-tunnels")]
-    
-    return {
-        "id": hash_id(acct_id), "name": a.get("name"),
-        "enforceTwofactor": settings.get("enforce_twofactor"),
+
+    return compact({
+        "id": hash_id(acct_id), "name": opt_str(a.get("name")),
+        "enforceTwofactor": settings["enforce_twofactor"],
+        "settings": settings,
         "accountMembers": members,
         "apiTokens": tokens,
-        "loadBalancerPools": arr(f"acct-{acct_id}-lb_pools"),
-        "loadBalancerMonitors": arr(f"acct-{acct_id}-lb_monitors"),
-        "accountRulesets": [{"name": r.get("name"), "kind": r.get("kind"), "phase": r.get("phase")}
+        "loadBalancerPools": pools,
+        "loadBalancerMonitors": monitors,
+        "accountRulesets": [compact({"name": opt_str(r.get("name")), "kind": opt_str(r.get("kind")),
+                                     "phase": opt_str(r.get("phase")), "version": opt_str(r.get("version"))})
                             for r in arr(f"acct-{acct_id}-account_rulesets")],
         "accessApps": access_apps,
-        "accessIdentityProviders": [{"name": p.get("name"), "type": p.get("type")} for p in arr(f"acct-{acct_id}-access_idps")],
-        "turnstileWidgets": [{"name": w.get("name"), "domains": w.get("domains"), "mode": w.get("mode")}
-                             for w in arr(f"acct-{acct_id}-turnstile")],
+        "accessIdentityProviders": [compact({"name": opt_str(p.get("name")), "type": opt_str(p.get("type"))})
+                                    for p in arr(f"acct-{acct_id}-access_idps")],
+        "turnstileWidgets": widgets,
         "cfdTunnels": tunnels,
         "workersScripts": scripts,
         "storageInventory": storage,
-    }
+        "aiGateways": gateways,
+    }, keep=("enforceTwofactor",))
 
 # Load collection errors (scope gaps)
 errors = []
@@ -803,7 +920,9 @@ if os.path.exists(err_path):
         for line in f:
             parts = line.rstrip("\n").split("\t", 1)
             if len(parts) == 2:
-                errors.append({"path": parts[0], "error": parts[1]})
+                # Redact account/zone IDs from error paths (32-char hex)
+                path = re.sub(r'\b[a-f0-9]{32}\b', lambda m: hash_id(m.group(0)), parts[0])
+                errors.append({"path": path, "error": parts[1]})
 
 # Build final document
 zones = arr("zones")

@@ -20,6 +20,8 @@ Chosen by broad category (user, 2026-11-04); scoped at report time via
 - [x] Both collection modes (Mode A TypeScript, Mode B bash + PowerShell)
       dogfooded end-to-end against the test account; verdict parity confirmed
       between collectors; collector defects found and fixed in the process.
+      Three-way parity enforced via fake-API test (collector-parity.test.ts)
+      against planted secrets and identical error paths.
 - [x] Full-scope token run: 17 fail / 20 warn / 22 pass / 26 manual / 25 n/a
       (narrow-token baseline was 0 fail / 70 manual — real findings were
       masked as manual). Verified the scope gate: probes before every run;

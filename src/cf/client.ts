@@ -90,8 +90,10 @@ export class CfGetClient {
     status: number | undefined,
     error: string,
   ): void {
+    // Redact account/zone IDs from the path (32-char hex strings)
+    const redactedPath = path.replace(/\b[a-f0-9]{32}\b/g, (id) => hashId(id));
     this.apiErrors.push({
-      path,
+      path: redactedPath,
       status,
       error,
       note: status === 403 ? "likely token scope gap — skipped" : undefined,
