@@ -143,18 +143,10 @@ checks:
       with response-code counting on Business+, escalating windows per the docs).
     citation: https://developers.cloudflare.com/waf/rate-limiting-rules/best-practices/
 
-  - id: CF-RL-002
-    name: Legacy rate-limiting product not in use (migration complete)
-    domain: rate-limiting
-    severity: low
-    type: legacy_ratelimit
-    applies: { planTier: any }
-    evidence: zones[].legacyRateLimits
-    params: {}
-    remediation: >
-      The legacy rate limiting product is superseded by rate limiting rules
-      (http_ratelimit phase). Migrate to the new ruleset engine.
-    citation: https://developers.cloudflare.com/waf/reference/legacy/old-rate-limiting/
+  # CF-RL-002 (legacy rate-limit migration signal) removed 2026-11-03: the
+  # legacy /zones/{id}/rate_limits endpoint returns 410 Gone (product EOL'd),
+  # so the check could only ever pass vacuously on absent data. Current
+  # rate-limiting posture is covered by CF-RL-001 (http_ratelimit phase).
 
   # ------------------------------------------------------------------ Bots
   - id: CF-BOT-001

@@ -153,14 +153,9 @@ const evaluators: Record<string, Evaluator> = {
       : { verdict: "fail", detail: `no rate limiting rule matches login paths (${loginPaths.join(", ")})` };
   },
 
-  legacy_ratelimit: (_check, zone, _c) => {
-    if (!zone) return { verdict: "na", detail: "no zone in scope" };
-    const legacy: unknown[] = Array.isArray(zone.legacyRateLimits)
-      ? zone.legacyRateLimits
-      : [];
-    if (legacy.length === 0) return { verdict: "pass", detail: "no legacy rate-limit rules" };
-    return { verdict: "warn", detail: `${legacy.length} legacy rate-limit rule(s) still configured` };
-  },
+  // legacy_ratelimit evaluator removed 2026-11-03 with CF-RL-002: the legacy
+  // /zones/{id}/rate_limits endpoint returns 410 Gone (product EOL'd). Keeping
+  // it would turn absent data into a vacuous "pass" (fail-closed violation).
 
   bot_rules: (_check, zone, _c) => {
     if (!zone) return { verdict: "na", detail: "no zone in scope" };

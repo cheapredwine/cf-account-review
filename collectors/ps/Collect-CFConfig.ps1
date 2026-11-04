@@ -422,8 +422,10 @@ foreach ($acct in $accounts) {
     $acctId = $acct.id
     $a = [ordered]@{ id = (Protect-Id $acctId); name = $acct.name }
 
-    # Account settings
-    $settings = Invoke-CFGet -Path "/accounts/$acctId/settings"
+    # Account settings: posture data lives on the bare account object
+    # (result.settings) — /accounts/{id}/settings does not exist (404)
+    $account = Invoke-CFGet -Path "/accounts/$acctId"
+    $settings = if ($account -and $account.settings) { $account.settings } else { $null }
     $a | Add-Member -NotePropertyName settings -NotePropertyValue $settings
     $a | Add-Member -NotePropertyName enforceTwofactor -NotePropertyValue (Get-Setting (Get-Array $settings) "enforce_twofactor")
 
@@ -620,9 +622,6 @@ foreach ($z in $zones) {
     # Bot management (Pro+ only)
     $zoneOut | Add-Member -NotePropertyName botManagement -NotePropertyValue (Invoke-CFGet -Path "/zones/$zoneId/bot_management")
     
-    # WAF overrides (legacy)
-    $zoneOut | Add-Member -NotePropertyName wafOverrides -NotePropertyValue (Invoke-CFGet -Path "/zones/$zoneId/firewall/waf/overrides")
-    
     # IP access rules
     $zoneOut | Add-Member -NotePropertyName ipAccessRules -NotePropertyValue (Invoke-CFGet -Path "/zones/$zoneId/firewall/access_rules/rules?per_page=100")
     
@@ -655,9 +654,6 @@ foreach ($z in $zones) {
             comment = $_.comment
         }
     }
-
-    # Legacy rate limits
-    $zoneOut | Add-Member -NotePropertyName legacyRateLimits -NotePropertyValue (Invoke-CFGet -Path "/zones/$zoneId/rate_limits")
 
     # Page Shield (Business+ only)
     $ps = Invoke-CFGet -Path "/zones/$zoneId/page_shield"
@@ -702,6 +698,10 @@ Write-Host ""
 Write-Host "Assembling and redacting output..." -ForegroundColor Cyan
 
 $json = $collection | ConvertTo-Json -Depth 12
+
+# Redact opaque strings (64+ token-class chars) before the scan: never export
+# opaque material (docs/data-policy.md). Matches the Mode A collector.
+$json = [regex]::Replace($json, "[A-Za-z0-9_-]{64,}", { param($m) "[redacted]:opaque-$($m.Value.Length)" })
 
 # PRE-WRITE SECRET SCAN: abort if any credential-shaped patterns detected
 if ($json -match "Bearer\s+\S+" -or $json -match "(?i)authorization") {

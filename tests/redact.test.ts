@@ -4,6 +4,7 @@ import {
   redactDnsContent,
   redactEmails,
   redactExpression,
+  redactOpaqueStrings,
   scanForSecrets,
 } from "../src/redact.js";
 
@@ -59,5 +60,21 @@ describe("redaction", () => {
     });
     const failHits = scanForSecrets(text).filter((h) => h.severity === "fail");
     expect(failHits).toHaveLength(0);
+  });
+
+  it("redactOpaqueStrings redacts 64+ char opaque runs (reproduces the 2026-11-03 dogfood abort)", () => {
+    // A generated ruleset name tripped the pre-write scan before the write:
+    const generatedName = "rulesets-ams-production-7800186fe3060227028a430821e6ddf8-pytest-xlvfiTaF2dEgWQPtRgoPM9LaGRWiURvY";
+    const text = JSON.stringify({ accountRulesets: [{ id: "h1a2b3c4d5e6f7a8", name: generatedName }] });
+    const redacted = redactOpaqueStrings(text);
+    expect(redacted).not.toContain(generatedName);
+    expect(redacted).toContain("[redacted]:opaque-96");
+    // after redaction the scan is clean
+    expect(scanForSecrets(redacted).some((h) => h.severity === "fail")).toBe(false);
+  });
+
+  it("redactOpaqueStrings leaves normal values untouched", () => {
+    const text = JSON.stringify({ name: "demo-platform-primary", id: "h1a2b3c4d5e6f7a8", ssl: "strict" });
+    expect(redactOpaqueStrings(text)).toBe(text);
   });
 });

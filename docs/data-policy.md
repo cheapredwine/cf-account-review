@@ -35,6 +35,7 @@
 | Worker bindings | Names and types only; values never exported |
 | Access policy identities | Reduced to decision values (allow/bypass); no email/identity expressions |
 | Access service tokens | Metadata only |
+| Opaque strings: whitespace-free runs of 64+ token-class characters | `[redacted]:opaque-<len>` at serialization time, in every collector — before the pre-write scan. Legitimate posture data never contains such strings; this covers leaked credentials and long generated artifact names (e.g. 96-char generated ruleset names found in the 2026-11-03 dogfood). |
 | Request logs, analytics, payloads | Never requested at all |
 
 Re-inclusion flags (explicit, per-field, and only where the operator is

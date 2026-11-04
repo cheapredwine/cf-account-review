@@ -35,8 +35,9 @@ export const ENDPOINTS: Endpoint[] = [
     citation: "https://developers.cloudflare.com/api/resources/accounts/methods/list/",
   },
   {
-    path: "/accounts/{account_id}/settings",
-    rationale: "Account posture: enforce 2FA, abuse contact, API access settings.",
+    path: "/accounts/{account_id}",
+    rationale:
+      "Account posture: enforce-2FA flag, API access, abuse contact (under result.settings; the dedicated /settings subpath 404s).",
     tokenPermission: "Account Settings: Read",
     scope: "account",
     planTier: "any",
@@ -228,15 +229,6 @@ export const ENDPOINTS: Endpoint[] = [
     citation: "https://developers.cloudflare.com/bots/",
   },
   {
-    path: "/zones/{zone_id}/firewall/waf/overrides",
-    rationale: "Legacy WAF package overrides — hygiene/migration signal.",
-    tokenPermission: "Zone WAF: Read",
-    scope: "zone",
-    planTier: "any",
-    domain: "waf",
-    citation: "https://developers.cloudflare.com/waf/reference/legacy/firewall-rules/",
-  },
-  {
     path: "/zones/{zone_id}/firewall/access_rules/rules",
     rationale: "IP access rules: allow/block posture and stale entries.",
     tokenPermission: "Firewall Services: Read",
@@ -299,15 +291,6 @@ export const ENDPOINTS: Endpoint[] = [
     planTier: "any",
     domain: "workers",
     citation: "https://developers.cloudflare.com/workers/configuration/routes/",
-  },
-  {
-    path: "/zones/{zone_id}/rate_limits",
-    rationale: "Legacy rate-limiting product still active — migration signal (old endpoint, not ratelimit phase).",
-    tokenPermission: "Zone Rate Limiting: Read",
-    scope: "zone",
-    planTier: "any",
-    domain: "rate-limiting",
-    citation: "https://developers.cloudflare.com/waf/reference/legacy/old-rate-limiting/",
   },
   {
     path: "/zones/{zone_id}/api_gateway/discovery",
