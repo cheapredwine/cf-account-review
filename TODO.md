@@ -3,18 +3,17 @@
 ## Phase plan
 
 - **Phase 1 — web performance + security + AI controls** (default): all
-  checks except the Workers ones and the Cloudflare One (ZTNA) ones.
-  `analyze --phase 1` filters reports. On the latest full collection:
+  checks except Workers and Cloudflare One (ZTNA). `analyze --phase 1`
+  filters reports. On the latest full collection:
   17 fail / 19 warn / 21 pass / 26 manual / 25 n/a.
-- **Phase 2 (or 3 — exact cutoff open) — Cloudflare One (Zero Trust/ZTNA):**
-  CF-ZT-001, CF-ZT-002, CF-TUNNEL-001 (`phase: 2` in the rulebook).
 - **Phase 2 — Developer Platform (Workers):** CF-WRK-001/002 (`phase: 2`).
+- **Phase 3 — Cloudflare One (Zero Trust/ZTNA):** CF-ZT-001, CF-ZT-002,
+  CF-TUNNEL-001 (`phase: 3`). Decided 2026-11-04 (was open between 2 and 3).
 - Account-hygiene checks (CF-ZT-003 2FA, CF-IAM-001 token expiry) are
   **not** Cloudflare One product checks — they stay in phase 1.
-- **OPEN (user decision):** the first customer is an Area 1 (email
-  security) subscriber; phase 1 as scoped has no email checks (batch 3:
-  hop count, MX hygiene — CF-DNS-003 partially covers). Pull batch-3
-  email checks forward into phase 1 for this account?
+- **Decided 2026-11-04 — email checks stay deferred:** the first customer is
+  an Area 1 subscriber, but batch-3 email checks (hop count, MX hygiene —
+  CF-DNS-003 partially covers) are NOT pulled into phase 1.
 
 ## Done
 
