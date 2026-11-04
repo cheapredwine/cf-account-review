@@ -1,41 +1,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
+import { baseCollection, loadChecks, zoneWith } from "./helpers.js";
 import { collectionSchema, type Collection } from "../src/schema.js";
 import { evaluate, filterChecksByDomains, type Check, type Finding } from "../src/analyzer/engine.js";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-
-function baseCollection(): Collection {
-  return collectionSchema.parse({
-    schemaVersion: "1.0",
-    collectedAt: new Date().toISOString(),
-    collector: "api",
-    collectorVersion: "0.1.0",
-    tokenStatus: "active",
-    accounts: [],
-    zones: [],
-    collectionErrors: [],
-  });
-}
-
-function zoneWith(overrides: Record<string, unknown>): Collection["zones"][number] {
-  return {
-    name: "example.com",
-    plan: "Enterprise",
-    status: "active",
-    paused: false,
-    type: "full",
-    createdOn: new Date().toISOString(),
-    ...overrides,
-  } as Collection["zones"][number];
-}
-
-function loadChecks(): Check[] {
-  const doc = parse(readFileSync(join(ROOT, "findings", "checks.yaml"), "utf8")) as { checks: Check[] };
-  return doc.checks;
-}
 
 describe("findings engine", () => {
   const checks = loadChecks();
@@ -565,8 +535,7 @@ describe("findings engine", () => {
   });
 
   it("domain scoping keeps the in-scope categories and drops the rest (rulebook parity)", () => {
-    const doc = parse(readFileSync(join(ROOT, "findings", "checks.yaml"), "utf8")) as { checks?: Check[] };
-    const all = doc.checks ?? [];
+    const all = loadChecks();
     // The first customer run's scope, chosen 2026-11-04 by broad category:
     const inScope = [
       "ssl-tls", "waf", "rate-limiting", "bots", "ddos", "dns", "cache",

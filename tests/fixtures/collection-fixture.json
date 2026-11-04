@@ -1,0 +1,242 @@
+{
+  "schemaVersion": "1.0",
+  "collectedAt": "2026-01-01T00:00:00.000Z",
+  "collector": "api",
+  "collectorVersion": "0.1.0",
+  "tokenStatus": "active",
+  "accounts": [
+    {
+      "id": "h1a2b3c4d5e6f7a8",
+      "name": "Fixture Account",
+      "enforceTwofactor": false,
+      "settings": {},
+      "accountMembers": [
+        {
+          "roleNames": [
+            "Super Administrator - All Zones"
+          ],
+          "twofactorEnabled": true,
+          "status": "active"
+        },
+        {
+          "roleNames": [
+            "Super Administrator - All Zones"
+          ],
+          "twofactorEnabled": false,
+          "status": "active"
+        }
+      ],
+      "apiTokens": [
+        {
+          "status": "active",
+          "expiresOn": null,
+          "lastUsedOn": "2026-01-01T00:00:00Z",
+          "permissionGroupNames": [
+            "Zone Read"
+          ]
+        },
+        {
+          "status": "active",
+          "expiresOn": "2026-06-01T00:00:00Z",
+          "lastUsedOn": "2026-01-01T00:00:00Z",
+          "permissionGroupNames": [
+            "DNS Read"
+          ]
+        }
+      ],
+      "loadBalancerPools": [
+        {
+          "id": "h1111222233334444",
+          "name": "pool-single",
+          "enabled": true,
+          "origins": [
+            {
+              "name": "origin-1",
+              "address": "[redacted]",
+              "enabled": true
+            }
+          ]
+        }
+      ],
+      "loadBalancerMonitors": [
+        {
+          "id": "h5555666677778888",
+          "type": "http",
+          "interval": 60,
+          "timeout": 5,
+          "retries": 2,
+          "expectedCodes": "200"
+        }
+      ],
+      "accessApps": [
+        {
+          "name": "admin-app",
+          "type": "self_hosted",
+          "domain": "admin.example.com",
+          "hasPolicies": true,
+          "policyDecisions": [
+            "allow"
+          ]
+        }
+      ],
+      "accessIdentityProviders": [
+        {
+          "name": "Google SaaS",
+          "type": "google"
+        }
+      ],
+      "turnstileWidgets": [
+        {
+          "name": "login-widget",
+          "domains": [
+            "example.com"
+          ],
+          "mode": "managed"
+        }
+      ],
+      "cfdTunnels": [
+        {
+          "id": "htunnel00000001",
+          "name": "corp-tunnel",
+          "status": "active",
+          "publicHostnames": [
+            "internal.example.com"
+          ]
+        }
+      ],
+      "workersScripts": [
+        {
+          "id": "hscript0000001",
+          "scriptName": "orphan-api",
+          "routesBound": false
+        }
+      ],
+      "storageInventory": {
+        "kvNamespaces": 2,
+        "d1Databases": 1,
+        "r2Buckets": 1
+      },
+      "aiGateways": [
+        {
+          "id": "fixture-gateway",
+          "authentication": true,
+          "rateLimitingLimit": 10,
+          "rateLimitingInterval": 60,
+          "collectLogs": true,
+          "dlpEnabled": false,
+          "dlpPoliciesCount": 0,
+          "guardrailsConfigured": true
+        }
+      ]
+    }
+  ],
+  "zones": [
+    {
+      "name": "example.com",
+      "plan": "Enterprise",
+      "status": "active",
+      "paused": false,
+      "type": "full",
+      "createdOn": "2026-11-04T07:35:42.966Z",
+      "settings": {
+        "ssl": {
+          "id": "ssl",
+          "value": "strict"
+        },
+        "min_tls_version": {
+          "id": "min_tls_version",
+          "value": "1.2"
+        },
+        "security_header": {
+          "id": "security_header",
+          "value": {
+            "strict_transport_security": {
+              "enabled": true
+            }
+          }
+        },
+        "always_use_https": {
+          "id": "always_use_https",
+          "value": "on"
+        },
+        "dnssec": {
+          "id": "dnssec",
+          "value": "off"
+        }
+      },
+      "phaseEntrypoints": {
+        "http_request_firewall_managed": {
+          "phase": "http_request_firewall_managed",
+          "rules": [
+            {
+              "action": "execute",
+              "enabled": true
+            }
+          ]
+        },
+        "http_request_firewall_custom": {
+          "phase": "http_request_firewall_custom",
+          "rules": [
+            {
+              "action": "block",
+              "enabled": true,
+              "expression": "http.request.uri.path contains \"/admin\""
+            },
+            {
+              "action": "skip",
+              "enabled": true,
+              "expression": "(http.user_agent contains \"bot\")"
+            }
+          ]
+        },
+        "http_ratelimit": {
+          "phase": "http_ratelimit",
+          "rules": [
+            {
+              "action": "block",
+              "enabled": true,
+              "expression": "http.request.uri.path contains \"/login\""
+            }
+          ]
+        }
+      },
+      "dnsRecordCount": 5,
+      "dnsRecords": [
+        {
+          "type": "CAA",
+          "name": "example.com",
+          "content": "[redacted]",
+          "proxied": false,
+          "ttl": 3600
+        },
+        {
+          "type": "MX",
+          "name": "example.com",
+          "content": "[redacted]",
+          "proxied": false,
+          "ttl": 3600
+        }
+      ],
+      "certificatePacks": [
+        {
+          "id": "hcert000000001",
+          "type": "custom",
+          "status": "active",
+          "expiresOn": "2026-01-11T00:00:00Z",
+          "hosts": [
+            "example.com"
+          ]
+        }
+      ],
+      "workersRoutes": [],
+      "botManagement": {},
+      "authenticatedOriginPulls": {
+        "enabled": false
+      },
+      "pageShield": {
+        "enabled": false
+      }
+    }
+  ],
+  "collectionErrors": []
+}

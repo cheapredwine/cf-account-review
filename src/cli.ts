@@ -8,14 +8,14 @@
  * The CLI never prints or stores the token. Output files are secret-scanned
  * before they are finalized; a fail-severity scan hit aborts the write.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import process from "node:process";
 import { parse } from "yaml";
 import { evaluate, filterChecksByDomains } from "./analyzer/engine.js";
 import { renderMarkdown } from "./analyzer/report.js";
 import { collect } from "./collect.js";
-import { redactOpaqueStrings, scanForSecrets } from "./redact.js";
+import { guardedWrite } from "./analyzer/guarded-write.js";
 import { SCHEMA_VERSION, collectionSchema, type Collection } from "./schema.js";
 import type { Check } from "./analyzer/engine.js";
 
@@ -58,16 +58,13 @@ function parseArgs(argv: string[]): Map<string, string> {
 function writeJsonGuarded(path: string, data: unknown): void {
   // Opaque strings (64+ token-class chars) are redacted before serialization
   // and before the pre-write scan (docs/data-policy.md).
-  const text = redactOpaqueStrings(JSON.stringify(data, null, 2));
-  const hits = scanForSecrets(text).filter((h) => h.severity === "fail");
-  if (hits.length > 0) {
-    console.error(
-      `ABORTING: pre-write secret scan found ${hits.length} fail-severity pattern(s). ` +
-        `Nothing was written. Inspect the collector redaction and re-run.`,
-    );
+  try {
+    guardedWrite(path, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error(`ABORTING: ${err instanceof Error ? err.message : String(err)}.`);
+    console.error(`Inspect the collector redaction and re-run.`);
     process.exit(1);
   }
-  writeFileSync(path, text, { mode: 0o600 });
   console.log(`written: ${path}`);
 }
 
@@ -120,7 +117,12 @@ function cmdAnalyze(positional: string | undefined, outArg: string | undefined, 
   const findings = evaluate(collection, scopedChecks);
   const report = renderMarkdown(collection, findings);
   const out = resolve(outArg ?? "output/report.md");
-  writeFileSync(out, report, { mode: 0o600 });
+  try {
+    guardedWrite(out, report);
+  } catch (err) {
+    console.error(`ABORTING: ${err instanceof Error ? err.message : String(err)}.`);
+    process.exit(1);
+  }
   console.log(`report: ${out}`);
   const fail = findings.filter((f) => f.verdict === "fail").length;
   const warn = findings.filter((f) => f.verdict === "warn").length;

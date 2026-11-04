@@ -1,0 +1,172 @@
+[
+  {
+    "check": "CF-SSL-001",
+    "scope": "example.com",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-SSL-002",
+    "scope": "example.com",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-SSL-003",
+    "scope": "example.com",
+    "verdict": "manual"
+  },
+  {
+    "check": "CF-SSL-004",
+    "scope": "example.com",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-SSL-005",
+    "scope": "example.com",
+    "verdict": "fail"
+  },
+  {
+    "check": "CF-WAF-001",
+    "scope": "example.com",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-WAF-002",
+    "scope": "example.com",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-WAF-003",
+    "scope": "example.com",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-RL-001",
+    "scope": "example.com",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-BOT-001",
+    "scope": "example.com",
+    "verdict": "warn"
+  },
+  {
+    "check": "CF-BOT-002",
+    "scope": "example.com",
+    "verdict": "warn"
+  },
+  {
+    "check": "CF-TS-001",
+    "scope": "account",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-ZT-001",
+    "scope": "account",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-ZT-002",
+    "scope": "account",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-ZT-003",
+    "scope": "account",
+    "verdict": "fail"
+  },
+  {
+    "check": "CF-IAM-001",
+    "scope": "account",
+    "verdict": "warn"
+  },
+  {
+    "check": "CF-DNS-001",
+    "scope": "example.com",
+    "verdict": "fail"
+  },
+  {
+    "check": "CF-DNS-002",
+    "scope": "example.com",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-DNS-003",
+    "scope": "example.com",
+    "verdict": "warn"
+  },
+  {
+    "check": "CF-WRK-001",
+    "scope": "account",
+    "verdict": "warn"
+  },
+  {
+    "check": "CF-WRK-002",
+    "scope": "account",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-LB-001",
+    "scope": "account",
+    "verdict": "fail"
+  },
+  {
+    "check": "CF-LB-002",
+    "scope": "account",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-AIG-001",
+    "scope": "account",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-AIG-002",
+    "scope": "account",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-AIG-003",
+    "scope": "account",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-AIG-004",
+    "scope": "account",
+    "verdict": "warn"
+  },
+  {
+    "check": "CF-AIG-005",
+    "scope": "account",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-PS-001",
+    "scope": "example.com",
+    "verdict": "fail"
+  },
+  {
+    "check": "CF-AOP-001",
+    "scope": "example.com",
+    "verdict": "fail"
+  },
+  {
+    "check": "CF-AOP-002",
+    "scope": "example.com",
+    "verdict": "na"
+  },
+  {
+    "check": "CF-DDOS-001",
+    "scope": "example.com",
+    "verdict": "manual"
+  },
+  {
+    "check": "CF-CACHE-001",
+    "scope": "example.com",
+    "verdict": "pass"
+  },
+  {
+    "check": "CF-TUNNEL-001",
+    "scope": "account",
+    "verdict": "fail"
+  }
+]
