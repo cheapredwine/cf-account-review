@@ -564,31 +564,29 @@ describe("findings engine", () => {
     expect(passing?.verdict).toBe("pass");
   });
 
-  it("phase filter keeps phase-1 checks and drops phase-2 (rulebook parity)", () => {
-    // The shipped rulebook: every check defaults to phase 1 except the
-    // explicitly phase-2 Developer Platform checks.
+  it("phase filter keeps phase-1 checks and drops later phases (rulebook parity)", () => {
+    // The shipped rulebook: every check defaults to phase 1; the explicitly
+    // phased ones are Developer Platform (2) and Cloudflare One/ZTNA (3).
     const doc = parse(readFileSync(join(ROOT, "findings", "checks.yaml"), "utf8")) as { checks?: Check[] };
     const all = doc.checks ?? [];
-    const phase1 = filterChecksByPhase(all, 1);
-    // phase 2 currently holds 5 checks (2 Workers + 3 Cloudflare One/ZTNA)
-    expect(all.length - phase1.length).toBe(5);
     const ids = (cs: Check[]) => new Set(cs.map((c) => c.id));
-    const p1 = ids(phase1);
-    expect(p1.has("CF-WRK-001")).toBe(false);
-    expect(p1.has("CF-WRK-002")).toBe(false);
-    expect(p1.has("CF-ZT-001")).toBe(false);
-    expect(p1.has("CF-ZT-002")).toBe(false);
-    expect(p1.has("CF-TUNNEL-001")).toBe(false);
-    // account-hygiene checks are NOT Cloudflare One product checks
-    expect(p1.has("CF-ZT-003")).toBe(true);
-    expect(p1.has("CF-IAM-001")).toBe(true);
-    // AI controls stay in phase 1
-    for (const id of ["CF-AIG-001", "CF-AIG-002", "CF-AIG-003", "CF-AIG-004", "CF-AIG-005"]) {
+    // phase 2 = the two Workers checks
+    const p2 = all.filter((c) => (c.phase ?? 1) === 2);
+    expect(ids(p2)).toEqual(new Set(["CF-WRK-001", "CF-WRK-002"]));
+    // phase 3 = the three Cloudflare One/ZTNA checks
+    const p3 = all.filter((c) => (c.phase ?? 1) === 3);
+    expect(ids(p3)).toEqual(new Set(["CF-ZT-001", "CF-ZT-002", "CF-TUNNEL-001"]));
+    // phase 1 = everything else, including AI controls and account hygiene
+    const p1 = ids(filterChecksByPhase(all, 1));
+    for (const id of ["CF-AIG-001", "CF-AIG-002", "CF-AIG-003", "CF-AIG-004", "CF-AIG-005", "CF-ZT-003", "CF-IAM-001"]) {
       expect(p1.has(id)).toBe(true);
     }
-    // no flag = everything
-    expect(filterChecksByPhase(all, 99).length).toBe(all.length);
-    // a phase-1 check without an explicit field defaults to 1
+    for (const id of ["CF-WRK-001", "CF-WRK-002", "CF-ZT-001", "CF-ZT-002", "CF-TUNNEL-001"]) {
+      expect(p1.has(id)).toBe(false);
+    }
+    // --phase 3 includes phases 1+2+3 = everything
+    expect(filterChecksByPhase(all, 3).length).toBe(all.length);
+    // a check without an explicit field defaults to 1
     const noField: Check = { ...all[0], phase: undefined };
     expect(filterChecksByPhase([noField], 1)).toHaveLength(1);
   });

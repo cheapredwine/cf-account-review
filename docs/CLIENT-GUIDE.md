@@ -186,7 +186,7 @@ Token** → **Custom token**.
 
 Notes verified against the live registry (2026-11-03):
 
-- **Phase note:** the Access and Tunnel rows above are **phase 2+**
+- **Phase note:** the Access and Tunnel rows above are **phase 3**
   (Cloudflare One / ZTNA) — for a phase-1 report their reads can be omitted;
   the affected checks simply report `manual` or are filtered out by
   `analyze --phase 1`.

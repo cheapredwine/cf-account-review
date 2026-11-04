@@ -14,9 +14,10 @@
 # Build phases: every check carries an optional `phase` field. Checks without
 # one default to phase 1.
 #   Phase 1 = web performance and security + AI controls.
-#   Phase 2+ = Cloudflare One (Zero Trust / ZTNA: Access apps, IdPs, tunnels)
-#   and Developer Platform (Workers). `analyze --phase 1` filters the report
-#   to phase-1 checks; no flag = all checks (back-compat).
+#   Phase 2 = Developer Platform (Workers).
+#   Phase 3 = Cloudflare One (Zero Trust / ZTNA: Access apps, IdPs, tunnels).
+# `analyze --phase N` filters the report to checks in phases ≤ N; no flag =
+# all checks (back-compat).
 
 checks:
   # ------------------------------------------------------------------ SSL/TLS
@@ -204,7 +205,7 @@ checks:
     domain: zero-trust
     severity: high
     type: access_apps
-    phase: 2
+    phase: 3
     applies: { planTier: any }
     evidence: accounts[].accessApps
     params: {}
@@ -218,7 +219,7 @@ checks:
     domain: zero-trust
     severity: medium
     type: access_idps
-    phase: 2
+    phase: 3
     applies: { planTier: any }
     evidence: accounts[].accessIdentityProviders
     params: {}
@@ -500,7 +501,7 @@ checks:
     domain: zero-trust
     severity: high
     type: tunnel_access_gap
-    phase: 2
+    phase: 3
     applies: { planTier: any }
     evidence: accounts[].cfdTunnels, accounts[].accessApps
     params: {}
