@@ -55,8 +55,8 @@ the doc that justifies its check.
 
 ## Phases whose entrypoint rules are collected
 
-`http_request_firewall_custom`, `http_request_firewall_managed`, `http_ratelimit`,
-`http_request_transform`, `http_request_dynamic_redirect`,
+`ddos_l7`, `http_request_firewall_custom`, `http_request_firewall_managed`,
+`http_ratelimit`, `http_request_transform`, `http_request_dynamic_redirect`,
 `http_request_cache_settings`, `http_request_origin`, `http_request_redirect`,
 `http_response_headers_transform`
 
