@@ -430,7 +430,6 @@ while IFS=$'\t' read -r zone_id zone_name; do
 	for ep in "settings:/settings" \
 		"rulesets:/rulesets" \
 		"bot_management:/bot_management" \
-		"waf_overrides:/firewall/waf/overrides" \
 		"ip_access_rules:/firewall/access_rules/rules" \
 		"page_rules:/pagerules" \
 		"certificate_packs:/ssl/certificate_packs" \
@@ -438,7 +437,6 @@ while IFS=$'\t' read -r zone_id zone_name; do
 		"load_balancers:/load_balancers" \
 		"workers_routes:/workers/routes" \
 		"dns_records:/dns_records" \
-		"legacy_rate_limits:/rate_limits" \
 		"page_shield:/page_shield" \
 		"origin_tls_settings:/origin_tls_client_auth/settings" \
 		"origin_tls_certs:/origin_tls_client_auth"; do
@@ -473,8 +471,9 @@ while IFS= read -r account_id; do
 	[ -n "$account_id" ] || continue
 	echo "  → Account: $account_id"
 
-	# Core account configuration
-	for ep in "settings:/settings" \
+	# Core account configuration ("account:" = bare /accounts/{id}; the
+	# account posture data lives under result.settings — /settings 404s)
+	for ep in "account:" \
 		"members:/members" \
 		"tokens:/tokens" \
 		"lb_pools:/load_balancers/pools" \
@@ -810,9 +809,17 @@ doc = {
 # Serialize to JSON
 text = json.dumps(doc, indent=2)
 
+# Redact opaque strings (64+ token-class chars) before the scan: never export
+# opaque material (docs/data-policy.md). Matches the Mode A collector.
+text = re.sub(r"[A-Za-z0-9_-]{64,}", lambda m: "[redacted]:opaque-%d" % len(m.group(0)), text)
+
 # PRE-WRITE SECRET SCAN: abort if any credential-shaped patterns detected
 if re.search(r"Bearer\s+\S+", text, re.I):
     print("❌ ABORTING: Pre-write secret scan matched an authorization pattern.", file=sys.stderr)
+    print("   Nothing written. This is a safety check to prevent credential leakage.", file=sys.stderr)
+    sys.exit(1)
+if re.search(r"(?:api[_-]?key|api[_-]?token|password|credential)\s*[:=]\s*\S+", text, re.I):
+    print("❌ ABORTING: Pre-write secret scan matched a credential-assignment pattern.", file=sys.stderr)
     print("   Nothing written. This is a safety check to prevent credential leakage.", file=sys.stderr)
     sys.exit(1)
 

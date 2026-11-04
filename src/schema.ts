@@ -236,7 +236,7 @@ export const collectionSchema = z.object({
         rulesets: z.array(rulesetSummarySchema).optional(),
         phaseEntrypoints: z.record(z.string(), phaseEntrypointSchema).optional(),
         botManagement: z.unknown().optional(),
-        wafOverrides: z.unknown().optional(),
+        wafOverrides: z.unknown().optional(), // removed endpoint (410) — key kept optional for old collections
         ipAccessRules: z.unknown().optional(),
         pageRules: z.unknown().optional(),
         certificatePacks: z
@@ -259,7 +259,7 @@ export const collectionSchema = z.object({
           .optional(),
         dnsRecordCount: z.number().optional(),
         dnsRecords: z.array(dnsRecordSchema).optional(),
-        legacyRateLimits: z.unknown().optional(),
+        legacyRateLimits: z.unknown().optional(), // removed endpoint (410) — key kept optional for old collections
         apiGatewayDiscovery: z.unknown().optional(),
         pageShield: z
           .object({

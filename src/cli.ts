@@ -15,7 +15,7 @@ import { parse } from "yaml";
 import { evaluate } from "./analyzer/engine.js";
 import { renderMarkdown } from "./analyzer/report.js";
 import { collect } from "./collect.js";
-import { scanForSecrets } from "./redact.js";
+import { redactOpaqueStrings, scanForSecrets } from "./redact.js";
 import { SCHEMA_VERSION, collectionSchema, type Collection } from "./schema.js";
 import type { Check } from "./analyzer/engine.js";
 
@@ -53,7 +53,9 @@ function parseArgs(argv: string[]): Map<string, string> {
 }
 
 function writeJsonGuarded(path: string, data: unknown): void {
-  const text = JSON.stringify(data, null, 2);
+  // Opaque strings (64+ token-class chars) are redacted before serialization
+  // and before the pre-write scan (docs/data-policy.md).
+  const text = redactOpaqueStrings(JSON.stringify(data, null, 2));
   const hits = scanForSecrets(text).filter((h) => h.severity === "fail");
   if (hits.length > 0) {
     console.error(

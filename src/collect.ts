@@ -36,7 +36,10 @@ export async function collect(token: string): Promise<Collection> {
     const accountId = String(acct.id ?? "");
     const hashed = hashId(accountId);
 
-    const settings = asRecord(await client.get(`/accounts/${accountId}/settings`));
+    // Account posture data lives on the bare account object (result.settings);
+    // /accounts/{id}/settings does not exist (404 in the dogfood run).
+    const acctFull = asRecord(await client.get(`/accounts/${accountId}`));
+    const settings = asRecord(acctFull.settings ?? {});
     const members = asArray(await client.list(`/accounts/${accountId}/members`));
     const userTokens = asArray(await client.list("/user/tokens"));
     const accountTokens = asArray(await client.list(`/accounts/${accountId}/tokens`));
@@ -309,7 +312,6 @@ export async function collect(token: string): Promise<Collection> {
       }),
       phaseEntrypoints,
       botManagement: asRecord(await client.get(`/zones/${zoneId}/bot_management`)),
-      wafOverrides: asArray(await client.list(`/zones/${zoneId}/firewall/waf/overrides`)),
       ipAccessRules: asArray(await client.list(`/zones/${zoneId}/firewall/access_rules/rules`)),
       pageRules: asArray(await client.list(`/zones/${zoneId}/pagerules`)),
       certificatePacks: asArray(await client.list(`/zones/${zoneId}/ssl/certificate_packs`)).map((pack) => {
@@ -335,7 +337,6 @@ export async function collect(token: string): Promise<Collection> {
       }),
       dnsRecordCount: dnsRecords.length,
       dnsRecords,
-      legacyRateLimits: asArray(await client.list(`/zones/${zoneId}/rate_limits`)),
       apiGatewayDiscovery: asArray(await client.list(`/zones/${zoneId}/api_gateway/discovery`)),
     });
 

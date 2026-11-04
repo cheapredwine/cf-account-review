@@ -45,6 +45,19 @@ export function redactEmails(text: string): string {
   return text.replace(EMAIL_PATTERN, REDACTED);
 }
 
+/**
+ * Opaque material never leaves a collection: any whitespace-free run of 64+
+ * token-class characters is redacted regardless of where it appears. Legitimate
+ * collected posture data (settings, booleans, counts, names, statuses) never
+ * needs such a string; generated artifact names (e.g. long ruleset names) are
+ * the observed false-positive source and are redacted with the same rule.
+ * Applied before the pre-write scan so the opaque-token scan pattern becomes a
+ * structural guarantee rather than a tripwire.
+ */
+export function redactOpaqueStrings(text: string): string {
+  return text.replace(/\b[A-Za-z0-9_-]{64,}\b/g, (m) => `${REDACTED}:opaque-${m.length}`);
+}
+
 /** Detect accidental secrets before an output file is finalized. */
 const SECRET_PATTERNS: { pattern: RegExp; severity: "fail" | "warn" }[] = [
   { pattern: /Bearer\s+[A-Za-z0-9._-]+/i, severity: "fail" },

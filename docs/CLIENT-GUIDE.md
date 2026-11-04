@@ -132,50 +132,72 @@ node dist/cli.js analyze output/collection.json --out output/report.md
 
 ## Creating the API Token
 
-Whether you use Option 1 or 2, you need a **read-only API token** with these permissions:
+Whether you use Option 1 or 2, you need a **read-only API token**. The
+permission names below are the **actual dashboard group names** (verified
+against the live permission-group registry 2026-11-03); every gap produces
+`manual` verdicts for the affected checks, never `pass`.
 
-### Required permissions (all zones)
+### Required permissions (all Read)
 
-Go to **Cloudflare Dashboard** → **My Profile** → **API Tokens** → **Create Token**
+Go to **Cloudflare Dashboard** → **My Profile** → **API Tokens** → **Create
+Token** → **Custom token**.
 
-**Template:** Start with "Read all resources" and narrow it to these:
+*Account-scoped — "Include · Specific account · *your account*":*
 
-| Permission | Access Level | Required? |
-|------------|--------------|-----------|
-| Account Settings | Read | ✅ Yes |
-| Zone | Read | ✅ Yes |
-| Zone Settings | Read | ✅ Yes |
-| DNS | Read | ✅ Yes |
-| Firewall Services | Read | ✅ Yes |
-| Zone WAF | Read | ✅ Yes |
+| Permission (dashboard name) | Covers |
+|------------|-----------|
+| Account Settings | Account posture, member 2FA |
+| Account API Tokens | Account-owned token inventory |
+| Load Balancing: Monitors and Pools | Pool failover posture |
+| Account Rulesets | Account-level WAF (Enterprise) |
+| Access: Apps and Policies | Access policy review |
+| Access: Identity Providers | IdP and MFA posture |
+| Access: Service Tokens | Service-token expiry hygiene |
+| Turnstile Sites | Turnstile widget inventory |
+| Cloudflare Tunnel | Tunnel-to-Access gap detection |
+| Workers Scripts | Worker zombie scripts |
+| Workers KV Storage | Data-at-rest inventory |
+| D1 | Data-at-rest inventory |
+| Workers R2 Storage | Data-at-rest inventory |
+| AI Gateway | Gateway rate-limit/auth/log posture |
 
-### Optional permissions (for deeper analysis)
+*User-scoped — "Include · *your user*":*
 
-These add coverage but are not required — the tool works without them:
+| Permission (dashboard name) | Covers |
+|------------|-----------|
+| API Tokens (under User) | User-token rotation posture |
 
-| Permission | Access Level | Adds coverage for |
-|------------|--------------|-------------------|
-| Workers Scripts | Read | Worker zombie scripts, dangling routes |
-| Workers Routes | Read | Worker-to-zone routing |
-| Workers KV Storage | Read | Data-at-rest inventory |
-| D1 | Read | Data-at-rest inventory |
-| Workers R2 Storage | Read | Data-at-rest inventory |
-| Access: Apps and Policies | Read | Access policy review |
-| Access: Identity Providers | Read | IdP and MFA posture |
-| Access: Service Tokens | Read | Token expiry hygiene |
-| Turnstile Widgets | Read | Turnstile inventory |
-| Cloudflare Tunnel | Read | Tunnel-to-Access gap detection |
-| User API Tokens | Read | Token rotation posture |
-| Account API Tokens | Read | Account token inventory |
-| SSL and Certificates | Read | Certificate expiry warnings |
-| Load Balancing | Read | Load balancer health checks |
-| Load Balancer Monitors and Pools | Read | Pool failover posture |
-| Page Rules | Read | Legacy page rule migration signal |
-| Zone Rate Limiting | Read | Legacy rate-limit migration signal |
-| API Gateway Operations | Read | API Shield posture (Enterprise only) |
-| Account Rulesets | Read | Account-level WAF (Enterprise only) |
+*Zone-scoped — "Include · All zones from an account · *your account*":*
+
+| Permission (dashboard name) | Covers |
+|------------|-----------|
+| Zone | Zone inventory, plan tiers |
+| Zone Settings | SSL mode, min TLS, HSTS, DNSSEC |
+| Zone WAF | Zone rulesets, phase entrypoints, bot management |
+| Firewall Services | IP access rules |
+| Page Rules | Legacy page-rule migration signal |
+| DNS | DNS hygiene (contents redacted) |
+| SSL and Certificates | Certificate expiry, origin mTLS |
+| Load Balancers | Zone LB posture |
+| Workers Routes | Worker-to-zone routing |
+| Domain API Gateway | API Shield discovery + config (Enterprise) |
+| Bot Management | Bot handling rules (Pro+) |
+| Domain Page Shield | Page Shield posture (Business+) |
+
+Notes verified against the live registry (2026-11-03):
+
+- There is **no "Zone Rulesets" permission group** — zone rulesets and phase
+  entrypoints are readable with **Zone WAF: Read**.
+- There is **no zone-level "Zone Rate Limiting" group and the legacy
+  `/zones/{id}/rate_limits` endpoint returns 410 Gone** (product EOL'd) — the
+  tool no longer queries it; the `http_ratelimit` phase check covers current
+  posture.
+- `bot_management` requires **Bot Management: Read** (Zone WAF alone returns
+  403); `api_gateway/configuration` additionally returns 403 "not entitled"
+  on zones without API Shield enabled — those checks report `manual`.
 
 **Token scope:** All zones in your account(s), read-only access only.
+Suggest a 90-day TTL; delete the token after the review.
 
 ### Narrowly-scoped tokens work
 
