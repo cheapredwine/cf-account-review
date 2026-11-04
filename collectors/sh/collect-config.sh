@@ -703,8 +703,12 @@ def account_doc(a):
     """Build a complete account document with all collected data and redactions applied."""
     acct_id = a.get("id", "")
     # Posture data lives under result.settings of the bare /accounts/{id} fetch
-    # (the /accounts/{id}/settings subpath does not exist — 404).
-    settings = (obj(f"acct-{acct_id}-account") or {}).get("settings") or {}
+    # (the /accounts/{id}/settings subpath does not exist — 404). cf_get wraps
+    # single-object results in a one-element list, so unwrap it.
+    account_payload = load(f"acct-{acct_id}-account")
+    if isinstance(account_payload, list):
+        account_payload = account_payload[0] if account_payload else None
+    settings = (account_payload or {}).get("settings") or {}
     
     # Member identities → role names + 2FA booleans only
     members = []
