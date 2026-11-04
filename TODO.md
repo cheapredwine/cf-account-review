@@ -48,11 +48,12 @@ Chosen by broad category (user, 2026-11-04); scoped at report time via
 - [x] Redact header **values** set by transform rules (header names + operations
       kept for CF-HDR-001; values redacted at collection time in all three
       collectors — closes the short-secret gap noted 2026-11-03).
-- [ ] Mode A: implement `--include-*` explicit re-inclusion flags (DNS content, IDs)
+- [x] Mode A: implement `--include-*` explicit re-inclusion flags (DNS content, IDs)
       documented in docs/data-policy.md.
-      **DEFERRED:** Mode B collectors are the customer hand-off; Mode A is
-      mainly for internal runs. Implement only if a specific internal use case
-      surfaces that requires DNS content/IDs in collected output.
+      Implemented: `--include-dns-content` and `--include-ids` flags thread
+      through CLI → collect() → redactDnsContent()/hashId() conditional logic.
+      Output with flags active shows ⚠️ warning. Tests verify flag behavior.
+      Mode B collectors redact unconditionally (no flag support).
 - [ ] HTML report renderer (Markdown is the customer deliverable today).
       **DEFERRED:** Markdown is sufficient for v1; implement HTML only if a
       customer explicitly requests it.

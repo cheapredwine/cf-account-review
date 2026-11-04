@@ -6,15 +6,18 @@ import { createHash } from "node:crypto";
 import { REDACTED } from "./schema.js";
 
 /** Hash an ID deterministically (first 16 hex chars of SHA-256). */
-export function hashId(value: string): string {
+export function hashId(value: string, include = false): string {
+  if (include) return value;
   return `h${createHash("sha256").update(value).digest("hex").slice(0, 16)}`;
 }
 
 /** Redact DNS record content (origin IPs / CNAME targets) unless authorized. */
 export function redactDnsContent(
   content: string | undefined | null,
+  include = false,
 ): string | undefined {
   if (content === undefined || content === null) return undefined;
+  if (include) return content;
   return REDACTED;
 }
 

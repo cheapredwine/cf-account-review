@@ -40,8 +40,17 @@
 | Request logs, analytics, payloads | Never requested at all |
 
 Re-inclusion flags (explicit, per-field, and only where the operator is
-authorized to see the data) are supported in Mode A (`--include-*`); Mode B
-collectors redact unconditionally.
+authorized to see the data) are supported in Mode A:
+
+- `--include-dns-content` — Do not redact DNS record content (origin IPs, CNAME targets)
+- `--include-ids` — Do not hash account/zone/resource IDs
+
+**These flags are for internal SE/CSM use only.** Output with re-inclusion flags
+active contains sensitive infrastructure identifiers and MUST NOT be shared with
+customers or stored in shared locations.
+
+Mode B collectors (bash, PowerShell) redact unconditionally — no re-inclusion
+flags exist for customer-run collectors.
 
 ## Analyzer contract
 

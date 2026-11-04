@@ -32,13 +32,17 @@ import { SCHEMA_VERSION, collectionSchema, type Collection } from "./schema.js";
 
 function usage(): never {
   console.error(`Usage:
-  cf-account-review collect  [--out output/collection.json]
+  cf-account-review collect  [--out output/collection.json] [--include-dns-content] [--include-ids]
   cf-account-review analyze  <collection.json> [--checks findings/checks.yaml] [--out output/report.md] [--fail-on <severity>] [--domains <list>] [--zones <list>] [--compare-to <old-collection.json>] [--diff-only]
   cf-account-review schema   [--out collection.schema.json]
 
 Environment: CF_API_TOKEN for \`collect\`.
 
-Flags:
+Flags (collect — Mode A only):
+  --include-dns-content   Do not redact DNS record content (origin IPs, CNAME targets). For internal SE/CSM use only.
+  --include-ids           Do not hash account/zone/resource IDs. For internal analysis with cross-reference needs.
+
+Flags (analyze):
   --fail-on <severity>    Exit 1 if findings at or above this severity exist (high|medium|low). Default: no exit code enforcement.
   --domains <list>        Comma-separated domain names to scope the report (see findings/checks.yaml). Default: all checks.
   --zones <list>          Comma-separated zone names to include (analyze only). Default: every collected zone.
@@ -66,6 +70,10 @@ function parseArgs(argv: string[]): Map<string, string> {
       args.set("compare-to", argv[++i] ?? "");
     } else if (a === "--diff-only") {
       args.set("diff-only", "1");
+    } else if (a === "--include-dns-content") {
+      args.set("include-dns-content", "1");
+    } else if (a === "--include-ids") {
+      args.set("include-ids", "1");
     } else if (a.startsWith("--")) {
       console.error(`unknown flag: ${a}`);
       usage();
@@ -91,7 +99,11 @@ function writeJsonGuarded(path: string, data: unknown): void {
   console.log(`written: ${path}`);
 }
 
-async function cmdCollect(outArg: string | undefined): Promise<void> {
+async function cmdCollect(
+  outArg: string | undefined,
+  includeDnsContent: boolean,
+  includeIds: boolean,
+): Promise<void> {
   const token = process.env.CF_API_TOKEN;
   if (!token || token.trim() === "") {
     console.error("CF_API_TOKEN is not set. Export a read-only token first.");
@@ -100,13 +112,18 @@ async function cmdCollect(outArg: string | undefined): Promise<void> {
   console.log(
     "Verifying token and collecting configuration (GET requests only)…",
   );
-  const collection = await collect(token);
+  const collection = await collect(token, { includeDnsContent, includeIds });
   const out = resolve(outArg ?? "output/collection.json");
   writeJsonGuarded(out, collection);
   console.log(
     `zones: ${collection.zones.length}; errors: ${collection.collectionErrors.length} ` +
       `(scope gaps are expected with narrowly-scoped tokens)`,
   );
+  if (includeDnsContent || includeIds) {
+    console.log(
+      "⚠️  Re-inclusion flags active — output contains sensitive data. Internal use only.",
+    );
+  }
 }
 
 function cmdAnalyze(
@@ -296,7 +313,12 @@ Environment: CF_API_TOKEN for \`collect\`.
 if (command === "collect") {
   // Not awaited: keeps this file free of top-level await so the SEA bundle can
   // be CommonJS (Node single-executable entries run as CJS).
-  void cmdCollect(parseArgs(rest).get("out")).catch((err: unknown) => {
+  const args = parseArgs(rest);
+  void cmdCollect(
+    args.get("out"),
+    args.has("include-dns-content"),
+    args.has("include-ids"),
+  ).catch((err: unknown) => {
     console.error(err instanceof Error ? err.message : String(err));
     process.exit(1);
   });

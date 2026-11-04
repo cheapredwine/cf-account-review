@@ -65,8 +65,17 @@ function apiGatewayDiscoverySummary(
   return { discoveredSchemaCount: count };
 }
 
-export async function collect(token: string): Promise<Collection> {
+export interface CollectOptions {
+  includeDnsContent?: boolean;
+  includeIds?: boolean;
+}
+
+export async function collect(
+  token: string,
+  options: CollectOptions = {},
+): Promise<Collection> {
   const client = new CfGetClient(token);
+  const { includeDnsContent = false, includeIds = false } = options;
 
   // Verify token (status only — never the token value).
   const verify = asRecord(await client.get("/user/tokens/verify"));
@@ -80,7 +89,7 @@ export async function collect(token: string): Promise<Collection> {
 
   for (const acct of accounts) {
     const accountId = String(acct.id ?? "");
-    const hashed = hashId(accountId);
+    const hashed = hashId(accountId, includeIds);
 
     // Account posture data lives on the bare account object (result.settings);
     // the /accounts/{id}/settings subpath does not exist (404).
@@ -183,7 +192,7 @@ export async function collect(token: string): Promise<Collection> {
       loadBalancerPools: lbPools.map((pool) => {
         const p = asRecord(pool);
         return {
-          id: typeof p.id === "string" ? hashId(p.id) : undefined,
+          id: typeof p.id === "string" ? hashId(p.id, includeIds) : undefined,
           name: typeof p.name === "string" ? p.name : undefined,
           enabled: typeof p.enabled === "boolean" ? p.enabled : undefined,
           origins: asArray(p.origins).map((o) => {
@@ -200,14 +209,14 @@ export async function collect(token: string): Promise<Collection> {
                 typeof origin.weight === "number" ? origin.weight : undefined,
             };
           }),
-          monitor: typeof p.monitor === "string" ? hashId(p.monitor) : null,
+          monitor: typeof p.monitor === "string" ? hashId(p.monitor, includeIds) : null,
           notificationEmail: REDACTED,
         };
       }),
       loadBalancerMonitors: lbMonitors.map((mon) => {
         const m = asRecord(mon);
         return {
-          id: typeof m.id === "string" ? hashId(m.id) : undefined,
+          id: typeof m.id === "string" ? hashId(m.id, includeIds) : undefined,
           type: typeof m.type === "string" ? m.type : undefined,
           interval: typeof m.interval === "number" ? m.interval : undefined,
           timeout: typeof m.timeout === "number" ? m.timeout : undefined,
@@ -279,7 +288,7 @@ export async function collect(token: string): Promise<Collection> {
             .map((i) => String(asRecord(i).hostname ?? ""))
             .filter((h) => h.length > 0 && h !== "*");
           return {
-            id: tun.id ? hashId(tunnelId) : undefined,
+            id: tun.id ? hashId(tunnelId, includeIds) : undefined,
             name: typeof tun.name === "string" ? tun.name : undefined,
             status: typeof tun.status === "string" ? tun.status : undefined,
             publicHostnames,
@@ -290,7 +299,7 @@ export async function collect(token: string): Promise<Collection> {
         const sc = asRecord(s);
         const bindings = asArray(sc.bindings).map((b) => asRecord(b));
         return {
-          id: sc.id ? hashId(String(sc.id)) : undefined,
+          id: sc.id ? hashId(String(sc.id), includeIds) : undefined,
           scriptName: typeof sc.id === "string" ? String(sc.id) : undefined,
           createdOn:
             typeof sc.created_on === "string" ? sc.created_on : undefined,
@@ -400,7 +409,7 @@ export async function collect(token: string): Promise<Collection> {
       const rules = asArray(ep.rules).map((rRaw) => {
         const r = asRecord(rRaw);
         return {
-          id: r.id ? hashId(String(r.id)) : undefined,
+          id: r.id ? hashId(String(r.id), includeIds) : undefined,
           description:
             typeof r.description === "string"
               ? redactEmails(r.description)
@@ -435,6 +444,7 @@ export async function collect(token: string): Promise<Collection> {
         name: String(d.name ?? ""),
         content: redactDnsContent(
           typeof d.content === "string" ? d.content : undefined,
+          includeDnsContent,
         ),
         proxied: typeof d.proxied === "boolean" ? d.proxied : null,
         ttl: typeof d.ttl === "number" ? d.ttl : undefined,
@@ -457,7 +467,7 @@ export async function collect(token: string): Promise<Collection> {
       rulesets: rulesetList.map((r) => {
         const rs = asRecord(r);
         return {
-          id: rs.id ? hashId(String(rs.id)) : undefined,
+          id: rs.id ? hashId(String(rs.id), includeIds) : undefined,
           name: typeof rs.name === "string" ? rs.name : undefined,
           kind: typeof rs.kind === "string" ? rs.kind : undefined,
           phase: typeof rs.phase === "string" ? rs.phase : undefined,
@@ -496,7 +506,7 @@ export async function collect(token: string): Promise<Collection> {
       ).map((pack) => {
         const p = asRecord(pack);
         return {
-          id: typeof p.id === "string" ? hashId(p.id) : undefined,
+          id: typeof p.id === "string" ? hashId(p.id, includeIds) : undefined,
           type: typeof p.type === "string" ? p.type : undefined,
           status: typeof p.status === "string" ? p.status : undefined,
           validityDays:
