@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
 import { collectionSchema, type Collection } from "../src/schema.js";
-import { evaluate, filterChecksByPhase, type Check, type Finding } from "../src/analyzer/engine.js";
+import { evaluate, filterChecksByDomains, type Check, type Finding } from "../src/analyzer/engine.js";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 
@@ -564,30 +564,29 @@ describe("findings engine", () => {
     expect(passing?.verdict).toBe("pass");
   });
 
-  it("phase filter keeps phase-1 checks and drops later phases (rulebook parity)", () => {
-    // The shipped rulebook: every check defaults to phase 1; the explicitly
-    // phased ones are Developer Platform (2) and Cloudflare One/ZTNA (3).
+  it("domain scoping keeps the in-scope categories and drops the rest (rulebook parity)", () => {
     const doc = parse(readFileSync(join(ROOT, "findings", "checks.yaml"), "utf8")) as { checks?: Check[] };
     const all = doc.checks ?? [];
-    const ids = (cs: Check[]) => new Set(cs.map((c) => c.id));
-    // phase 2 = the two Workers checks
-    const p2 = all.filter((c) => (c.phase ?? 1) === 2);
-    expect(ids(p2)).toEqual(new Set(["CF-WRK-001", "CF-WRK-002"]));
-    // phase 3 = the three Cloudflare One/ZTNA checks
-    const p3 = all.filter((c) => (c.phase ?? 1) === 3);
-    expect(ids(p3)).toEqual(new Set(["CF-ZT-001", "CF-ZT-002", "CF-TUNNEL-001"]));
-    // phase 1 = everything else, including AI controls and account hygiene
-    const p1 = ids(filterChecksByPhase(all, 1));
-    for (const id of ["CF-AIG-001", "CF-AIG-002", "CF-AIG-003", "CF-AIG-004", "CF-AIG-005", "CF-ZT-003", "CF-IAM-001"]) {
-      expect(p1.has(id)).toBe(true);
+    // The first customer run's scope, chosen 2026-11-04 by broad category:
+    const inScope = [
+      "ssl-tls", "waf", "rate-limiting", "bots", "ddos", "dns", "cache",
+      "origin-security", "ai-gateway", "account-hygiene",
+    ];
+    const scoped = filterChecksByDomains(all, inScope);
+    const scopedIds = new Set(scoped.map((c) => c.id));
+    // in: everything from the chosen domains, incl. AI controls + account security
+    for (const id of ["CF-SSL-001", "CF-WAF-001", "CF-RL-001", "CF-BOT-001", "CF-TS-001",
+      "CF-DDOS-001", "CF-DNS-001", "CF-CACHE-001", "CF-AOP-001", "CF-AIG-001",
+      "CF-ZT-003", "CF-IAM-001"]) {
+      expect(scopedIds.has(id)).toBe(true);
     }
-    for (const id of ["CF-WRK-001", "CF-WRK-002", "CF-ZT-001", "CF-ZT-002", "CF-TUNNEL-001"]) {
-      expect(p1.has(id)).toBe(false);
+    // out: the categories the user did not select
+    for (const id of ["CF-PS-001", "CF-LB-001", "CF-LB-002", "CF-WRK-001", "CF-WRK-002",
+      "CF-ZT-001", "CF-ZT-002", "CF-TUNNEL-001"]) {
+      expect(scopedIds.has(id)).toBe(false);
     }
-    // --phase 3 includes phases 1+2+3 = everything
-    expect(filterChecksByPhase(all, 3).length).toBe(all.length);
-    // a check without an explicit field defaults to 1
-    const noField: Check = { ...all[0], phase: undefined };
-    expect(filterChecksByPhase([noField], 1)).toHaveLength(1);
+    expect(scoped.length).toBe(all.length - 8);
+    // empty/absent scope = every check
+    expect(filterChecksByDomains(all, []).length).toBe(all.length);
   });
 });

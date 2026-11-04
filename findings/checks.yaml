@@ -10,14 +10,6 @@
 # Verdict semantics:
 #   pass | warn | fail | manual | na — and INCOMPLETE OR UNREADABLE EVIDENCE
 #   CAN NEVER PASS. Missing data yields "manual", not "pass".
-#
-# Build phases: every check carries an optional `phase` field. Checks without
-# one default to phase 1.
-#   Phase 1 = web performance and security + AI controls.
-#   Phase 2 = Developer Platform (Workers).
-#   Phase 3 = Cloudflare One (Zero Trust / ZTNA: Access apps, IdPs, tunnels).
-# `analyze --phase N` filters the report to checks in phases ≤ N; no flag =
-# all checks (back-compat).
 
 checks:
   # ------------------------------------------------------------------ SSL/TLS
@@ -199,13 +191,11 @@ checks:
     citation: https://developers.cloudflare.com/turnstile/get-started/
 
   # ------------------------------------------------------------------ Access
-  # PHASE 2+ (Cloudflare One / ZTNA) — excluded from --phase 1 reports.
   - id: CF-ZT-001
     name: Access applications have policies attached
     domain: zero-trust
     severity: high
     type: access_apps
-    phase: 3
     applies: { planTier: any }
     evidence: accounts[].accessApps
     params: {}
@@ -219,7 +209,6 @@ checks:
     domain: zero-trust
     severity: medium
     type: access_idps
-    phase: 3
     applies: { planTier: any }
     evidence: accounts[].accessIdentityProviders
     params: {}
@@ -292,14 +281,11 @@ checks:
     citation: https://developers.cloudflare.com/dns/manage-dns-records/reference/dns-record-types/
 
   # ------------------------------------------------------------------ Workers
-  # PHASE 2 (Developer Platform) — excluded from --phase 1 reports. See the
-  # phase plan at the top of this file and TODO.md.
   - id: CF-WRK-001
     name: No zombie Workers (deployed, never routed)
     domain: workers
     severity: medium
     type: zombie_workers
-    phase: 2
     applies: { planTier: any }
     evidence: accounts[].workersScripts + zones[].workersRoutes
     params: {}
@@ -313,7 +299,6 @@ checks:
     domain: workers
     severity: high
     type: zombie_workers
-    phase: 2
     applies: { planTier: any }
     evidence: accounts[].workersScripts + zones[].workersRoutes
     params: {}
@@ -495,13 +480,11 @@ checks:
     citation: https://developers.cloudflare.com/cache/
 
   # -------------------------------------------------------------- Zero Trust
-  # PHASE 2+ (Cloudflare One / ZTNA) — excluded from --phase 1 reports.
   - id: CF-TUNNEL-001
     name: Public tunnel routes protected by Access
     domain: zero-trust
     severity: high
     type: tunnel_access_gap
-    phase: 3
     applies: { planTier: any }
     evidence: accounts[].cfdTunnels, accounts[].accessApps
     params: {}
