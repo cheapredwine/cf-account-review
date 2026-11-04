@@ -7,12 +7,12 @@
 #   remediation — what to do about a fail
 #   citation — the Cloudflare doc (or listed source) that justifies the check
 #
-# Verdict semantics (borrowed from the grclanker cloudflare-sec-inspector spec):
+# Verdict semantics:
 #   pass | warn | fail | manual | na — and INCOMPLETE OR UNREADABLE EVIDENCE
 #   CAN NEVER PASS. Missing data yields "manual", not "pass".
 #
-# Build phases (2026-11-03, corrected 2026-11-03): every check carries an
-# optional `phase` field. Checks without one default to phase 1.
+# Build phases: every check carries an optional `phase` field. Checks without
+# one default to phase 1.
 #   Phase 1 = web performance and security + AI controls.
 #   Phase 2+ = Cloudflare One (Zero Trust / ZTNA: Access apps, IdPs, tunnels)
 #   and Developer Platform (Workers). `analyze --phase 1` filters the report
@@ -150,10 +150,9 @@ checks:
       with response-code counting on Business+, escalating windows per the docs).
     citation: https://developers.cloudflare.com/waf/rate-limiting-rules/best-practices/
 
-  # CF-RL-002 (legacy rate-limit migration signal) removed 2026-11-03: the
-  # legacy /zones/{id}/rate_limits endpoint returns 410 Gone (product EOL'd),
-  # so the check could only ever pass vacuously on absent data. Current
-  # rate-limiting posture is covered by CF-RL-001 (http_ratelimit phase).
+  # CF-RL-002 removed: the legacy rate_limits endpoint returns 410 Gone, so
+  # the check could only pass vacuously on absent data. CF-RL-001 covers
+  # current rate-limiting posture (http_ratelimit phase).
 
   # ------------------------------------------------------------------ Bots
   - id: CF-BOT-001
