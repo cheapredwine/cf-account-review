@@ -97,6 +97,26 @@ Verdicts: `pass | warn | fail | manual | na` — **incomplete evidence can never
 - [docs/data-policy.md](./docs/data-policy.md) — read-only, redaction, no-exfiltration
 - [docs/sources.md](./docs/sources.md) — the best-practice sources behind each check
 
+## Distribution to customers
+
+Two artifacts, one codebase — **never a second implementation of the safety
+rules** (the read-only guarantee, redaction, and the output schema each exist
+exactly once, in TypeScript, and tests enforce them):
+
+- **Standalone binary** (built with Node's single-executable support, not Go):
+  the default hand-off — one file, no Node/python/curl required on the
+  customer machine. Platform warnings on first run (Gatekeeper/SmartScreen)
+  are expected for unsigned binaries; notarization is a separate project.
+  Why not Go: trivial cross-compilation, but it would mean a second parallel
+  implementation of the schema/redaction/read-only logic that can silently
+  drift from the audited TypeScript — the worst failure mode for a
+  security-review tool.
+- **Mode B shell collectors**: the auditable alternative — security teams
+  that don't run opaque vendor binaries can read the scripts first. Already
+  dependency-light (bash+curl+python3 / PowerShell).
+
+Both paths emit the same JSON schema; the analyzer accepts either.
+
 ## Development
 
 ```bash

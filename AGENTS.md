@@ -64,3 +64,15 @@ evaluates a YAML findings rulebook against it and renders a Markdown report.
 - HTML report renderer not implemented (Markdown only in v1).
 - Access policy identity expressions are reduced to decisions; a deeper
   policy-level review (MFA on apps, WAF-for-Access) is future work.
+- Report write path has no guarded write (redaction/secret scan) — see TODO.md.
+
+## Distribution decision (recorded)
+
+Customer hand-off is a standalone binary (Node single-executable; official
+nodejs.org build for the embed step — distro builds have SEA disabled) plus
+the Mode B shell collectors as the auditable alternative. One codebase: the
+read-only guarantee, redaction, and output schema each exist once, in
+TypeScript. No second implementation in another language (e.g. Go) — drift
+between two copies of the safety rules is the unacceptable failure mode.
+Per-run scope is expressed as named domains via `analyze --domains` (chosen
+per customer); there is no numeric phase system.
