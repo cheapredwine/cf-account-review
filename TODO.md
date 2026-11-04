@@ -50,13 +50,26 @@ Chosen by broad category (user, 2026-11-04); scoped at report time via
       collectors — closes the short-secret gap noted 2026-11-03).
 - [ ] Mode A: implement `--include-*` explicit re-inclusion flags (DNS content, IDs)
       documented in docs/data-policy.md.
+      **DEFERRED:** Mode B collectors are the customer hand-off; Mode A is
+      mainly for internal runs. Implement only if a specific internal use case
+      surfaces that requires DNS content/IDs in collected output.
 - [ ] HTML report renderer (Markdown is the customer deliverable today).
-- [ ] Batch-3 candidates recorded with rationale — deliberately not built:
+      **DEFERRED:** Markdown is sufficient for v1; implement HTML only if a
+      customer explicitly requests it.
+- [x] Batch-3 candidates recorded with rationale — deliberately not built:
       email hop-count (message-header data is not collectible via these APIs;
       MX/SPF/DMARC posture already covered by CF-DNS-003), cloudflared version
       (field availability unverified against live tunnel data), Waiting Room
       (weak verdict signal), Logpush (destination-ownership judgment too
       context-dependent for a deterministic rule).
-- [ ] Compliance framework mapping: add `compliance: []` to checks.yaml, map to SOC 2/PCI DSS.
+      Documented in docs/sources.md "Considered but declined" section.
+- [x] Compliance framework mapping: add `compliance: []` to checks.yaml, map to SOC 2/PCI DSS.
+      Implemented: Check.compliance field in engine schema, 34 checks mapped to SOC 2
+      TSC (CC6.1, CC6.6, CC6.7, CC7.1, CC7.2, CC8.1, A1.2) and PCI DSS 4.0 (Req
+      4.2, 6.4, 8.2, 10.2, 11.3). Report renderer includes compliance coverage
+      summary table and per-check compliance badges. See docs/compliance-mapping.md
+      for framework reference and mapping principles.
 - [ ] Upstream-friendly: consider contributing the zone-setting check shapes back to
       FlareGuard (or citing cross-links in its README).
+      **DEFERRED:** Community contribution; not customer-critical. Pursue only
+      if FlareGuard maintainer signals interest.

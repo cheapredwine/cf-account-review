@@ -148,6 +148,39 @@ export function renderMarkdown(
   out.push(`| ➖ Not applicable | ${counts.na} |`);
   out.push("");
 
+  // Compliance framework summary
+  const complianceControls = new Map<string, { pass: number; fail: number; warn: number }>();
+  for (const f of findings) {
+    if (!f.check.compliance || f.check.compliance.length === 0) continue;
+    for (const control of f.check.compliance) {
+      if (!complianceControls.has(control)) {
+        complianceControls.set(control, { pass: 0, fail: 0, warn: 0 });
+      }
+      const stats = complianceControls.get(control)!;
+      if (f.verdict === "pass") stats.pass += 1;
+      else if (f.verdict === "fail") stats.fail += 1;
+      else if (f.verdict === "warn") stats.warn += 1;
+    }
+  }
+
+  if (complianceControls.size > 0) {
+    out.push("## Compliance framework coverage");
+    out.push("");
+    out.push(
+      "> This summary shows which compliance controls have supporting evidence from",
+      "> passing checks. It is **advisory only** — compliance attestation requires",
+      "> independent audit. See `docs/compliance-mapping.md` for control definitions.",
+    );
+    out.push("");
+    out.push("| Control | Pass | Fail | Warn |");
+    out.push("| --- | --- | --- | --- |");
+    const sortedControls = [...complianceControls.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    for (const [control, stats] of sortedControls) {
+      out.push(`| ${control} | ${stats.pass} | ${stats.fail} | ${stats.warn} |`);
+    }
+    out.push("");
+  }
+
   // Findings sorted worst-first
   const order: Verdict[] = ["fail", "warn", "manual", "na", "pass"];
   const sorted = [...findings].sort(
@@ -168,6 +201,10 @@ export function renderMarkdown(
         `**Domain:** ${f.check.domain} · **Severity:** ${f.check.severity} · **Evidence:** \`${f.check.evidence}\``,
       );
       out.push("");
+      if (f.check.compliance && f.check.compliance.length > 0) {
+        out.push(`**Compliance:** ${f.check.compliance.join(", ")}`);
+        out.push("");
+      }
       out.push(`**Why this check exists:** ${f.check.remediation.trim()}`);
       out.push("");
       out.push(`**Source:** ${f.check.citation}`);

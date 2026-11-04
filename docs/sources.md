@@ -45,6 +45,26 @@ check. This file lists the full source set and what was borrowed from each.
 - **Cloudflare `security-audit-skill`** — machine-readable findings with
   independent verification; influenced the fail-closed report posture.
 
+## Considered but declined
+
+The following checks were evaluated during v1 development and deliberately not
+included. This section prevents re-asking "why don't we check X?":
+
+- **Email hop-count / routing-header inspection** — Message-header data (Received:,
+  X-Forwarded-For in SMTP context) is not collectible via the Cloudflare API.
+  MX/SPF/DMARC posture is already covered by CF-DNS-003.
+- **Cloudflared tunnel version** — Field availability unverified against live
+  tunnel metadata returned by the API; version-staleness detection would
+  require an external "latest release" source. Tunnels are inventory-tracked
+  (CF-ACC-004) but not version-checked in v1.
+- **Waiting Room configuration** — Weak verdict signal. Whether a Waiting Room
+  is "correct" depends on traffic patterns, user flows, and capacity planning
+  that cannot be deterministically evaluated from configuration alone.
+- **Logpush destination audit** — Destination-ownership judgment (is the R2 bucket/
+  S3 endpoint/HTTP target legitimately owned by this customer?) is too context-
+  dependent for a deterministic rule. Logpush presence is inventory-tracked
+  (CF-ACC-005) but not destination-validated.
+
 ## Internal (guidance; no internal coupling in this repo)
 
 Cloudflare-internal guidance informed the check design. These are referenced

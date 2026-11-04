@@ -20,6 +20,7 @@ export interface Check {
   warnIf?: string[];
   remediation: string;
   citation: string;
+  compliance?: string[]; // SOC 2 TSC codes, PCI DSS requirements
 }
 
 export interface Finding {

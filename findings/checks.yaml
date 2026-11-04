@@ -6,6 +6,8 @@
 #   evidence — which part of the collection the check reads (documented for customers)
 #   remediation — what to do about a fail
 #   citation — the Cloudflare doc (or listed source) that justifies the check
+#   compliance — (optional) compliance framework controls this check supports evidence for
+#                (SOC 2 TSC codes, PCI DSS requirements). See docs/compliance-mapping.md.
 #
 # Verdict semantics:
 #   pass | warn | fail | manual | na — and INCOMPLETE OR UNREADABLE EVIDENCE
@@ -26,6 +28,7 @@ checks:
       Set SSL/TLS mode to Full (strict) in Zone > SSL/TLS > Overview. Flexible or Off
       modes allow unencrypted traffic between Cloudflare and your origin.
     citation: https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/
+    compliance: ["SOC2-CC6.6", "PCI-DSS-4.2"]
 
   - id: CF-SSL-002
     name: Minimum TLS version is 1.2 or higher
@@ -39,6 +42,7 @@ checks:
       Set Minimum TLS Version to 1.2 on Edge Certificates. TLS 1.0/1.1 have known
       vulnerabilities and are not strong cryptography under PCI DSS 4.2.1.
     citation: https://developers.cloudflare.com/ssl/edge-certificates/additional-options/minimum-tls/
+    compliance: ["SOC2-CC6.6", "PCI-DSS-4.2"]
 
   - id: CF-SSL-003
     name: HSTS is enabled
@@ -54,6 +58,7 @@ checks:
       Enable HSTS on Edge Certificates. Confirm all subdomains support HTTPS first —
       HSTS forces HTTPS browser-side and can lock out HTTP-only hosts.
     citation: https://developers.cloudflare.com/ssl/edge-certificates/additional-options/http-strict-transport-security/
+    compliance: ["SOC2-CC6.6", "PCI-DSS-4.2"]
 
   - id: CF-SSL-004
     name: Always Use HTTPS is enabled
@@ -66,6 +71,7 @@ checks:
     remediation: >
       Enable Always Use HTTPS so no plaintext HTTP requests reach your application.
     citation: https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/
+    compliance: ["SOC2-CC6.6"]
 
   - id: CF-SSL-005
     name: Custom certificates not expiring soon
@@ -81,6 +87,7 @@ checks:
       Certificates expiring within 90 days should be scheduled for renewal.
       Universal certificates auto-renew; this check applies only to custom certificates.
     citation: https://developers.cloudflare.com/ssl/edge-certificates/custom-certificates/renewing/
+    compliance: ["SOC2-CC6.6"]
 
   # ------------------------------------------------------------------ WAF
   - id: CF-WAF-001
@@ -99,6 +106,7 @@ checks:
       The managed ruleset is updated weekly for CVE coverage; a zone without it has no
       signature-based exploit protection.
     citation: https://developers.cloudflare.com/waf/managed-rules/reference/cloudflare-managed-ruleset/
+    compliance: ["SOC2-CC7.1", "SOC2-CC7.2", "PCI-DSS-6.4", "PCI-DSS-11.3"]
 
   - id: CF-WAF-002
     name: Custom WAF rules present for sensitive endpoints
@@ -114,6 +122,7 @@ checks:
       Review Security > Security rules. Custom rules should protect login/checkout/API
       paths; rules that are log-only on Business+ plans provide no enforcement.
     citation: https://developers.cloudflare.com/waf/custom-rules/
+    compliance: ["SOC2-CC7.1", "PCI-DSS-6.4"]
 
   - id: CF-WAF-003
     name: Broad skip rules are not neutralizing the WAF
@@ -128,6 +137,7 @@ checks:
       disable protections for most traffic. Narrow skip scopes and separate
       onboarding vs enforcement rulesets.
     citation: https://developers.cloudflare.com/waf/managed-rules/waf-exceptions/
+    compliance: ["SOC2-CC7.1", "PCI-DSS-6.4"]
 
   # ------------------------------------------------------------------ Rate limiting
   - id: CF-RL-001
@@ -142,6 +152,7 @@ checks:
       Add a rate limiting rule for login POSTs (count IP, e.g. 4 failed attempts/min
       with response-code counting on Business+, escalating windows per the docs).
     citation: https://developers.cloudflare.com/waf/rate-limiting-rules/best-practices/
+    compliance: ["SOC2-CC7.1", "PCI-DSS-6.4"]
 
   # CF-RL-002 removed: the legacy rate_limits endpoint returns 410 Gone, so
   # the check could only pass vacuously on absent data. CF-RL-001 covers
@@ -162,6 +173,7 @@ checks:
       X-Content-Type-Options) before it reaches the browser. Remove the header
       from the rule's headers_remove list unless there is a documented reason.
     citation: https://developers.cloudflare.com/rules/transform/response-header-modification/
+    compliance: ["SOC2-CC6.6", "PCI-DSS-6.4"]
 
   # ------------------------------------------------------------------ Bots
   - id: CF-BOT-001
@@ -177,6 +189,7 @@ checks:
       `not cf.bot_management.verified_bot`, or Googlebot and other verified crawlers
       (score=1) get blocked.
     citation: https://developers.cloudflare.com/bots/concepts/bot-score/
+    compliance: ["SOC2-CC7.1", "PCI-DSS-6.4"]
 
   - id: CF-BOT-002
     name: Bot management rules actually enforce (not skip-only)
@@ -191,6 +204,7 @@ checks:
       Validate the intended tiered model: skip for verified bots, challenge for
       likely bots (score 1–30), block for definite bots — then enforce.
     citation: https://developers.cloudflare.com/bots/
+    compliance: ["SOC2-CC7.1", "PCI-DSS-6.4"]
 
   - id: CF-TS-001
     name: Turnstile widgets have domains bound
@@ -205,6 +219,7 @@ checks:
       widget to the hostnames that serve the protected flows. Enforcement of
       sitekey usage cannot be verified over the API — mark for manual review.
     citation: https://developers.cloudflare.com/turnstile/get-started/
+    compliance: ["SOC2-CC7.1", "PCI-DSS-6.4"]
 
   # ------------------------------------------------------------------ Access
   - id: CF-ZT-001
@@ -219,6 +234,7 @@ checks:
       Every Access application must have at least one allow policy; policies with
       decision "bypass" expose the app without authentication.
     citation: https://developers.cloudflare.com/cloudflare-one/policies/access/
+    compliance: ["SOC2-CC6.1", "PCI-DSS-8.2"]
 
   - id: CF-ZT-002
     name: Identity providers beyond one-time PIN configured
@@ -232,6 +248,7 @@ checks:
       An empty IdP list (OTP-only) means no centralized identity control. Integrate
       your corporate IdP.
     citation: https://developers.cloudflare.com/cloudflare-one/identity-providers/
+    compliance: ["SOC2-CC6.1", "PCI-DSS-8.2"]
 
   - id: CF-ZT-003
     name: Two-factor authentication enforced on the account
@@ -244,6 +261,7 @@ checks:
     remediation: >
       Enable "Enforce 2FA" in account members settings so every member must use 2FA.
     citation: https://developers.cloudflare.com/fundamentals/account/account-security/mfa/
+    compliance: ["SOC2-CC6.1", "PCI-DSS-8.2"]
 
   - id: CF-IAM-001
     name: API tokens have expiry set
@@ -257,6 +275,7 @@ checks:
       Active tokens without expiration are standing credentials. Set expiry and
       rotate tokens in use.
     citation: https://developers.cloudflare.com/fundamentals/api/get-started/create-token/
+    compliance: ["SOC2-CC6.1", "PCI-DSS-8.2"]
 
   # ------------------------------------------------------------------ DNS / unsecured endpoints
   - id: CF-DNS-001
@@ -270,6 +289,7 @@ checks:
     remediation: >
       Enable DNSSEC in DNS > Settings to prevent response forgery.
     citation: https://developers.cloudflare.com/dns/dnssec/
+    compliance: ["SOC2-CC6.6", "SOC2-CC6.7"]
 
   - id: CF-DNS-002
     name: CAA records present
@@ -282,6 +302,7 @@ checks:
     remediation: >
       Add CAA records restricting certificate issuance to your chosen CAs.
     citation: https://developers.cloudflare.com/dns/manage-dns-records/reference/dns-record-types/#caa
+    compliance: ["SOC2-CC6.6"]
 
   - id: CF-DNS-003
     name: MX and SPF/DMARC email posture recorded
@@ -295,6 +316,7 @@ checks:
       Zones sending mail should publish SPF/DMARC; zones that never send mail
       should publish null SPF and reject-DMARC records to prevent spoofing.
     citation: https://developers.cloudflare.com/dns/manage-dns-records/reference/dns-record-types/
+    compliance: ["SOC2-CC6.6"]
 
   # ------------------------------------------------------------------ Workers
   - id: CF-WRK-001
@@ -309,6 +331,7 @@ checks:
       Scripts deployed with no route on any audited zone are untracked attack
       surface (if reachable via workers.dev) or dead weight. Delete or route them.
     citation: https://developers.cloudflare.com/workers/configuration/routes/
+    compliance: ["SOC2-CC8.1"]
 
   - id: CF-WRK-002
     name: Workers routes point to scripts that exist
@@ -323,6 +346,7 @@ checks:
       need manual confirmation — this verdict is "manual" unless both sides
       of the check were readable.
     citation: https://developers.cloudflare.com/workers/configuration/routes/
+    compliance: ["SOC2-CC8.1"]
 
   # ------------------------------------------------------------------ Load Balancing
   - id: CF-LB-001
@@ -338,6 +362,7 @@ checks:
       If a single origin is intentional (e.g., DNS-only load balancing), ensure external
       monitoring alerts on outages — monitoring does not provide failover.
     citation: https://developers.cloudflare.com/load-balancing/pools/
+    compliance: ["SOC2-A1.2"]
 
   - id: CF-LB-002
     name: Load balancer monitors use appropriate intervals
@@ -351,6 +376,7 @@ checks:
       Monitor intervals longer than 60 seconds may fail to detect outages quickly.
       Reduce the interval for production traffic pools.
     citation: https://developers.cloudflare.com/load-balancing/monitors/
+    compliance: ["SOC2-A1.2"]
 
   # ------------------------------------------------------------------ AI Gateway
   - id: CF-AIG-001
@@ -365,6 +391,7 @@ checks:
       Configure rate limiting to prevent excessive costs and abuse. Set limits
       appropriate for your expected traffic volume via Settings > Rate-limiting.
     citation: https://developers.cloudflare.com/ai-gateway/features/rate-limiting/
+    compliance: ["SOC2-CC7.2", "PCI-DSS-10.2"]
 
   - id: CF-AIG-002
     name: AI Gateways have authentication enabled
@@ -378,6 +405,7 @@ checks:
       Enable authentication to prevent unauthorized access to your AI Gateway.
       Once enabled, authentication cannot be disabled.
     citation: https://developers.cloudflare.com/ai-gateway/get-started/
+    compliance: ["SOC2-CC7.2"]
 
   - id: CF-AIG-003
     name: AI Gateways have log collection enabled
@@ -391,6 +419,7 @@ checks:
       Enable log collection for audit trails, analytics, and debugging.
       Configure via Settings > Logging.
     citation: https://developers.cloudflare.com/ai-gateway/observability/logging/
+    compliance: ["SOC2-CC7.1"]
 
   - id: CF-AIG-004
     name: AI Gateways have DLP policies configured
@@ -405,6 +434,7 @@ checks:
       Configure Data Loss Prevention policies to prevent sensitive data leakage
       in prompts and responses. Set up DLP profiles via Settings > Data Loss Prevention.
     citation: https://developers.cloudflare.com/ai-gateway/
+    compliance: ["SOC2-CC6.1", "PCI-DSS-8.2"]
 
   - id: CF-AIG-005
     name: AI Gateways have guardrails configured
@@ -419,6 +449,7 @@ checks:
       Configure guardrails to protect against prompt injection and other AI-specific
       attacks. Set up guardrail policies via Settings > Guardrails.
     citation: https://developers.cloudflare.com/ai-gateway/
+    compliance: ["SOC2-CC7.2"]
 
   # ----------------------------------------------------- Client-Side Security
   - id: CF-PS-001
@@ -434,6 +465,7 @@ checks:
       loaded by your website visitors. Detect supply chain attacks and malicious
       third-party scripts.
     citation: https://developers.cloudflare.com/client-side-security/
+    compliance: ["SOC2-CC7.1", "PCI-DSS-6.4", "PCI-DSS-11.3"]
 
   # --------------------------------------------------------- Origin Security
   - id: CF-AOP-001
@@ -449,6 +481,7 @@ checks:
       come from the Cloudflare network. Without AOP, anyone who discovers your
       origin IP can bypass Cloudflare protections.
     citation: https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/
+    compliance: ["SOC2-CC6.6", "PCI-DSS-4.2"]
 
   - id: CF-AOP-002
     name: Zone-level Authenticated Origin Pulls preferred
@@ -464,6 +497,7 @@ checks:
       come from the Cloudflare network. Upload a zone-level certificate to guarantee
       requests come from YOUR account specifically.
     citation: https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/zone-level/
+    compliance: ["SOC2-CC6.6", "PCI-DSS-4.2"]
 
   # ------------------------------------------------------------- DDoS / Cache
   - id: CF-DDOS-001
@@ -479,6 +513,7 @@ checks:
       your zone exposed to DDoS attacks. If you need to reduce sensitivity, use
       "log" mode or adjust sensitivity rather than disabling.
     citation: https://developers.cloudflare.com/ddos-protection/
+    compliance: ["SOC2-A1.2", "PCI-DSS-6.4"]
 
   - id: CF-CACHE-001
     name: HTML not cached aggressively by default
@@ -509,3 +544,4 @@ checks:
       Tunnels. The moment a public hostname is added, a live DNS record is created.
       Without an Access app, your origin is exposed to the entire Internet.
     citation: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/
+    compliance: ["SOC2-CC6.1", "PCI-DSS-8.2"]
