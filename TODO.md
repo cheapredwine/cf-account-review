@@ -1,5 +1,18 @@
 # TODO — cf-account-review
 
+## Phase plan (2026-11-03, per customer scoping)
+
+- **Phase 1 — web performance + security + AI controls** (default): all
+  current checks except the two Workers ones; 31 checks as of the
+  phase-filter merge (b7d62a8). `analyze --phase 1` filters reports.
+- **Phase 2 — Developer Platform (Workers)**: CF-WRK-001/002 (`phase: 2`
+  in the rulebook). Deferral matches the first customer's purchases.
+- **Out of product scope: Cloudforce One** — zero checks, zero endpoints.
+- **OPEN (user decision):** the first customer is an Area 1 (email
+  security) subscriber; phase 1 as scoped has no email checks (batch 3:
+  hop count, MX hygiene — CF-DNS-003 partially covers). Pull batch-3
+  email checks forward into phase 1 for this account?
+
 - [x] End-to-end dogfood: run `collect-config.sh` (bash) and the TS Mode A collector
       against the personal test account; run `analyze` on the real output and eyeball
       the report. **DONE 2026-11-01** against JSherron Test Account (5 Enterprise zones,
