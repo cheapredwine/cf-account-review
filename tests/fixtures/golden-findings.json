@@ -45,6 +45,11 @@
     "verdict": "pass"
   },
   {
+    "check": "CF-HDR-001",
+    "scope": "example.com",
+    "verdict": "fail"
+  },
+  {
     "check": "CF-BOT-001",
     "scope": "example.com",
     "verdict": "warn"

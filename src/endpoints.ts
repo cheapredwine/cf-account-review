@@ -32,7 +32,8 @@ export const ENDPOINTS: Endpoint[] = [
     scope: "account",
     planTier: "any",
     domain: "inventory",
-    citation: "https://developers.cloudflare.com/api/resources/accounts/methods/list/",
+    citation:
+      "https://developers.cloudflare.com/api/resources/accounts/methods/list/",
   },
   {
     path: "/accounts/{account_id}",
@@ -42,7 +43,8 @@ export const ENDPOINTS: Endpoint[] = [
     scope: "account",
     planTier: "any",
     domain: "account-hygiene",
-    citation: "https://developers.cloudflare.com/fundamentals/account/account-security/",
+    citation:
+      "https://developers.cloudflare.com/fundamentals/account/account-security/",
   },
   {
     path: "/accounts/{account_id}/members",
@@ -61,7 +63,8 @@ export const ENDPOINTS: Endpoint[] = [
     scope: "account",
     planTier: "any",
     domain: "account-hygiene",
-    citation: "https://developers.cloudflare.com/fundamentals/api/get-started/create-token/",
+    citation:
+      "https://developers.cloudflare.com/fundamentals/api/get-started/create-token/",
   },
   {
     path: "/accounts/{account_id}/tokens",
@@ -70,7 +73,8 @@ export const ENDPOINTS: Endpoint[] = [
     scope: "account",
     planTier: "any",
     domain: "account-hygiene",
-    citation: "https://developers.cloudflare.com/fundamentals/api/get-started/create-token/",
+    citation:
+      "https://developers.cloudflare.com/fundamentals/api/get-started/create-token/",
   },
   {
     path: "/accounts/{account_id}/load_balancers/pools",
@@ -92,7 +96,8 @@ export const ENDPOINTS: Endpoint[] = [
   },
   {
     path: "/accounts/{account_id}/rulesets",
-    rationale: "Account-level custom/managed rulesets (Enterprise) — shared WAF across zones.",
+    rationale:
+      "Account-level custom/managed rulesets (Enterprise) — shared WAF across zones.",
     tokenPermission: "Account Rulesets: Read",
     scope: "account",
     planTier: "enterprise",
@@ -101,7 +106,8 @@ export const ENDPOINTS: Endpoint[] = [
   },
   {
     path: "/accounts/{account_id}/access/apps",
-    rationale: "Access application inventory: policy-less apps and bypass decisions.",
+    rationale:
+      "Access application inventory: policy-less apps and bypass decisions.",
     tokenPermission: "Access: Apps and Policies: Read",
     scope: "account",
     planTier: "any",
@@ -115,7 +121,8 @@ export const ENDPOINTS: Endpoint[] = [
     scope: "account",
     planTier: "any",
     domain: "zero-trust",
-    citation: "https://developers.cloudflare.com/cloudflare-one/identity-providers/",
+    citation:
+      "https://developers.cloudflare.com/cloudflare-one/identity-providers/",
   },
   {
     path: "/accounts/{account_id}/access/service_tokens",
@@ -124,7 +131,8 @@ export const ENDPOINTS: Endpoint[] = [
     scope: "account",
     planTier: "any",
     domain: "zero-trust",
-    citation: "https://developers.cloudflare.com/cloudflare-one/identity-providers/service-tokens/",
+    citation:
+      "https://developers.cloudflare.com/cloudflare-one/identity-providers/service-tokens/",
   },
   {
     path: "/accounts/{account_id}/challenges/widgets",
@@ -137,21 +145,25 @@ export const ENDPOINTS: Endpoint[] = [
   },
   {
     path: "/accounts/{account_id}/cfd_tunnel",
-    rationale: "Tunnel inventory: unsecured internal services exposed via public hostnames.",
+    rationale:
+      "Tunnel inventory: unsecured internal services exposed via public hostnames.",
     tokenPermission: "Cloudflare Tunnel: Read",
     scope: "account",
     planTier: "any",
     domain: "unsecured-endpoints",
-    citation: "https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/",
+    citation:
+      "https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/",
   },
   {
     path: "/accounts/{account_id}/workers/scripts",
-    rationale: "Worker script inventory: routes bound, plaintext binding names/types.",
+    rationale:
+      "Worker script inventory: routes bound, plaintext binding names/types.",
     tokenPermission: "Workers Scripts: Read",
     scope: "account",
     planTier: "any",
     domain: "workers",
-    citation: "https://developers.cloudflare.com/workers/wrangler/commands/#deploy",
+    citation:
+      "https://developers.cloudflare.com/workers/wrangler/commands/#deploy",
   },
   {
     path: "/accounts/{account_id}/storage/kv/namespaces",
@@ -184,12 +196,14 @@ export const ENDPOINTS: Endpoint[] = [
   // ---- zone level ----
   {
     path: "/zones",
-    rationale: "Zone inventory: plan, status, paused — drives plan-tier applicability of all checks.",
+    rationale:
+      "Zone inventory: plan, status, paused — drives plan-tier applicability of all checks.",
     tokenPermission: "Zone: Read",
     scope: "zone",
     planTier: "any",
     domain: "inventory",
-    citation: "https://developers.cloudflare.com/api/resources/zones/methods/list/",
+    citation:
+      "https://developers.cloudflare.com/api/resources/zones/methods/list/",
   },
   {
     path: "/zones/{zone_id}/settings",
@@ -199,7 +213,8 @@ export const ENDPOINTS: Endpoint[] = [
     scope: "zone",
     planTier: "any",
     domain: "ssl-tls",
-    citation: "https://developers.cloudflare.com/use-cases/solutions/encrypt-all-keep-site-secure/",
+    citation:
+      "https://developers.cloudflare.com/use-cases/solutions/encrypt-all-keep-site-secure/",
   },
   {
     path: "/zones/{zone_id}/rulesets",
@@ -212,12 +227,14 @@ export const ENDPOINTS: Endpoint[] = [
   },
   {
     path: "/zones/{zone_id}/rulesets/phases/{phase}/entrypoint",
-    rationale: "Live rules for each security/traffic phase (custom WAF, managed WAF, rate limiting, transforms).",
+    rationale:
+      "Live rules for each security/traffic phase (custom WAF, managed WAF, rate limiting, transforms).",
     tokenPermission: "Zone WAF: Read (covers zone rulesets)",
     scope: "zone",
     planTier: "any",
     domain: "waf",
-    citation: "https://developers.cloudflare.com/ruleset-engine/about/rulesets/",
+    citation:
+      "https://developers.cloudflare.com/ruleset-engine/about/rulesets/",
   },
   {
     path: "/zones/{zone_id}/bot_management",
@@ -239,7 +256,8 @@ export const ENDPOINTS: Endpoint[] = [
   },
   {
     path: "/zones/{zone_id}/pagerules",
-    rationale: "Legacy page rules still active — migration + regression signal.",
+    rationale:
+      "Legacy page rules still active — migration + regression signal.",
     tokenPermission: "Page Rules: Read",
     scope: "zone",
     planTier: "any",
@@ -263,7 +281,8 @@ export const ENDPOINTS: Endpoint[] = [
     scope: "zone",
     planTier: "any",
     domain: "ssl-tls",
-    citation: "https://developers.cloudflare.com/ssl/reference/certificate-verification/",
+    citation:
+      "https://developers.cloudflare.com/ssl/reference/certificate-verification/",
   },
   {
     path: "/zones/{zone_id}/ssl/certificate_packs",
@@ -272,7 +291,8 @@ export const ENDPOINTS: Endpoint[] = [
     scope: "zone",
     planTier: "any",
     domain: "ssl-tls",
-    citation: "https://developers.cloudflare.com/ssl/edge-certificates/custom-certificates/",
+    citation:
+      "https://developers.cloudflare.com/ssl/edge-certificates/custom-certificates/",
   },
   {
     path: "/zones/{zone_id}/load_balancers",
@@ -294,12 +314,14 @@ export const ENDPOINTS: Endpoint[] = [
   },
   {
     path: "/zones/{zone_id}/api_gateway/discovery",
-    rationale: "API discovery inventory (Enterprise): API endpoints known to Cloudflare.",
+    rationale:
+      "API discovery inventory (Enterprise): API endpoints known to Cloudflare.",
     tokenPermission: "Domain API Gateway: Read",
     scope: "zone",
     planTier: "enterprise",
     domain: "unsecured-endpoints",
-    citation: "https://developers.cloudflare.com/api-shield/security/api-discovery/",
+    citation:
+      "https://developers.cloudflare.com/api-shield/security/api-discovery/",
   },
   {
     path: "/zones/{zone_id}/api_gateway/configuration",
@@ -308,11 +330,13 @@ export const ENDPOINTS: Endpoint[] = [
     scope: "zone",
     planTier: "enterprise",
     domain: "unsecured-endpoints",
-    citation: "https://developers.cloudflare.com/api-shield/security/jwt-validation/",
+    citation:
+      "https://developers.cloudflare.com/api-shield/security/jwt-validation/",
   },
   {
     path: "/accounts/{account_id}/ai-gateway/gateways",
-    rationale: "AI Gateway inventory: rate limiting, authentication, DLP, guardrails, and log collection posture.",
+    rationale:
+      "AI Gateway inventory: rate limiting, authentication, DLP, guardrails, and log collection posture.",
     tokenPermission: "AI Gateway: Read",
     scope: "account",
     planTier: "any",
@@ -321,7 +345,8 @@ export const ENDPOINTS: Endpoint[] = [
   },
   {
     path: "/zones/{zone_id}/page_shield",
-    rationale: "Client-side security (Page Shield) enablement: script/connection/cookie monitoring, malicious script detection.",
+    rationale:
+      "Client-side security (Page Shield) enablement: script/connection/cookie monitoring, malicious script detection.",
     tokenPermission: "Domain Page Shield: Read",
     scope: "zone",
     planTier: "business-plus",
@@ -330,30 +355,36 @@ export const ENDPOINTS: Endpoint[] = [
   },
   {
     path: "/zones/{zone_id}/origin_tls_client_auth/settings",
-    rationale: "Authenticated Origin Pulls (mTLS) enablement: verifies requests come from Cloudflare network.",
+    rationale:
+      "Authenticated Origin Pulls (mTLS) enablement: verifies requests come from Cloudflare network.",
     tokenPermission: "SSL and Certificates: Read",
     scope: "zone",
     planTier: "any",
     domain: "origin-security",
-    citation: "https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/",
+    citation:
+      "https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/",
   },
   {
     path: "/zones/{zone_id}/origin_tls_client_auth",
-    rationale: "Authenticated Origin Pulls zone-level certificates: custom cert preferred over shared global cert.",
+    rationale:
+      "Authenticated Origin Pulls zone-level certificates: custom cert preferred over shared global cert.",
     tokenPermission: "SSL and Certificates: Read",
     scope: "zone",
     planTier: "any",
     domain: "origin-security",
-    citation: "https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/zone-level/",
+    citation:
+      "https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/zone-level/",
   },
   {
     path: "/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations",
-    rationale: "Tunnel public hostname inventory: cross-reference with Access apps to detect unprotected public routes.",
+    rationale:
+      "Tunnel public hostname inventory: cross-reference with Access apps to detect unprotected public routes.",
     tokenPermission: "Cloudflare Tunnel: Read",
     scope: "account",
     planTier: "any",
     domain: "zero-trust",
-    citation: "https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/",
+    citation:
+      "https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/",
   },
 ];
 
@@ -367,4 +398,5 @@ export const PHASES = [
   "http_request_cache_settings",
   "http_request_origin",
   "http_request_redirect",
+  "http_response_headers_transform",
 ] as const;

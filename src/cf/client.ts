@@ -10,7 +10,6 @@
 import { hashId } from "../redact.js";
 import type { Collection } from "../schema.js";
 
-
 export const BASE_URL = "https://api.cloudflare.com/client/v4";
 
 const FORBIDDEN_METHODS = ["POST", "PUT", "PATCH", "DELETE"] as const;
@@ -75,14 +74,22 @@ export class CfGetClient {
       }
       return body.result ?? null;
     } catch (err) {
-      this.recordError(path, undefined, err instanceof Error ? err.message : String(err));
+      this.recordError(
+        path,
+        undefined,
+        err instanceof Error ? err.message : String(err),
+      );
       return null;
     } finally {
       clearTimeout(timer);
     }
   }
 
-  private recordError(path: string, status: number | undefined, error: string): void {
+  private recordError(
+    path: string,
+    status: number | undefined,
+    error: string,
+  ): void {
     this.apiErrors.push({
       path,
       status,
@@ -92,10 +99,17 @@ export class CfGetClient {
   }
 
   /** Paginated GET. Returns null when unreadable (scope gap or error). */
-  async list(path: string, params: Record<string, string> = {}): Promise<unknown[] | null> {
+  async list(
+    path: string,
+    params: Record<string, string> = {},
+  ): Promise<unknown[] | null> {
     const all: unknown[] = [];
     for (let page = 1; page <= MAX_PAGES; page++) {
-      const result = await this.getJson(path, { ...params, page: String(page), per_page: String(PER_PAGE) });
+      const result = await this.getJson(path, {
+        ...params,
+        page: String(page),
+        per_page: String(PER_PAGE),
+      });
       if (result === null) return all.length > 0 ? all : null;
       const arr = Array.isArray(result) ? result : [result];
       all.push(...arr);

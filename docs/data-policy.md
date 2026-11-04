@@ -30,6 +30,7 @@
 | DNS record contents (origin IPs / CNAME targets) | `[redacted]` by default |
 | Account IDs, zone IDs, rule IDs | SHA-256 hash, first 16 hex chars (`h…`) |
 | Rule expressions | IPs, email addresses, and internal hostname patterns redacted; zone's own hostname kept |
+| Rule bodies (action parameters) | Collected for rule-shape checks (e.g. header-transform `headers.<name>.operation`). Header names are kept; header **values** set by transform rules are not individually redacted today — long opaque values are covered by the opaque-string rule; short values are a known gap (see TODO). |
 | Account member identities | Never exported — role names + 2FA booleans only |
 | API/service token inventory | Status, expiry, last-used, permission-group names only (values never exist in list responses) |
 | Worker bindings | Names and types only; values never exported |

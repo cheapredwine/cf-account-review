@@ -11,7 +11,9 @@ describe("maskIdsInPath", () => {
 
   it("leaves non-ID paths and short hex strings untouched", () => {
     expect(maskIdsInPath("/user/tokens")).toBe("/user/tokens");
-    expect(maskIdsInPath("/zones/abc123/settings")).toBe("/zones/abc123/settings");
+    expect(maskIdsInPath("/zones/abc123/settings")).toBe(
+      "/zones/abc123/settings",
+    );
   });
 
   it("masks multiple IDs in one path", () => {

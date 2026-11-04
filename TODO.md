@@ -25,35 +25,34 @@ Chosen by broad category (user, 2026-11-04); scoped at report time via
       masked as manual). Verified the scope gate: probes before every run;
       never run with a partial-scope token (AGENTS.md rule 5).
 - [x] Checks: SSL/TLS (5), WAF (3), rate limiting, bots (2), Turnstile,
-      Access+IdP+2FA+token-expiry, DNS (3), Workers (2, phase 2), LB (2),
+      Access+IdP+2FA+token-expiry, DNS (3), Workers (2), LB (2),
       AI Gateway (5), Page Shield, Authenticated Origin Pulls (2), DDoS,
-      cache, tunnel-Access gap.
-- [x] Exit code enforcement (`--fail-on`), phase filter (`--phase`),
+      cache, tunnel-Access gap, response-header transform audit (CF-HDR-001).
+- [x] Exit code enforcement (`--fail-on`), category scope (`--domains`),
+      zone scope (`--zones`), diff mode (`--compare-to [--diff-only]`),
+      guarded writes on every output (collection AND report),
       pre-write secret scan + opaque-string redaction in all three collectors.
+- [x] Standalone binary (Node SEA): mac arm64 builds and smokes locally;
+      Linux built + published as a CI artifact. Customer hand-off = one file.
+- [x] Committed-fixture rulebook smoke (golden verdicts fail visibly on
+      rulebook/evaluator regressions) + collection JSON schema extraction
+      (`pnpm schema`, CI-checked against drift).
 
 ## Open
 
+- [ ] Windows binary artifact (SEA on a windows runner) + PSScriptAnalyzer/PS 5.1 pass.
+- [ ] Redact header **values** set by response/request transform rules (header names
+      are collected for CF-HDR-001; a short secret header value set by a rule would
+      pass the opaque-string redaction — see docs/data-policy.md rule-bodies row).
 - [ ] Mode A: implement `--include-*` explicit re-inclusion flags (DNS content, IDs)
       documented in docs/data-policy.md.
-- [ ] HTML report renderer.
-- [ ] Add CI-scheduled smoke: analyze a committed fixture collection so rulebook
-      regressions fail visibly.
-- [ ] Check batch 3: Email Security misconfigurations (hop count, MX hygiene),
-      Logpush enabled for security events, cloudflared version check, Security headers
-      via Transform Rules, Waiting Room. (Email subset may be pulled forward — see the
-      phase plan's open decision.)
-- [ ] Diff mode: `--compare-to previous-collection.json --diff-only` for quarterly check-ins
-- [ ] Report write path: `cmdAnalyze` writes the report with a bare `writeFileSync`
-      (no opaque redaction / secret scan). Analyzing a pre-redaction collection would
-      pass raw values into the report. Add the same guarded write as the collect path.
-- [ ] Multi-zone batch: `--zones zone1,zone2,zone3` for Enterprise multi-zone customers
-- [ ] Compliance framework mapping: add `compliance: []` to checks.yaml, map to SOC 2/PCI DSS
-- [ ] Extract JSON Schema from zod for customers who want to validate Mode B files
-      before sending them back.
-- [ ] Binary distribution completion: `build:binary` script (esbuild bundle →
-      official nodejs.org binary + SEA embed → ad-hoc codesign), Linux build in CI
-      with artifact upload; distro Node builds have SEA disabled so the embed must
-      use an official build.
-- [ ] PowerShell collector: PSScriptAnalyzer pass + test with PowerShell 5.1.
+- [ ] HTML report renderer (Markdown is the customer deliverable today).
+- [ ] Batch-3 candidates recorded with rationale — deliberately not built:
+      email hop-count (message-header data is not collectible via these APIs;
+      MX/SPF/DMARC posture already covered by CF-DNS-003), cloudflared version
+      (field availability unverified against live tunnel data), Waiting Room
+      (weak verdict signal), Logpush (destination-ownership judgment too
+      context-dependent for a deterministic rule).
+- [ ] Compliance framework mapping: add `compliance: []` to checks.yaml, map to SOC 2/PCI DSS.
 - [ ] Upstream-friendly: consider contributing the zone-setting check shapes back to
       FlareGuard (or citing cross-links in its README).

@@ -1,0 +1,765 @@
+{
+  "$ref": "#/definitions/cf-account-review collection 1.0",
+  "definitions": {
+    "cf-account-review collection 1.0": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "string"
+        },
+        "collectedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "collector": {
+          "type": "string",
+          "enum": [
+            "api",
+            "powershell",
+            "bash"
+          ]
+        },
+        "collectorVersion": {
+          "type": "string"
+        },
+        "tokenStatus": {
+          "type": "string",
+          "enum": [
+            "active",
+            "verification-failed",
+            "not-verified"
+          ]
+        },
+        "planTiersSeen": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "accounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-zA-Z0-9_-]*$",
+                "description": "Resource ID, hashed or redacted by the collector before emission"
+              },
+              "name": {
+                "type": "string"
+              },
+              "settings": {},
+              "enforceTwofactor": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "accountMembers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "roleNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "twofactorEnabled": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "apiTokens": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "expiresOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "lastUsedOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "permissionGroupNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "loadBalancerPools": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "$ref": "#/definitions/cf-account-review collection 1.0/properties/accounts/items/properties/id",
+                      "description": "Resource ID, hashed or redacted by the collector before emission"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "origins": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "address": {
+                            "type": "string",
+                            "description": "IP or hostname, may be redacted"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "weight": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "monitor": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/definitions/cf-account-review collection 1.0/properties/accounts/items/properties/id"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Resource ID, hashed or redacted by the collector before emission"
+                    },
+                    "notificationEmail": {
+                      "type": "string",
+                      "description": "Redacted by default"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "loadBalancerMonitors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "$ref": "#/definitions/cf-account-review collection 1.0/properties/accounts/items/properties/id",
+                      "description": "Resource ID, hashed or redacted by the collector before emission"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "interval": {
+                      "type": "number"
+                    },
+                    "timeout": {
+                      "type": "number"
+                    },
+                    "retries": {
+                      "type": "number"
+                    },
+                    "expectedCodes": {
+                      "type": "string"
+                    },
+                    "followRedirects": {
+                      "type": "boolean"
+                    },
+                    "allowInsecure": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "accountRulesets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "$ref": "#/definitions/cf-account-review collection 1.0/properties/accounts/items/properties/id",
+                      "description": "Resource ID, hashed or redacted by the collector before emission"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "phase": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "accessApps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "domain": {
+                      "type": "string"
+                    },
+                    "selfHostedDomains": {
+                      "anyOf": [
+                        {
+                          "anyOf": [
+                            {
+                              "not": {}
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "policies": {},
+                    "hasPolicies": {
+                      "type": "boolean"
+                    },
+                    "policyDecisions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "accessIdentityProviders": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "turnstileWidgets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "domains": {
+                      "anyOf": [
+                        {
+                          "anyOf": [
+                            {
+                              "not": {}
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "mode": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "cfdTunnels": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "$ref": "#/definitions/cf-account-review collection 1.0/properties/accounts/items/properties/id",
+                      "description": "Resource ID, hashed or redacted by the collector before emission"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "publicHostnames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "workersScripts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "$ref": "#/definitions/cf-account-review collection 1.0/properties/accounts/items/properties/id",
+                      "description": "Resource ID, hashed or redacted by the collector before emission"
+                    },
+                    "scriptName": {
+                      "type": "string"
+                    },
+                    "createdOn": {
+                      "type": "string"
+                    },
+                    "modifiedOn": {
+                      "type": "string"
+                    },
+                    "routesBound": {
+                      "type": "boolean"
+                    },
+                    "plainTextBindings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "type"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "storageInventory": {
+                "type": "object",
+                "properties": {
+                  "kvNamespaces": {
+                    "type": "number"
+                  },
+                  "d1Databases": {
+                    "type": "number"
+                  },
+                  "r2Buckets": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "aiGateways": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Gateway identifier, not hashed — part of config"
+                    },
+                    "authentication": {
+                      "type": "boolean"
+                    },
+                    "rateLimitingLimit": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "rateLimitingInterval": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "rateLimitingTechnique": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "collectLogs": {
+                      "type": "boolean"
+                    },
+                    "dlpEnabled": {
+                      "type": "boolean"
+                    },
+                    "dlpPoliciesCount": {
+                      "type": "number"
+                    },
+                    "guardrailsConfigured": {
+                      "type": "boolean"
+                    },
+                    "retryMaxAttempts": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "spendLimitsEnabled": {
+                      "type": "boolean"
+                    },
+                    "byokOnly": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "default": []
+        },
+        "zones": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "plan": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "paused": {
+                "type": "boolean"
+              },
+              "type": {
+                "type": "string"
+              },
+              "createdOn": {
+                "type": "string"
+              },
+              "settings": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "value": {},
+                    "editable": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                },
+                "propertyNames": {
+                  "minLength": 1
+                }
+              },
+              "rulesets": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/cf-account-review collection 1.0/properties/accounts/items/properties/accountRulesets/items"
+                }
+              },
+              "phaseEntrypoints": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "phase": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "expression": {
+                            "type": "string"
+                          },
+                          "action_parameters": {},
+                          "version": {
+                            "type": "string"
+                          },
+                          "lastUpdated": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "phase"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "botManagement": {},
+              "wafOverrides": {},
+              "ipAccessRules": {},
+              "pageRules": {},
+              "certificatePacks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "$ref": "#/definitions/cf-account-review collection 1.0/properties/accounts/items/properties/id",
+                      "description": "Resource ID, hashed or redacted by the collector before emission"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "validityDays": {
+                      "type": "number"
+                    },
+                    "certificateAuthority": {
+                      "type": "string"
+                    },
+                    "expiresOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "hosts": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "sslVerification": {},
+              "loadBalancers": {},
+              "workersRoutes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "pattern": {
+                      "type": "string"
+                    },
+                    "script": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "dnsRecordCount": {
+                "type": "number"
+              },
+              "dnsRecords": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "content": {
+                      "type": "string",
+                      "description": "Redacted unless explicitly authorized"
+                    },
+                    "proxied": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "ttl": {
+                      "type": "number"
+                    },
+                    "comment": {
+                      "anyOf": [
+                        {
+                          "anyOf": [
+                            {
+                              "not": {}
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "name"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "legacyRateLimits": {},
+              "apiGatewayDiscovery": {},
+              "pageShield": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "useCloudflareReportingEndpoint": {
+                    "type": "boolean"
+                  },
+                  "useConnectionUrlPath": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "authenticatedOriginPulls": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "hasZoneLevelCert": {
+                    "type": "boolean"
+                  },
+                  "certCount": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "default": []
+        },
+        "collectionErrors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "status": {
+                "type": "number"
+              },
+              "error": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "error"
+            ],
+            "additionalProperties": false
+          },
+          "default": []
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "collectedAt",
+        "collector",
+        "collectorVersion",
+        "tokenStatus"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

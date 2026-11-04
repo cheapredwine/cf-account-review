@@ -6,8 +6,18 @@
  */
 import { CfGetClient } from "./cf/client.js";
 import { PHASES } from "./endpoints.js";
-import { hashId, redactDnsContent, redactEmails, redactExpression } from "./redact.js";
-import { REDACTED, SCHEMA_VERSION, type Collection, type Zone } from "./schema.js";
+import {
+  hashId,
+  redactDnsContent,
+  redactEmails,
+  redactExpression,
+} from "./redact.js";
+import {
+  REDACTED,
+  SCHEMA_VERSION,
+  type Collection,
+  type Zone,
+} from "./schema.js";
 
 const COLLECTOR_VERSION = "0.1.0";
 
@@ -16,7 +26,9 @@ function asArray(v: unknown): unknown[] {
 }
 
 function asRecord(v: unknown): Record<string, unknown> {
-  return typeof v === "object" && v !== null ? (v as Record<string, unknown>) : {};
+  return typeof v === "object" && v !== null
+    ? (v as Record<string, unknown>)
+    : {};
 }
 
 export async function collect(token: string): Promise<Collection> {
@@ -40,31 +52,61 @@ export async function collect(token: string): Promise<Collection> {
     // the /accounts/{id}/settings subpath does not exist (404).
     const acctFull = asRecord(await client.get(`/accounts/${accountId}`));
     const settings = asRecord(acctFull.settings ?? {});
-    const members = asArray(await client.list(`/accounts/${accountId}/members`));
+    const members = asArray(
+      await client.list(`/accounts/${accountId}/members`),
+    );
     const userTokens = asArray(await client.list("/user/tokens"));
-    const accountTokens = asArray(await client.list(`/accounts/${accountId}/tokens`));
-    const lbPools = asArray(await client.list(`/accounts/${accountId}/load_balancers/pools`));
-    const lbMonitors = asArray(await client.list(`/accounts/${accountId}/load_balancers/monitors`));
-    const accountRulesets = asArray(await client.list(`/accounts/${accountId}/rulesets`));
-    const accessApps = asArray(await client.list(`/accounts/${accountId}/access/apps`));
-    const idps = asArray(await client.list(`/accounts/${accountId}/access/identity_providers`));
-    const serviceTokens = asArray(await client.list(`/accounts/${accountId}/access/service_tokens`));
-    const widgets = asArray(await client.list(`/accounts/${accountId}/challenges/widgets`));
-    const tunnels = asArray(await client.list(`/accounts/${accountId}/cfd_tunnel`));
-    const scripts = asArray(await client.list(`/accounts/${accountId}/workers/scripts`));
-    const kv = asArray(await client.list(`/accounts/${accountId}/storage/kv/namespaces`));
+    const accountTokens = asArray(
+      await client.list(`/accounts/${accountId}/tokens`),
+    );
+    const lbPools = asArray(
+      await client.list(`/accounts/${accountId}/load_balancers/pools`),
+    );
+    const lbMonitors = asArray(
+      await client.list(`/accounts/${accountId}/load_balancers/monitors`),
+    );
+    const accountRulesets = asArray(
+      await client.list(`/accounts/${accountId}/rulesets`),
+    );
+    const accessApps = asArray(
+      await client.list(`/accounts/${accountId}/access/apps`),
+    );
+    const idps = asArray(
+      await client.list(`/accounts/${accountId}/access/identity_providers`),
+    );
+    const serviceTokens = asArray(
+      await client.list(`/accounts/${accountId}/access/service_tokens`),
+    );
+    const widgets = asArray(
+      await client.list(`/accounts/${accountId}/challenges/widgets`),
+    );
+    const tunnels = asArray(
+      await client.list(`/accounts/${accountId}/cfd_tunnel`),
+    );
+    const scripts = asArray(
+      await client.list(`/accounts/${accountId}/workers/scripts`),
+    );
+    const kv = asArray(
+      await client.list(`/accounts/${accountId}/storage/kv/namespaces`),
+    );
     const d1 = asArray(await client.list(`/accounts/${accountId}/d1/database`));
     const r2 = asArray(await client.list(`/accounts/${accountId}/r2/buckets`));
-    const aiGateways = asArray(await client.list(`/accounts/${accountId}/ai-gateway/gateways`));
+    const aiGateways = asArray(
+      await client.list(`/accounts/${accountId}/ai-gateway/gateways`),
+    );
 
     // Public hostnames referenced in expressions: keep zone names readable.
-    const zoneNames = asArray(await client.list("/zones")).map((z) => String(asRecord(z).name ?? ""));
+    const zoneNames = asArray(await client.list("/zones")).map((z) =>
+      String(asRecord(z).name ?? ""),
+    );
 
     accountDocs.push({
       id: hashed,
       name: typeof acct.name === "string" ? acct.name : undefined,
       enforceTwofactor:
-        typeof settings.enforce_twofactor === "boolean" ? settings.enforce_twofactor : null,
+        typeof settings.enforce_twofactor === "boolean"
+          ? settings.enforce_twofactor
+          : null,
       settings,
       accountMembers: members.map((m) => {
         const mem = asRecord(m);
@@ -72,7 +114,9 @@ export async function collect(token: string): Promise<Collection> {
         const policies = asArray(mem.policies);
         return {
           roleNames: policies.flatMap((p) =>
-            asArray(asRecord(p).permission_groups).map((g) => String(asRecord(g).name ?? "")),
+            asArray(asRecord(p).permission_groups).map((g) =>
+              String(asRecord(g).name ?? ""),
+            ),
           ),
           twofactorEnabled:
             typeof user.two_factor_authentication_enabled === "boolean"
@@ -86,9 +130,12 @@ export async function collect(token: string): Promise<Collection> {
         return {
           status: typeof tok.status === "string" ? tok.status : undefined,
           expiresOn: typeof tok.expires_on === "string" ? tok.expires_on : null,
-          lastUsedOn: typeof tok.last_used_on === "string" ? tok.last_used_on : null,
+          lastUsedOn:
+            typeof tok.last_used_on === "string" ? tok.last_used_on : null,
           permissionGroupNames: asArray(tok.policies).flatMap((p) =>
-            asArray(asRecord(p).permission_groups).map((g) => String(asRecord(g).name ?? "")),
+            asArray(asRecord(p).permission_groups).map((g) =>
+              String(asRecord(g).name ?? ""),
+            ),
           ),
         };
       }),
@@ -102,9 +149,14 @@ export async function collect(token: string): Promise<Collection> {
             const origin = asRecord(o);
             return {
               name: typeof origin.name === "string" ? origin.name : undefined,
-              address: typeof origin.address === "string" ? REDACTED : undefined,
-              enabled: typeof origin.enabled === "boolean" ? origin.enabled : undefined,
-              weight: typeof origin.weight === "number" ? origin.weight : undefined,
+              address:
+                typeof origin.address === "string" ? REDACTED : undefined,
+              enabled:
+                typeof origin.enabled === "boolean"
+                  ? origin.enabled
+                  : undefined,
+              weight:
+                typeof origin.weight === "number" ? origin.weight : undefined,
             };
           }),
           monitor: typeof p.monitor === "string" ? hashId(p.monitor) : null,
@@ -119,9 +171,16 @@ export async function collect(token: string): Promise<Collection> {
           interval: typeof m.interval === "number" ? m.interval : undefined,
           timeout: typeof m.timeout === "number" ? m.timeout : undefined,
           retries: typeof m.retries === "number" ? m.retries : undefined,
-          expectedCodes: typeof m.expected_codes === "string" ? m.expected_codes : undefined,
-          followRedirects: typeof m.follow_redirects === "boolean" ? m.follow_redirects : undefined,
-          allowInsecure: typeof m.allow_insecure === "boolean" ? m.allow_insecure : undefined,
+          expectedCodes:
+            typeof m.expected_codes === "string" ? m.expected_codes : undefined,
+          followRedirects:
+            typeof m.follow_redirects === "boolean"
+              ? m.follow_redirects
+              : undefined,
+          allowInsecure:
+            typeof m.allow_insecure === "boolean"
+              ? m.allow_insecure
+              : undefined,
         };
       }),
       accountRulesets: accountRulesets.map((r) => {
@@ -170,7 +229,11 @@ export async function collect(token: string): Promise<Collection> {
         tunnels.map(async (t) => {
           const tun = asRecord(t);
           const tunnelId = String(tun.id ?? "");
-          const config = asRecord(await client.get(`/accounts/${accountId}/cfd_tunnel/${tunnelId}/configurations`));
+          const config = asRecord(
+            await client.get(
+              `/accounts/${accountId}/cfd_tunnel/${tunnelId}/configurations`,
+            ),
+          );
           const ingress = asArray(asRecord(config.config).ingress);
           const publicHostnames = ingress
             .map((i) => String(asRecord(i).hostname ?? ""))
@@ -189,12 +252,17 @@ export async function collect(token: string): Promise<Collection> {
         return {
           id: sc.id ? hashId(String(sc.id)) : undefined,
           scriptName: typeof sc.id === "string" ? String(sc.id) : undefined,
-          createdOn: typeof sc.created_on === "string" ? sc.created_on : undefined,
-          modifiedOn: typeof sc.modified_on === "string" ? sc.modified_on : undefined,
+          createdOn:
+            typeof sc.created_on === "string" ? sc.created_on : undefined,
+          modifiedOn:
+            typeof sc.modified_on === "string" ? sc.modified_on : undefined,
           routesBound: false, // resolved per-zone below
           plainTextBindings: bindings
             .filter((b) => b.type === "plain_text" || b.type === "secret_text")
-            .map((b) => ({ name: String(b.name ?? ""), type: String(b.type ?? "") })),
+            .map((b) => ({
+              name: String(b.name ?? ""),
+              type: String(b.type ?? ""),
+            })),
         };
       }),
       storageInventory: {
@@ -209,16 +277,39 @@ export async function collect(token: string): Promise<Collection> {
         const spendLimits = asRecord(g.spend_limits);
         return {
           id: typeof g.id === "string" ? g.id : undefined,
-          authentication: typeof g.authentication === "boolean" ? g.authentication : undefined,
-          rateLimitingLimit: typeof g.rate_limiting_limit === "number" ? g.rate_limiting_limit : null,
-          rateLimitingInterval: typeof g.rate_limiting_interval === "number" ? g.rate_limiting_interval : null,
-          rateLimitingTechnique: typeof g.rate_limiting_technique === "string" ? g.rate_limiting_technique : null,
-          collectLogs: typeof g.collect_logs === "boolean" ? g.collect_logs : undefined,
-          dlpEnabled: typeof dlp.enabled === "boolean" ? dlp.enabled : undefined,
-          dlpPoliciesCount: Array.isArray(dlp.policies) ? dlp.policies.length : undefined,
-          guardrailsConfigured: guardrails && Object.keys(guardrails).length > 0 ? true : undefined,
-          retryMaxAttempts: typeof g.retry_max_attempts === "number" ? g.retry_max_attempts : null,
-          spendLimitsEnabled: typeof spendLimits.enabled === "boolean" ? spendLimits.enabled : undefined,
+          authentication:
+            typeof g.authentication === "boolean"
+              ? g.authentication
+              : undefined,
+          rateLimitingLimit:
+            typeof g.rate_limiting_limit === "number"
+              ? g.rate_limiting_limit
+              : null,
+          rateLimitingInterval:
+            typeof g.rate_limiting_interval === "number"
+              ? g.rate_limiting_interval
+              : null,
+          rateLimitingTechnique:
+            typeof g.rate_limiting_technique === "string"
+              ? g.rate_limiting_technique
+              : null,
+          collectLogs:
+            typeof g.collect_logs === "boolean" ? g.collect_logs : undefined,
+          dlpEnabled:
+            typeof dlp.enabled === "boolean" ? dlp.enabled : undefined,
+          dlpPoliciesCount: Array.isArray(dlp.policies)
+            ? dlp.policies.length
+            : undefined,
+          guardrailsConfigured:
+            guardrails && Object.keys(guardrails).length > 0 ? true : undefined,
+          retryMaxAttempts:
+            typeof g.retry_max_attempts === "number"
+              ? g.retry_max_attempts
+              : null,
+          spendLimitsEnabled:
+            typeof spendLimits.enabled === "boolean"
+              ? spendLimits.enabled
+              : undefined,
           byokOnly: typeof g.byok_only === "boolean" ? g.byok_only : undefined,
         };
       }),
@@ -239,26 +330,41 @@ export async function collect(token: string): Promise<Collection> {
     const planName = typeof plan.name === "string" ? plan.name : undefined;
     if (planName) planTiers.add(planName);
 
-    const settingsRows = asArray(await client.list(`/zones/${zoneId}/settings`));
-    const settings: Record<string, { id: string; value: unknown; editable?: boolean }> = {};
+    const settingsRows = asArray(
+      await client.list(`/zones/${zoneId}/settings`),
+    );
+    const settings: Record<
+      string,
+      { id: string; value: unknown; editable?: boolean }
+    > = {};
     for (const row of settingsRows) {
       const s = asRecord(row);
       const id = String(s.id ?? "");
       if (!id) continue;
-      settings[id] = { id, value: s.value, editable: typeof s.editable === "boolean" ? s.editable : undefined };
+      settings[id] = {
+        id,
+        value: s.value,
+        editable: typeof s.editable === "boolean" ? s.editable : undefined,
+      };
     }
 
     const rulesetList = asArray(await client.list(`/zones/${zoneId}/rulesets`));
     const phaseEntrypoints: Zone["phaseEntrypoints"] = {};
     for (const phase of PHASES) {
-      const ep = asRecord(await client.get(`/zones/${zoneId}/rulesets/phases/${phase}/entrypoint`));
+      const ep = asRecord(
+        await client.get(
+          `/zones/${zoneId}/rulesets/phases/${phase}/entrypoint`,
+        ),
+      );
       if (Object.keys(ep).length === 0) continue;
       const rules = asArray(ep.rules).map((rRaw) => {
         const r = asRecord(rRaw);
         return {
           id: r.id ? hashId(String(r.id)) : undefined,
           description:
-            typeof r.description === "string" ? redactEmails(r.description) : undefined,
+            typeof r.description === "string"
+              ? redactEmails(r.description)
+              : undefined,
           enabled: typeof r.enabled === "boolean" ? r.enabled : undefined,
           action: typeof r.action === "string" ? r.action : undefined,
           expression: redactExpression(
@@ -266,7 +372,8 @@ export async function collect(token: string): Promise<Collection> {
             [zoneName],
           ),
           version: typeof r.version === "string" ? r.version : undefined,
-          lastUpdated: typeof r.last_updated === "string" ? r.last_updated : undefined,
+          lastUpdated:
+            typeof r.last_updated === "string" ? r.last_updated : undefined,
         };
       });
       phaseEntrypoints[phase] = {
@@ -277,20 +384,26 @@ export async function collect(token: string): Promise<Collection> {
       };
     }
 
-    const dnsRaw = asArray(await client.list(`/zones/${zoneId}/dns_records`, { per_page: "100" }));
+    const dnsRaw = asArray(
+      await client.list(`/zones/${zoneId}/dns_records`, { per_page: "100" }),
+    );
     const dnsRecords = dnsRaw.map((dRaw) => {
       const d = asRecord(dRaw);
       return {
         type: String(d.type ?? ""),
         name: String(d.name ?? ""),
-        content: redactDnsContent(typeof d.content === "string" ? d.content : undefined),
+        content: redactDnsContent(
+          typeof d.content === "string" ? d.content : undefined,
+        ),
         proxied: typeof d.proxied === "boolean" ? d.proxied : null,
         ttl: typeof d.ttl === "number" ? d.ttl : undefined,
         comment: typeof d.comment === "string" ? d.comment : null,
       };
     });
 
-    const routes = asArray(await client.list(`/zones/${zoneId}/workers/routes`));
+    const routes = asArray(
+      await client.list(`/zones/${zoneId}/workers/routes`),
+    );
 
     zones.push({
       name: zoneName,
@@ -311,49 +424,81 @@ export async function collect(token: string): Promise<Collection> {
         };
       }),
       phaseEntrypoints,
-      botManagement: asRecord(await client.get(`/zones/${zoneId}/bot_management`)),
-      ipAccessRules: asArray(await client.list(`/zones/${zoneId}/firewall/access_rules/rules`)),
+      botManagement: asRecord(
+        await client.get(`/zones/${zoneId}/bot_management`),
+      ),
+      ipAccessRules: asArray(
+        await client.list(`/zones/${zoneId}/firewall/access_rules/rules`),
+      ),
       pageRules: asArray(await client.list(`/zones/${zoneId}/pagerules`)),
-      certificatePacks: asArray(await client.list(`/zones/${zoneId}/ssl/certificate_packs`)).map((pack) => {
+      certificatePacks: asArray(
+        await client.list(`/zones/${zoneId}/ssl/certificate_packs`),
+      ).map((pack) => {
         const p = asRecord(pack);
         return {
           id: typeof p.id === "string" ? hashId(p.id) : undefined,
           type: typeof p.type === "string" ? p.type : undefined,
           status: typeof p.status === "string" ? p.status : undefined,
-          validityDays: typeof p.validity_days === "number" ? p.validity_days : undefined,
-          certificateAuthority: typeof p.certificate_authority === "string" ? p.certificate_authority : undefined,
+          validityDays:
+            typeof p.validity_days === "number" ? p.validity_days : undefined,
+          certificateAuthority:
+            typeof p.certificate_authority === "string"
+              ? p.certificate_authority
+              : undefined,
           expiresOn: typeof p.expires_on === "string" ? p.expires_on : null,
-          hosts: asArray(p.hosts).filter((h) => typeof h === "string") as string[],
+          hosts: asArray(p.hosts).filter(
+            (h) => typeof h === "string",
+          ) as string[],
         };
       }),
-      sslVerification: asArray(await client.list(`/zones/${zoneId}/ssl/verification`)),
-      loadBalancers: asArray(await client.list(`/zones/${zoneId}/load_balancers`)),
+      sslVerification: asArray(
+        await client.list(`/zones/${zoneId}/ssl/verification`),
+      ),
+      loadBalancers: asArray(
+        await client.list(`/zones/${zoneId}/load_balancers`),
+      ),
       workersRoutes: routes.map((r) => {
         const route = asRecord(r);
         return {
-          pattern: typeof route.pattern === "string" ? route.pattern : undefined,
+          pattern:
+            typeof route.pattern === "string" ? route.pattern : undefined,
           script: typeof route.script === "string" ? route.script : undefined,
         };
       }),
       dnsRecordCount: dnsRecords.length,
       dnsRecords,
-      apiGatewayDiscovery: asArray(await client.list(`/zones/${zoneId}/api_gateway/discovery`)),
+      apiGatewayDiscovery: asArray(
+        await client.list(`/zones/${zoneId}/api_gateway/discovery`),
+      ),
     });
 
     // Page Shield and AOP collection
     const ps = asRecord(await client.get(`/zones/${zoneId}/page_shield`));
-    const aopSettings = asRecord(await client.get(`/zones/${zoneId}/origin_tls_client_auth/settings`));
-    const aopCerts = asArray(await client.list(`/zones/${zoneId}/origin_tls_client_auth`));
+    const aopSettings = asRecord(
+      await client.get(`/zones/${zoneId}/origin_tls_client_auth/settings`),
+    );
+    const aopCerts = asArray(
+      await client.list(`/zones/${zoneId}/origin_tls_client_auth`),
+    );
 
     const currentZone = zones[zones.length - 1];
     if (currentZone) {
       currentZone.pageShield = {
         enabled: typeof ps.enabled === "boolean" ? ps.enabled : undefined,
-        useCloudflareReportingEndpoint: typeof ps.use_cloudflare_reporting_endpoint === "boolean" ? ps.use_cloudflare_reporting_endpoint : undefined,
-        useConnectionUrlPath: typeof ps.use_connection_url_path === "boolean" ? ps.use_connection_url_path : undefined,
+        useCloudflareReportingEndpoint:
+          typeof ps.use_cloudflare_reporting_endpoint === "boolean"
+            ? ps.use_cloudflare_reporting_endpoint
+            : undefined,
+        useConnectionUrlPath:
+          typeof ps.use_connection_url_path === "boolean"
+            ? ps.use_connection_url_path
+            : undefined,
       };
       currentZone.authenticatedOriginPulls = {
-        enabled: typeof aopSettings.enabled === "boolean" ? aopSettings.enabled : undefined,
+        enabled:
+          typeof aopSettings.enabled === "boolean"
+            ? aopSettings.enabled
+            : undefined,
         hasZoneLevelCert: aopCerts.length > 0,
         certCount: aopCerts.length,
       };

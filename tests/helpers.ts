@@ -19,7 +19,9 @@ export function baseCollection(): Collection {
   });
 }
 
-export function zoneWith(overrides: Record<string, unknown>): Collection["zones"][number] {
+export function zoneWith(
+  overrides: Record<string, unknown>,
+): Collection["zones"][number] {
   return {
     name: "example.com",
     plan: "Enterprise",
@@ -32,7 +34,9 @@ export function zoneWith(overrides: Record<string, unknown>): Collection["zones"
 }
 
 export function loadChecks(): Check[] {
-  const doc = parse(readFileSync(join(ROOT, "findings", "checks.yaml"), "utf8")) as {
+  const doc = parse(
+    readFileSync(join(ROOT, "findings", "checks.yaml"), "utf8"),
+  ) as {
     checks: Check[];
   };
   return doc.checks;

@@ -18,11 +18,14 @@
     "lint": "oxlint src tests",
     "format": "oxfmt --check src tests",
     "verify": "pnpm run lint && pnpm run test",
-    "analyze": "node dist/cli.js analyze"
+    "analyze": "node dist/cli.js analyze",
+    "binary": "./scripts/build-binary.sh",
+    "schema": "node dist/cli.js schema"
   },
   "dependencies": {
     "yaml": "^2.6.0",
-    "zod": "^3.24.0"
+    "zod": "^3.24.0",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

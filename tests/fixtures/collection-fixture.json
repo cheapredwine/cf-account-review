@@ -137,7 +137,7 @@
       "status": "active",
       "paused": false,
       "type": "full",
-      "createdOn": "2026-11-04T07:35:42.966Z",
+      "createdOn": "2026-11-04T08:42:17.241Z",
       "settings": {
         "ssl": {
           "id": "ssl",
@@ -186,6 +186,22 @@
               "action": "skip",
               "enabled": true,
               "expression": "(http.user_agent contains \"bot\")"
+            }
+          ]
+        },
+        "http_response_headers_transform": {
+          "phase": "http_response_headers_transform",
+          "rules": [
+            {
+              "action": "rewrite",
+              "enabled": true,
+              "action_parameters": {
+                "headers": {
+                  "content-security-policy": {
+                    "operation": "remove"
+                  }
+                }
+              }
             }
           ]
         },
