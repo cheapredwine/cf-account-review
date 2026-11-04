@@ -14,7 +14,6 @@ export interface Check {
   domain: string;
   severity: "high" | "medium" | "low";
   type: string;
-  phase?: number; // build phase — default 1 (see findings/checks.yaml header)
   applies?: { planTier?: "any" | "pro-plus" | "business-plus" | "enterprise" };
   evidence: string;
   params: Record<string, unknown>;
@@ -518,11 +517,13 @@ const evaluators: Record<string, Evaluator> = {
   },
 };
 
-/** Filter checks to those in build phases up to maxPhase (phase 1 = web
- * performance and security + AI controls; phase 2 = Developer Platform).
- * Checks without a phase field default to phase 1. */
-export function filterChecksByPhase(checks: Check[], maxPhase: number): Check[] {
-  return checks.filter((c) => (c.phase ?? 1) <= maxPhase);
+/** Filter checks to the given named domains (the rulebook's `domain` field).
+ * Used to scope a run to the categories the operator chooses; pass nothing
+ * to include every check. */
+export function filterChecksByDomains(checks: Check[], domains: Iterable<string>): Check[] {
+  const wanted = new Set(domains);
+  if (wanted.size === 0) return checks;
+  return checks.filter((c) => wanted.has(c.domain));
 }
 
 export function evaluate(collection: Collection, checks: Check[]): Finding[] {
