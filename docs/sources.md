@@ -15,7 +15,7 @@ check. This file lists the full source set and what was borrowed from each.
   <https://developers.cloudflare.com/waf/rate-limiting-rules/best-practices/>,
   <https://developers.cloudflare.com/waf/rate-limiting-rules/parameters/>
   (the legacy rate-limiting product and its docs were retired with check
-  CF-RL-002 on 2026-11-03 — endpoint returns 410 Gone)
+  CF-RL-002 — its endpoint returns 410 Gone)
 - Bot management and bot score — <https://developers.cloudflare.com/bots/>,
   <https://developers.cloudflare.com/bots/concepts/bot-score/>
 - SSL/TLS — encryption modes <https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/>,

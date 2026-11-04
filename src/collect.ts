@@ -37,7 +37,7 @@ export async function collect(token: string): Promise<Collection> {
     const hashed = hashId(accountId);
 
     // Account posture data lives on the bare account object (result.settings);
-    // /accounts/{id}/settings does not exist (404 in the dogfood run).
+    // the /accounts/{id}/settings subpath does not exist (404).
     const acctFull = asRecord(await client.get(`/accounts/${accountId}`));
     const settings = asRecord(acctFull.settings ?? {});
     const members = asArray(await client.list(`/accounts/${accountId}/members`));

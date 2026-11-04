@@ -62,7 +62,7 @@ describe("redaction", () => {
     expect(failHits).toHaveLength(0);
   });
 
-  it("redactOpaqueStrings redacts 64+ char opaque runs (reproduces the 2026-11-03 dogfood abort)", () => {
+  it("redactOpaqueStrings redacts 64+ char opaque runs", () => {
     // A generated ruleset name tripped the pre-write scan before the write:
     const generatedName = "rulesets-ams-production-7800186fe3060227028a430821e6ddf8-pytest-xlvfiTaF2dEgWQPtRgoPM9LaGRWiURvY";
     const text = JSON.stringify({ accountRulesets: [{ id: "h1a2b3c4d5e6f7a8", name: generatedName }] });

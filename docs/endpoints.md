@@ -68,7 +68,7 @@ the doc that justifies its check.
 - Anything the token cannot read is skipped and recorded in `collectionErrors`;
   findings backed by unreadable data are marked `manual`, never `pass`.
 
-## Removed endpoints (verified 2026-11-03, dogfood run)
+## Removed endpoints
 
 - `/zones/{id}/firewall/waf/overrides` — returns **410 Gone** (legacy WAF
   overrides API removed; no check consumed it).
