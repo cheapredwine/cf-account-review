@@ -103,17 +103,19 @@ API TOKEN SCOPES (minimum required):
     • Access: Apps and Policies: Read (Access policy review)
     • Access: Identity Providers: Read (IdP and MFA posture)
     • Access: Service Tokens: Read (token expiry hygiene)
-    • Turnstile Widgets: Read (Turnstile inventory)
+    • Turnstile Sites: Read (Turnstile inventory)
     • Cloudflare Tunnel: Read (Tunnel-to-Access gap detection)
-    • User API Tokens: Read (token rotation posture)
+    • API Tokens: Read (User section) (token rotation posture)
     • Account API Tokens: Read (account token inventory)
     • SSL and Certificates: Read (certificate expiry warnings)
-    • Load Balancing: Read (load balancer health checks)
-    • Load Balancer Monitors and Pools: Read (pool failover)
+    • Load Balancing: Monitors and Pools: Read (pool failover)
     • Page Rules: Read (legacy page rule migration)
-    • Zone Rate Limiting: Read (legacy rate-limit migration)
-    • API Gateway Operations: Read (API Shield, Enterprise only)
+    • Domain API Gateway: Read (API Shield, Enterprise only)
     • Account Rulesets: Read (account-level WAF, Enterprise only)
+
+  NOTE: there is no "Zone Rulesets" or "Zone Rate Limiting" permission
+  group — zone rulesets are covered by Zone WAF: Read, and the legacy
+  rate_limits endpoint returns 410 Gone (removed from collection).
 
   NARROWLY-SCOPED TOKENS WORK:
     If your token lacks some permissions, the script will:
@@ -174,7 +176,6 @@ PHASE 4: ZONE COLLECTION
       • Rulesets (which phases have deployed rulesets)
       • Phase entrypoints (live rules per phase: WAF, rate limiting, transforms, etc.)
       • Bot management settings (Pro+ only)
-      • WAF overrides (legacy WAF package overrides)
       • IP access rules (allow/block lists)
       • Page rules (legacy page rules still active)
       • Certificate packs (custom SSL cert expiry)
@@ -182,7 +183,6 @@ PHASE 4: ZONE COLLECTION
       • Load balancers (LB posture)
       • Workers routes (Worker-to-zone bindings)
       • DNS records (STRUCTURE only: type, name, proxied status; content redacted)
-      • Legacy rate limits (legacy rate-limiting product)
 
 PHASE 5: ASSEMBLY + REDACTION
   → Apply redaction rules (this is where all sensitive data is protected):
@@ -423,11 +423,13 @@ foreach ($acct in $accounts) {
     $a = [ordered]@{ id = (Protect-Id $acctId); name = $acct.name }
 
     # Account settings: posture data lives on the bare account object
-    # (result.settings) — /accounts/{id}/settings does not exist (404)
+    # (result.settings) — /accounts/{id}/settings does not exist (404).
+    # enforce_twofactor is a direct key of the settings object, not a
+    # zone-settings row, so read it directly rather than via Get-Setting.
     $account = Invoke-CFGet -Path "/accounts/$acctId"
     $settings = if ($account -and $account.settings) { $account.settings } else { $null }
     $a | Add-Member -NotePropertyName settings -NotePropertyValue $settings
-    $a | Add-Member -NotePropertyName enforceTwofactor -NotePropertyValue (Get-Setting (Get-Array $settings) "enforce_twofactor")
+    $a | Add-Member -NotePropertyName enforceTwofactor -NotePropertyValue $settings.enforce_twofactor
 
     # Members: role names + 2FA booleans only — no emails, no user IDs
     $members = Get-Array (Invoke-CFGet -Path "/accounts/$acctId/members")
