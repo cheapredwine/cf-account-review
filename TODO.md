@@ -50,6 +50,10 @@ Chosen by broad category (user, 2026-11-04); scoped at report time via
 - [ ] Compliance framework mapping: add `compliance: []` to checks.yaml, map to SOC 2/PCI DSS
 - [ ] Extract JSON Schema from zod for customers who want to validate Mode B files
       before sending them back.
+- [ ] Binary distribution completion: `build:binary` script (esbuild bundle →
+      official nodejs.org binary + SEA embed → ad-hoc codesign), Linux build in CI
+      with artifact upload; distro Node builds have SEA disabled so the embed must
+      use an official build.
 - [ ] PowerShell collector: PSScriptAnalyzer pass + test with PowerShell 5.1.
 - [ ] Upstream-friendly: consider contributing the zone-setting check shapes back to
       FlareGuard (or citing cross-links in its README).
