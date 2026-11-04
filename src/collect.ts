@@ -11,6 +11,7 @@ import {
   redactDnsContent,
   redactEmails,
   redactExpression,
+  redactRuleActionParameters,
 } from "./redact.js";
 import {
   REDACTED,
@@ -371,6 +372,7 @@ export async function collect(token: string): Promise<Collection> {
             typeof r.expression === "string" ? r.expression : undefined,
             [zoneName],
           ),
+          action_parameters: redactRuleActionParameters(r.action_parameters),
           version: typeof r.version === "string" ? r.version : undefined,
           lastUpdated:
             typeof r.last_updated === "string" ? r.last_updated : undefined,

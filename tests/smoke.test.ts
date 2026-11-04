@@ -156,6 +156,13 @@ function fixtureCollection(): Collection {
                 headers: { "content-security-policy": { operation: "remove" } },
               },
             }, // CF-HDR-001 fail
+            {
+              action: "rewrite",
+              enabled: true,
+              action_parameters: {
+                headers: { "x-request-id": { operation: "set", value: "[redacted]" } },
+              },
+            }, // set-op: value redacted at collection time, not a finding
           ],
         },
         http_ratelimit: {
