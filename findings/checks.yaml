@@ -10,6 +10,12 @@
 # Verdict semantics (borrowed from the grclanker cloudflare-sec-inspector spec):
 #   pass | warn | fail | manual | na — and INCOMPLETE OR UNREADABLE EVIDENCE
 #   CAN NEVER PASS. Missing data yields "manual", not "pass".
+#
+# Build phases (2026-11-03): every check carries an optional `phase` field.
+# Checks without one default to phase 1. Phase 1 = web performance and
+# security + AI controls. Phase 2 = Developer Platform (Workers). Cloudforce
+# One is out of product scope entirely. `analyze --phase 1` filters the
+# report to phase-1 checks; no flag = all checks (back-compat).
 
 checks:
   # ------------------------------------------------------------------ SSL/TLS
@@ -282,11 +288,14 @@ checks:
     citation: https://developers.cloudflare.com/dns/manage-dns-records/reference/dns-record-types/
 
   # ------------------------------------------------------------------ Workers
+  # PHASE 2 (Developer Platform) — excluded from --phase 1 reports. See the
+  # phase plan at the top of this file and TODO.md.
   - id: CF-WRK-001
     name: No zombie Workers (deployed, never routed)
     domain: workers
     severity: medium
     type: zombie_workers
+    phase: 2
     applies: { planTier: any }
     evidence: accounts[].workersScripts + zones[].workersRoutes
     params: {}
@@ -300,6 +309,7 @@ checks:
     domain: workers
     severity: high
     type: zombie_workers
+    phase: 2
     applies: { planTier: any }
     evidence: accounts[].workersScripts + zones[].workersRoutes
     params: {}

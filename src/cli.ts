@@ -12,7 +12,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import process from "node:process";
 import { parse } from "yaml";
-import { evaluate } from "./analyzer/engine.js";
+import { evaluate, filterChecksByPhase } from "./analyzer/engine.js";
 import { renderMarkdown } from "./analyzer/report.js";
 import { collect } from "./collect.js";
 import { redactOpaqueStrings, scanForSecrets } from "./redact.js";
@@ -22,7 +22,7 @@ import type { Check } from "./analyzer/engine.js";
 function usage(): never {
   console.error(`Usage:
   cf-account-review collect  [--out output/collection.json]
-  cf-account-review analyze  <collection.json> [--checks findings/checks.yaml] [--out output/report.md] [--fail-on <severity>]
+  cf-account-review analyze  <collection.json> [--checks findings/checks.yaml] [--out output/report.md] [--fail-on <severity>] [--phase <n>]
 
 Environment: CF_API_TOKEN for \`collect\`.
 
@@ -42,6 +42,8 @@ function parseArgs(argv: string[]): Map<string, string> {
       args.set("checks", argv[++i] ?? "");
     } else if (a === "--fail-on") {
       args.set("fail-on", argv[++i] ?? "");
+    } else if (a === "--phase") {
+      args.set("phase", argv[++i] ?? "");
     } else if (a.startsWith("--")) {
       console.error(`unknown flag: ${a}`);
       usage();
@@ -84,7 +86,7 @@ async function cmdCollect(outArg: string | undefined): Promise<void> {
   );
 }
 
-function cmdAnalyze(positional: string | undefined, outArg: string | undefined, checksArg: string | undefined, failOnArg: string | undefined): void {
+function cmdAnalyze(positional: string | undefined, outArg: string | undefined, checksArg: string | undefined, failOnArg: string | undefined, phaseArg: string | undefined): void {
   if (!positional) usage();
   const collectionPath = resolve(positional);
   const raw = JSON.parse(readFileSync(collectionPath, "utf8")) as unknown;
@@ -97,10 +99,20 @@ function cmdAnalyze(positional: string | undefined, outArg: string | undefined, 
   const collection: Collection = parsed.data;
   const checksPath = resolve(checksArg ?? "findings/checks.yaml");
   const doc = parse(readFileSync(checksPath, "utf8")) as { checks?: Check[] };
-  const checks = doc.checks ?? [];
+  let checks = doc.checks ?? [];
   if (checks.length === 0) {
     console.error(`no checks found in ${checksPath}`);
     process.exit(1);
+  }
+  if (phaseArg !== undefined) {
+    const maxPhase = Number(phaseArg);
+    if (!Number.isInteger(maxPhase) || maxPhase < 1) {
+      console.error(`invalid --phase value: ${phaseArg} (must be a positive integer)`);
+      process.exit(2);
+    }
+    const before = checks.length;
+    checks = filterChecksByPhase(checks, maxPhase);
+    console.log(`phase filter: ${checks.length}/${before} checks (phase ≤ ${maxPhase})`);
   }
   const findings = evaluate(collection, checks);
   const report = renderMarkdown(collection, findings);
@@ -136,7 +148,7 @@ if (command === "collect") {
   await cmdCollect(parseArgs(rest).get("out"));
 } else if (command === "analyze") {
   const args = parseArgs(rest);
-  cmdAnalyze(args.get("positional"), args.get("out"), args.get("checks"), args.get("fail-on"));
+  cmdAnalyze(args.get("positional"), args.get("out"), args.get("checks"), args.get("fail-on"), args.get("phase"));
 } else {
   usage();
 }

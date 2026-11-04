@@ -14,6 +14,7 @@ export interface Check {
   domain: string;
   severity: "high" | "medium" | "low";
   type: string;
+  phase?: number; // build phase — default 1 (see findings/checks.yaml header)
   applies?: { planTier?: "any" | "pro-plus" | "business-plus" | "enterprise" };
   evidence: string;
   params: Record<string, unknown>;
@@ -517,6 +518,13 @@ const evaluators: Record<string, Evaluator> = {
     return { verdict: "pass", detail: `${publicHostnames.length} public tunnel hostname(s), all protected by Access` };
   },
 };
+
+/** Filter checks to those in build phases up to maxPhase (phase 1 = web
+ * performance and security + AI controls; phase 2 = Developer Platform).
+ * Checks without a phase field default to phase 1. */
+export function filterChecksByPhase(checks: Check[], maxPhase: number): Check[] {
+  return checks.filter((c) => (c.phase ?? 1) <= maxPhase);
+}
 
 export function evaluate(collection: Collection, checks: Check[]): Finding[] {
   const findings: Finding[] = [];

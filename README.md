@@ -37,6 +37,10 @@ node dist/cli.js analyze output/collection.json --out output/report.md
 
 # Exit code enforcement (CI integration)
 node dist/cli.js analyze output/collection.json --fail-on high  # Exit 1 if any high-severity fails
+
+# Build phases (findings/checks.yaml header): phase 1 = web performance and
+# security + AI controls; phase 2 = Developer Platform. No flag = all checks.
+node dist/cli.js analyze output/collection.json --phase 1
 ```
 
 ### Mode B — offline shell collectors (token never leaves the customer)

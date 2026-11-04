@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
 import { collectionSchema, type Collection } from "../src/schema.js";
-import { evaluate, type Check, type Finding } from "../src/analyzer/engine.js";
+import { evaluate, filterChecksByPhase, type Check, type Finding } from "../src/analyzer/engine.js";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 
@@ -562,5 +562,27 @@ describe("findings engine", () => {
 
     const passing = evaluate(makeC(true), checks).find((f: Finding) => f.check.id === "CF-TUNNEL-001");
     expect(passing?.verdict).toBe("pass");
+  });
+
+  it("phase filter keeps phase-1 checks and drops phase-2 (rulebook parity)", () => {
+    // The shipped rulebook: every check defaults to phase 1 except the
+    // explicitly phase-2 Developer Platform checks.
+    const doc = parse(readFileSync(join(ROOT, "findings", "checks.yaml"), "utf8")) as { checks?: Check[] };
+    const all = doc.checks ?? [];
+    const phase1 = filterChecksByPhase(all, 1);
+    expect(phase1.length).toBeGreaterThan(all.length - 5); // only a few checks live in phase 2
+    const ids = (cs: Check[]) => new Set(cs.map((c) => c.id));
+    const p1 = ids(phase1);
+    expect(p1.has("CF-WRK-001")).toBe(false);
+    expect(p1.has("CF-WRK-002")).toBe(false);
+    // AI controls stay in phase 1
+    for (const id of ["CF-AIG-001", "CF-AIG-002", "CF-AIG-003", "CF-AIG-004", "CF-AIG-005"]) {
+      expect(p1.has(id)).toBe(true);
+    }
+    // no flag = everything
+    expect(filterChecksByPhase(all, 99).length).toBe(all.length);
+    // a phase-1 check without an explicit field defaults to 1
+    const noField: Check = { ...all[0], phase: undefined };
+    expect(filterChecksByPhase([noField], 1)).toHaveLength(1);
   });
 });
