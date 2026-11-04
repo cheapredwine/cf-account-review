@@ -424,9 +424,10 @@ foreach ($acct in $accounts) {
 
     # Account settings: posture data lives on the bare account object
     # (result.settings) — /accounts/{id}/settings does not exist (404).
-    # enforce_twofactor is a direct key of the settings object, not a
-    # zone-settings row, so read it directly rather than via Get-Setting.
-    $account = Invoke-CFGet -Path "/accounts/$acctId"
+    # Invoke-CFGet returns an array (pagination accumulator) — unwrap the
+    # single account object explicitly rather than relying on member
+    # enumeration. enforce_twofactor is a direct key of the settings object.
+    $account = (Invoke-CFGet -Path "/accounts/$acctId") | Select-Object -First 1
     $settings = if ($account -and $account.settings) { $account.settings } else { $null }
     $a | Add-Member -NotePropertyName settings -NotePropertyValue $settings
     $a | Add-Member -NotePropertyName enforceTwofactor -NotePropertyValue $settings.enforce_twofactor
