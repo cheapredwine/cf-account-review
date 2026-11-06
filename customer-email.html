@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 20px;
+}
+h2 {
+  color: #2c3e50;
+  margin-top: 30px;
+  border-bottom: 2px solid #e1e4e8;
+  padding-bottom: 8px;
+}
+h3 {
+  color: #444;
+  margin-top: 24px;
+}
+strong {
+  color: #2c3e50;
+}
+a {
+  color: #0366d6;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+code {
+  background: #f6f8fa;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+  font-size: 85%;
+}
+pre {
+  background: #f6f8fa;
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  border: 1px solid #e1e4e8;
+}
+pre code {
+  background: none;
+  padding: 0;
+}
+blockquote {
+  margin: 20px 0;
+  padding: 12px 20px;
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+  color: #856404;
+}
+ul, ol {
+  padding-left: 30px;
+}
+li {
+  margin: 8px 0;
+}
+hr {
+  border: none;
+  border-top: 1px solid #e1e4e8;
+  margin: 30px 0;
+}
+.emoji {
+  font-size: 120%;
+}
+</style>
+</head>
+<body>
+
+<p><strong>Subject:</strong> Cloudflare security review — 20 minutes, read-only, you'll get immediate feedback</p>
+
+<hr>
+
+<p>Hey [Customer Name],</p>
+
+<p>Thanks for asking about the security review! Here's what I've built and how it works.</p>
+
+<h2>What You're Getting</h2>
+
+<p>A security assessment of your Cloudflare account against 45 best-practice checks. Think health checkup for your config — it reads your settings (completely read-only), compares them to documented standards, and tells you what's solid and what needs attention.</p>
+
+<p><strong>Two deliverables:</strong></p>
+<ol>
+<li><strong>Immediate (while the script runs):</strong> Real-time security observations on screen — quick pass/warn findings as it collects your config</li>
+<li><strong>Detailed report (24-48 hours):</strong> Full analysis with severity ratings, step-by-step fixes, and Cloudflare docs citations</li>
+</ol>
+
+<h2>Three Safety Guarantees</h2>
+
+<ol>
+<li><strong>Actually read-only</strong> — The code physically can't write. No write methods, automated tests enforce it, every API call is GET-only.</li>
+<li><strong>Aggressive redaction</strong> — Origin IPs, DNS content, account/zone IDs, emails all redacted/hashed before anything hits disk. The tool reads configuration structure (is 2FA on? what SSL mode?), not secrets.</li>
+<li><strong>Token stays local</strong> — You run the script on your machine. It uses your token to call the Cloudflare API, redacts data, writes JSON to your disk. The token never leaves your environment or appears in the output.</li>
+</ol>
+
+<blockquote>
+<strong>⚠️ Important:</strong> This isn't official Cloudflare software — it's a tool I built for config reviews. <strong>Review the PowerShell script before running it</strong> (~300 lines you can read through). I'll explain what it does, but verify it yourself.
+</blockquote>
+
+<hr>
+
+<h2>How This Works — 20 Minutes Total</h2>
+
+<h3>Step 1: Create Read-Only API Token (~5 min)</h3>
+
+<p><span class="emoji">👉</span> <strong><a href="https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22workers_r2%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22access%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22zone_settings%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22dns%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22firewall_services%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22ssl_and_certificates%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22load_balancing%22%2C%22type%22%3A%22read%22%7D%5D&accountId=*&zoneId=all&name=CF%20Account%20Review">Click here to create your token</a></strong></p>
+
+<p>This opens the Cloudflare dashboard with 10 core read-only permissions pre-configured:</p>
+<ul>
+<li><strong>Account:</strong> Settings, Workers R2, Zero Trust/Access, Workers Scripts</li>
+<li><strong>Zones:</strong> Zone management, Settings, DNS, Firewall/WAF/Rate Limiting, SSL/TLS, Load Balancing</li>
+</ul>
+
+<p>Just:</p>
+<ol>
+<li>Review the permissions (all read-only, covers the 45 checks)</li>
+<li>Click <strong>Continue to summary</strong></li>
+<li>Click <strong>Create Token</strong></li>
+<li><strong>Copy the token</strong> (shown once)</li>
+<li>Save it securely (password manager)</li>
+</ol>
+
+<h3>Step 2: Download and Run the Collection Script (~10 min)</h3>
+
+<p><strong><span class="emoji">📦</span> Download the review package:</strong> <a href="https://github.com/cheapredwine/cf-account-review/releases/tag/v1.0.0">https://github.com/cheapredwine/cf-account-review/releases/tag/v1.0.0</a></p>
+
+<p>This includes:</p>
+<ul>
+<li><code>Collect-CFConfig.ps1</code> — The PowerShell collector (Windows)</li>
+<li><code>collect-config.sh</code> — The bash collector (Mac/Linux)</li>
+<li><code>CUSTOMER-GUIDE.md</code> — Complete documentation (how it works, what gets collected, privacy, quick start)</li>
+</ul>
+
+<p><strong>Review the script first:</strong></p>
+<ul>
+<li>Open <code>Collect-CFConfig.ps1</code> in a text editor</li>
+<li>~300 lines of straightforward PowerShell</li>
+<li>Verify it's only GET requests to <code>api.cloudflare.com</code></li>
+<li>Ask me about anything unclear</li>
+</ul>
+
+<p><strong>Then run it:</strong></p>
+<pre><code>cd C:\wherever\you\saved\it
+.\Collect-CFConfig.ps1</code></pre>
+
+<p><strong>What happens:</strong></p>
+<ul>
+<li>Prompts for your API token (hidden input)</li>
+<li>Makes ~50 read-only API calls</li>
+<li>Shows <strong>immediate security observations on screen</strong> as it runs:
+  <ul>
+    <li>✅ "2FA enforcement is ON"</li>
+    <li>⚠️ "3 zones using Flexible SSL (not end-to-end encrypted)"</li>
+    <li>⚠️ "HTTP/3 disabled on 4 zones"</li>
+    <li>✅ "WAF deployed on 5 zones"</li>
+  </ul>
+</li>
+<li>Applies redaction</li>
+<li>Writes <code>cloudflare-config-YYYYMMDD-HHMMSS.json</code> to disk</li>
+<li>Takes ~5-10 minutes depending on zone count</li>
+</ul>
+
+<p>You get <strong>immediate value on screen</strong> (quick health check) plus the <strong>JSON file</strong> for detailed analysis.</p>
+
+<h3>Step 3: Send Me the JSON (~2 min)</h3>
+
+<p>Reply with the JSON file attached. That's it.</p>
+
+<p>The file contains configuration structure (settings, rules, enabled/disabled states) but no secrets. Origin IPs redacted, IDs hashed, emails stripped. Your API token was used locally and isn't in the file.</p>
+
+<hr>
+
+<h2>What You Get Back (24-48 hours)</h2>
+
+<p>Detailed Markdown report with:</p>
+<ul>
+<li>Pass/Warn/Fail for all 45 checks (not just the on-screen highlights)</li>
+<li>Severity ratings (high/medium/low)</li>
+<li>Exact remediation steps ("go here, change this to that")</li>
+<li>Cloudflare docs citations for every recommendation</li>
+<li>Compliance mappings (SOC 2, PCI DSS)</li>
+</ul>
+
+<p><strong>The 45 checks cover:</strong></p>
+<ul>
+<li><strong>SSL/TLS (5):</strong> Encryption mode, TLS version, HSTS, Always Use HTTPS, cert expiry</li>
+<li><strong>Security Settings (4):</strong> Under Attack Mode, Browser Integrity Check, Challenge Passage, Hotlink Protection</li>
+<li><strong>Performance (3):</strong> HTTP/2, HTTP/3, Brotli</li>
+<li><strong>WAF (3):</strong> Managed rulesets, custom rules, skip audit</li>
+<li><strong>Rate Limiting (1):</strong> Login protection</li>
+<li><strong>Bots (2):</strong> Verified bot handling, enforcement gaps</li>
+<li><strong>DDoS (1):</strong> HTTP DDoS active</li>
+<li><strong>Origin Security (2):</strong> Authenticated pulls, certs</li>
+<li><strong>Page Shield (1):</strong> JS monitoring</li>
+<li><strong>DNS (3):</strong> DNSSEC, CAA, mail posture</li>
+<li><strong>Cache (4):</strong> HTML defaults, Dev Mode, Browser TTL, Cache Level</li>
+<li><strong>Workers (2):</strong> Zombie scripts, dangling routes</li>
+<li><strong>Load Balancing (2):</strong> Multiple origins, health checks</li>
+<li><strong>Zero Trust Access (3):</strong> Policy coverage, bypass audit, MFA</li>
+<li><strong>Zero Trust Tunnels (1):</strong> Access protection</li>
+<li><strong>AI Gateway (5):</strong> Rate limits, auth, logging, DLP, guardrails</li>
+<li><strong>Account Security (2):</strong> 2FA enforcement, API token hygiene</li>
+<li><strong>Response Headers (1):</strong> Security header preservation</li>
+</ul>
+
+<hr>
+
+<h2>Why You're First</h2>
+
+<p>I want to make sure this works smoothly before offering it broadly. You'll get my full attention — I'll answer questions, explain findings, walk through fixes.</p>
+
+<p><strong>Background:</strong> This builds on FlareGuard (MIT, declarative checks) and cloudflare-sec-inspector (verdict semantics). Cloudflare has internal tooling (Conftest/Rego, employee-only) that does similar config analysis. This rebuilds that architecture in TypeScript for customer hand-off: aggressive redaction, auditable collectors, public API only, and docs explaining what/why.</p>
+
+<p><strong>What I'd love:</strong> Your honest feedback — was it clear? Was the report useful? What would make it better?</p>
+
+<hr>
+
+<h2>Questions?</h2>
+
+<p>Ask anything — about the script, checks, redaction, token permissions, why checks matter — whatever. I'm here.</p>
+
+<p>Looking forward to this!</p>
+
+<p>Jason</p>
+
+<hr>
+
+<h2>Download Link</h2>
+
+<p><strong><span class="emoji">📦</span> <a href="https://github.com/cheapredwine/cf-account-review/releases/tag/v1.0.0">https://github.com/cheapredwine/cf-account-review/releases/tag/v1.0.0</a></strong></p>
+
+<p>Includes:</p>
+<ol>
+<li><code>Collect-CFConfig.ps1</code> — PowerShell collector (Windows)</li>
+<li><code>collect-config.sh</code> — Bash collector (Mac/Linux)</li>
+<li><code>CUSTOMER-GUIDE.md</code> — Complete documentation</li>
+</ol>
+
+<hr>
+
+<p><strong>P.S.</strong> — The read-only guarantee is real. The tool can't write even if it wanted to — no code path for it, tests enforce it. Review the script yourself and ask about anything unclear.</p>
+
+</body>
+</html>
