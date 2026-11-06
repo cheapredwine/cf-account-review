@@ -817,6 +817,8 @@ describe("findings engine", () => {
       "origin-security",
       "ai-gateway",
       "account-hygiene",
+      "security",
+      "performance",
     ];
     const scoped = filterChecksByDomains(all, inScope);
     const scopedIds = new Set(scoped.map((c) => c.id));
@@ -830,10 +832,13 @@ describe("findings engine", () => {
       "CF-DDOS-001",
       "CF-DNS-001",
       "CF-CACHE-001",
+      "CF-CACHE-002",
       "CF-AOP-001",
       "CF-AIG-001",
       "CF-ZT-003",
       "CF-IAM-001",
+      "CF-SEC-001",
+      "CF-PERF-001",
     ]) {
       expect(scopedIds.has(id)).toBe(true);
     }

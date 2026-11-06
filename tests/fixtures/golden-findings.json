@@ -25,6 +25,41 @@
     "verdict": "fail"
   },
   {
+    "check": "CF-SEC-001",
+    "scope": "all",
+    "verdict": "manual"
+  },
+  {
+    "check": "CF-SEC-002",
+    "scope": "all",
+    "verdict": "manual"
+  },
+  {
+    "check": "CF-SEC-003",
+    "scope": "all",
+    "verdict": "manual"
+  },
+  {
+    "check": "CF-SEC-004",
+    "scope": "all",
+    "verdict": "manual"
+  },
+  {
+    "check": "CF-PERF-001",
+    "scope": "all",
+    "verdict": "manual"
+  },
+  {
+    "check": "CF-PERF-002",
+    "scope": "all",
+    "verdict": "manual"
+  },
+  {
+    "check": "CF-PERF-003",
+    "scope": "all",
+    "verdict": "manual"
+  },
+  {
     "check": "CF-WAF-001",
     "scope": "example.com",
     "verdict": "pass"
@@ -168,6 +203,21 @@
     "check": "CF-CACHE-001",
     "scope": "example.com",
     "verdict": "pass"
+  },
+  {
+    "check": "CF-CACHE-002",
+    "scope": "all",
+    "verdict": "manual"
+  },
+  {
+    "check": "CF-CACHE-003",
+    "scope": "all",
+    "verdict": "manual"
+  },
+  {
+    "check": "CF-CACHE-004",
+    "scope": "all",
+    "verdict": "manual"
   },
   {
     "check": "CF-TUNNEL-001",

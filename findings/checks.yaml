@@ -101,6 +101,116 @@ checks:
     citation: https://developers.cloudflare.com/ssl/edge-certificates/custom-certificates/renewing/
     compliance: ["SOC2-CC6.6"]
 
+  # -------------------------------------------------------- Security Settings
+  - id: CF-SEC-001
+    name: Under Attack Mode not left on inappropriately
+    domain: security
+    tier: lite
+    severity: high
+    type: security_level_check
+    applies: { planTier: any }
+    evidence: zones[].settings["security_level"]
+    params: {}
+    remediation: >
+      Under Attack Mode (formerly "I'm Under Attack") challenges every visitor and
+      breaks API/mobile traffic. It should be enabled only during active attacks,
+      not left on permanently. Use temporary rules or firewall rules for sustained
+      protection.
+    citation: https://developers.cloudflare.com/fundamentals/reference/under-attack-mode/
+
+  - id: CF-SEC-002
+    name: Browser Integrity Check appropriate for zone type
+    domain: security
+    tier: full
+    severity: medium
+    type: browser_integrity_check
+    applies: { planTier: any }
+    evidence: zones[].settings["browser_check"]
+    params: {}
+    warnIf: ["enabled_on_api_zone"]
+    remediation: >
+      Browser Integrity Check blocks requests without common browser headers. This
+      is appropriate for websites but breaks API clients, mobile apps, and headless
+      browsers. Disable it on API zones or use firewall rules for granular control.
+    citation: https://developers.cloudflare.com/waf/tools/browser-integrity-check/
+
+  - id: CF-SEC-003
+    name: Challenge Passage duration reasonable
+    domain: security
+    tier: lite
+    severity: low
+    type: challenge_passage_check
+    applies: { planTier: any }
+    evidence: zones[].settings["challenge_ttl"]
+    params: {}
+    warnIf: ["too_short", "too_long"]
+    remediation: >
+      Challenge Passage controls how long a solved challenge remains valid. Cloudflare
+      recommends 15-45 minutes. Very short durations (<15 min) annoy users; very long
+      durations (>60 min) allow compromised sessions to persist.
+    citation: https://developers.cloudflare.com/waf/tools/challenge-passage/
+
+  - id: CF-SEC-004
+    name: Hotlink Protection appropriate for zone
+    domain: security
+    tier: full
+    severity: low
+    type: hotlink_protection_check
+    applies: { planTier: any }
+    evidence: zones[].settings["hotlink_protection"]
+    params: {}
+    warnIf: ["enabled_on_saas_or_api"]
+    remediation: >
+      Hotlink Protection blocks embedding of images from other domains. This is useful
+      for image hosting sites but breaks SaaS products, APIs, and CDN-served assets
+      meant to be embedded. Verify this matches your zone's purpose.
+    citation: https://developers.cloudflare.com/waf/tools/hotlink-protection/
+
+  # ------------------------------------------------------- Performance Settings
+  - id: CF-PERF-001
+    name: HTTP/2 enabled for performance
+    domain: performance
+    tier: lite
+    severity: medium
+    type: http2_check
+    applies: { planTier: any }
+    evidence: zones[].settings["http2"]
+    params: {}
+    remediation: >
+      HTTP/2 improves page load times through multiplexing and header compression.
+      It should be enabled unless you have a specific compatibility requirement.
+      This is on by default; if it's off, verify the reason.
+    citation: https://developers.cloudflare.com/speed/optimization/protocol/http2/
+
+  - id: CF-PERF-002
+    name: HTTP/3 (QUIC) enabled for performance
+    domain: performance
+    tier: lite
+    severity: low
+    type: http3_check
+    applies: { planTier: any }
+    evidence: zones[].settings["http3"]
+    params: {}
+    remediation: >
+      HTTP/3 reduces latency on poor connections and is supported by all modern
+      browsers. Enable it unless you have documented UDP/QUIC blocking issues.
+      This is on by default on newer zones.
+    citation: https://developers.cloudflare.com/speed/optimization/protocol/http3/
+
+  - id: CF-PERF-003
+    name: Brotli compression enabled
+    domain: performance
+    tier: lite
+    severity: low
+    type: brotli_check
+    applies: { planTier: pro-plus }
+    evidence: zones[].settings["brotli"]
+    params: {}
+    remediation: >
+      Brotli compression reduces bandwidth usage by 15-25% compared to gzip for text
+      content. All modern browsers support it. Enable via Speed > Optimization > Content Optimization.
+    citation: https://developers.cloudflare.com/speed/optimization/content/brotli/
+
   # ------------------------------------------------------------------ WAF
   - id: CF-WAF-001
     name: Managed WAF ruleset deployed
@@ -570,6 +680,53 @@ checks:
       caches HTML, which can serve stale content and bypass dynamic personalization.
       Use Cache Rules for selective HTML caching instead.
     citation: https://developers.cloudflare.com/cache/
+
+  - id: CF-CACHE-002
+    name: Development Mode not left on
+    domain: cache
+    tier: lite
+    severity: high
+    type: dev_mode_check
+    applies: { planTier: any }
+    evidence: zones[].settings["development_mode"]
+    params: {}
+    remediation: >
+      Development Mode bypasses the cache and should only be enabled temporarily
+      for testing. Leaving it on degrades performance and increases origin load.
+      Turn it off once testing is complete.
+    citation: https://developers.cloudflare.com/cache/how-to/development-mode/
+
+  - id: CF-CACHE-003
+    name: Browser Cache TTL appropriate for content
+    domain: cache
+    tier: full
+    severity: low
+    type: browser_cache_ttl_check
+    applies: { planTier: any }
+    evidence: zones[].settings["browser_cache_ttl"]
+    params: {}
+    warnIf: ["very_short", "very_long"]
+    remediation: >
+      Browser Cache TTL controls how long browsers cache content. Default is 4 hours.
+      Very short TTLs (<1 hour) may cause unnecessary origin requests. Very long TTLs
+      (>1 day) may serve stale content. Use Cache Rules for fine-grained control.
+    citation: https://developers.cloudflare.com/cache/how-to/edge-browser-cache-ttl/
+
+  - id: CF-CACHE-004
+    name: Cache Level matches zone purpose
+    domain: cache
+    tier: full
+    severity: medium
+    type: cache_level_check
+    applies: { planTier: any }
+    evidence: zones[].settings["cache_level"]
+    params: {}
+    warnIf: ["aggressive_on_dynamic_site", "bypass_on_static_site"]
+    remediation: >
+      Cache Level controls which resources Cloudflare caches. "No Query String"
+      ignores query parameters and may break dynamic sites. "Bypass" defeats caching
+      entirely. Use "Standard" for most sites, or Cache Rules for granular control.
+    citation: https://developers.cloudflare.com/cache/how-to/cache-level/
 
   # -------------------------------------------------------------- Zero Trust
   - id: CF-TUNNEL-001
