@@ -50,16 +50,17 @@ WHAT YOU SEND US:
 
 THE END GOAL:
   After analysis, we return:
-    1. A detailed security review report (Markdown) with findings and recommendations
-    2. A Terraform configuration (FUTURE) with hardened defaults for your issues
+    → A detailed security review report (Markdown) with findings and recommendations
+    → Step-by-step remediation instructions for each finding
+    → Direct links to official Cloudflare documentation for every check
 
-  The Terraform will:
-    → Address high-severity findings (e.g., switch Flexible SSL → Full(strict))
-    → Enable missing protections (e.g., deploy WAF managed rulesets, enable 2FA)
-    → Fix configuration gaps (e.g., add DNSSEC, enable Authenticated Origin Pulls)
+  The report will:
+    → Identify high-severity findings (e.g., Flexible SSL → Full(strict))
+    → Flag missing protections (e.g., WAF managed rulesets, 2FA)
+    → Highlight configuration gaps (e.g., DNSSEC, Authenticated Origin Pulls)
 
-  YOU review the Terraform carefully, test in staging, and apply it when ready.
-  The goal is to give you ACTIONABLE, REVIEWABLE fixes — not just a report of problems.
+  YOU decide which recommendations to implement and when.
+  The goal is to give you ACTIONABLE, DOCUMENTED guidance — not just a list of problems.
 
 ============================================================================
 GUARANTEES (enforced by tests in the main repository):
@@ -218,12 +219,13 @@ AFTER COLLECTION — WHAT YOU DO:
 
   3. WE ANALYZE AND RETURN:
      → Detailed security review report (Markdown)
-     → Terraform configuration (FUTURE) with hardened defaults
+     → Step-by-step remediation instructions
+     → Official Cloudflare documentation links for each finding
 
-  4. YOU REVIEW THE TERRAFORM:
-     → Read every resource, every setting
-     → Test in a staging environment first
-     → Apply to production when you're confident
+  4. YOU IMPLEMENT FIXES:
+     → Review each recommendation
+     → Prioritize based on your risk tolerance
+     → Apply changes when you're ready
 
 ============================================================================
 
@@ -1093,8 +1095,8 @@ Write-Host "  1. Open the file in a text editor and verify redactions" -Foregrou
 Write-Host "  2. Send us ONLY this JSON file (no tokens, no credentials)" -ForegroundColor Gray
 Write-Host "  3. We will analyze it and return:" -ForegroundColor Gray
 Write-Host "      → Detailed security review report (Markdown)" -ForegroundColor Gray
-Write-Host "      → Terraform configuration (FUTURE) with hardened defaults" -ForegroundColor Gray
-Write-Host "  4. YOU review the Terraform, test in staging, and apply when ready" -ForegroundColor Gray
+Write-Host "      → Step-by-step remediation instructions" -ForegroundColor Gray
+Write-Host "  4. YOU review recommendations and implement fixes when ready" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Questions? Contact us before sending the file." -ForegroundColor Yellow
 Write-Host "============================================================================" -ForegroundColor Green
