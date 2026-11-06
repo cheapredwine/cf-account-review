@@ -1,0 +1,19 @@
+findings/checks.yaml
+  s_085795b0c63410::t_f025483407dff2 104-213,684-730
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "488e3a161e4f55d4c2c1c1ae169aef22ef2c4f0c",
+  "prompts": {},
+  "sessions": {
+    "s_085795b0c63410": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_e5107cff3ffeRlVVV154SiicX8",
+        "model": "unknown"
+      },
+      "human_author": "Jason Sherron <jsherron@cloudflare.com>"
+    }
+  }
+}
