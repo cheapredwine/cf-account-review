@@ -92,6 +92,8 @@ If the link breaks for some reason, let me know and I'll send you the manual per
 
 **When it's done:** You have a complete snapshot of your Cloudflare configuration in JSON format, written to your disk. It's self-contained — all the data needed for analysis is in that one file.
 
+**☑️ What you get immediately:** The JSON file on your disk (complete config snapshot). This happens as soon as the script finishes — no waiting on me.
+
 ---
 
 ### Step 3: Send Me the JSON File (~2 minutes)
@@ -100,7 +102,21 @@ Just reply to this email with the JSON file attached. That's it.
 
 **Important:** The file contains your configuration structure (settings, rules, enabled/disabled states) but no secrets. Origin IPs are redacted, IDs are hashed, emails are stripped. Your API token was used locally and never made it into the file.
 
-This is why the collection and analysis are separate — your token never leaves your environment.
+**Why collection and analysis are separate:** Your token never leaves your environment. The script runs locally, the JSON gets written to your disk, and that's what you send me — no credentials involved.
+
+---
+
+## Two Deliverables: One Immediate, One After Analysis
+
+**☑️ You get TODAY (immediately after running the script):**
+- The JSON file on your disk (`cloudflare-config-YYYYMMDD-HHMMSS.json`)
+- Complete snapshot of your Cloudflare configuration
+- Self-contained — has all the data needed for analysis
+- You could even run the analyzer yourself if you wanted to (it's just data)
+
+**📊 You get in 24-48 hours (after I analyze your JSON):**
+- Detailed Markdown report with findings and remediation steps
+- This is what requires my work — the JSON is just data, turning it into actionable findings requires running it through the rulebook engine
 
 ---
 
@@ -179,14 +195,18 @@ What I'd love in return is your honest feedback:
 
 ## Time Commitment
 
-**About 20 minutes total:**
+**About 20 minutes total on your end:**
 - 5 min: Create the API token (clickable link makes it fast)
-- 10 min: Review and run the script
+- 10 min: Review and run the script → **you get the JSON file immediately**
 - 5 min: Reply with the JSON file
 
-**You get immediately:** The JSON file on your disk (complete config snapshot)
+**Then I take over:**
+- You send me the JSON file
+- I run it through the 35-check rulebook engine
+- You get the detailed analysis report in 24-48 hours (probably faster since you're first)
 
-**I deliver in 24-48 hours:** The analysis report with findings and remediation steps (probably faster since you're first)
+**What you have right away:** The complete config snapshot (JSON file on your disk)  
+**What requires my analysis:** Turning that data into findings, severity ratings, and remediation steps
 
 ---
 
