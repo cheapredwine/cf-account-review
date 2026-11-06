@@ -17,6 +17,8 @@ I'm excited to offer you something new: a **comprehensive security review of you
 
 This is a **strictly read-only** security assessment tool that analyzes your Cloudflare account against 35 best-practice checks across 16 security domains. Think of it as a health checkup for your Cloudflare configuration — it looks at what you have configured, compares it to documented security best practices, and shows you exactly what's working well and what could be hardened.
 
+The tool builds on proven open-source patterns (FlareGuard's declarative baseline approach and cloudflare-sec-inspector's verdict semantics) and extends them with comprehensive API coverage, aggressive data redaction, and detailed customer-facing documentation.
+
 **Important:** This tool has been built with three non-negotiable guarantees:
 
 ### 1. Read-Only (Enforced, Not Just Promised)
@@ -166,6 +168,8 @@ For each check, you'll see which SOC 2 Trust Services Criteria and PCI DSS requi
 ## Why You're First
 
 You're the first customer to use this tool because I wanted to ensure the experience is smooth before broader rollout. I'll be available throughout the process to answer questions, explain findings, and help you understand the remediation steps.
+
+**About the tool:** This builds on proven open-source patterns — the declarative rulebook design is modeled on [FlareGuard](https://github.com/harshadk99/flareguard)'s baseline.yaml approach, and the verdict semantics follow [cloudflare-sec-inspector](https://github.com/ethanolivertroy/grclanker)'s spec (both MIT-licensed). I've extended these patterns with comprehensive Cloudflare API coverage, aggressive redaction, and customer-facing documentation. It's not built from scratch — it's standing on the shoulders of good prior art.
 
 In return, I'd love your feedback:
 - Was the collection process clear?
