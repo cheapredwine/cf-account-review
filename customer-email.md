@@ -45,11 +45,10 @@ This opens the Cloudflare dashboard with 31 read-only permissions pre-selected. 
 
 **📦 Download the review package:** https://github.com/cheapredwine/cf-account-review/releases/tag/v1.0.0
 
-This includes all 4 files you need:
-- `Collect-CFConfig.ps1` — The PowerShell collector
-- `WHAT-WE-PROBE.md` — What gets collected
-- `REDACTION-AND-EVALUATION.md` — How analysis works
-- `CLIENT-GUIDE.md` — Full technical docs
+This includes:
+- `Collect-CFConfig.ps1` — The PowerShell collector (Windows)
+- `collect-config.sh` — The bash collector (Mac/Linux)
+- `CUSTOMER-GUIDE.md` — Complete documentation (how it works, what gets collected, privacy, quick start)
 
 **Review the script first:**
 - Open `Collect-CFConfig.ps1` in a text editor
@@ -141,10 +140,9 @@ Jason
 **📦 https://github.com/cheapredwine/cf-account-review/releases/tag/v1.0.0**
 
 Includes:
-1. `Collect-CFConfig.ps1` — PowerShell script (~300 lines, review first)
-2. `WHAT-WE-PROBE.md` — Collection scope
-3. `REDACTION-AND-EVALUATION.md` — Analysis on redacted data
-4. `CLIENT-GUIDE.md` — Full technical guide
+1. `Collect-CFConfig.ps1` — PowerShell collector (Windows)
+2. `collect-config.sh` — Bash collector (Mac/Linux)
+3. `CUSTOMER-GUIDE.md` — Complete documentation
 
 ---
 
