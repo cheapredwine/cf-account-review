@@ -13,7 +13,6 @@ This is a **strictly read-only** security configuration review tool for Cloudfla
 1. **Collects** your Cloudflare configuration through the public API
 2. **Analyzes** it against 45 security best-practice checks across 18 domains
 3. **Produces** a detailed Markdown report where every finding cites official Cloudflare documentation
-4. **Generates Terraform code** (future) with hardened defaults to fix your findings — YOU review and apply it carefully
 
 ### Hard guarantees
 
@@ -98,7 +97,7 @@ export CF_API_TOKEN=...
 # Output: output/cloudflare-config-YYYYMMDD-HHMMSS.json
 ```
 
-**What you send us:** The generated JSON file only. We run `node dist/cli.js analyze <file>` and return your report plus (future) a Terraform configuration to fix the issues.
+**What you send us:** The generated JSON file only. We run `node dist/cli.js analyze <file>` and return your report.
 
 ---
 
@@ -463,12 +462,7 @@ pnpm verify    # or npm run verify (runs tests)
 
 **What you get back:**
 - Detailed security review report (Markdown) with findings, recommendations, and Cloudflare docs citations
-- **(Future)** Terraform configuration addressing your high-severity findings — switch Flexible SSL to Full(strict), enable WAF managed rulesets, enforce 2FA, add DNSSEC, enable Authenticated Origin Pulls, etc.
-
-**The Terraform workflow:**
-1. We generate Terraform code with hardened settings based on your findings
-2. YOU review every resource and setting before applying anything
-3. YOU test the Terraform in a staging environment first (if possible)
+- Step-by-step remediation instructions for each finding
 4. YOU apply to production when you're confident the changes are correct
 5. We help troubleshoot if anything breaks
 
@@ -478,12 +472,12 @@ The goal is to give you **actionable, reviewable fixes** — not just a list of 
 
 1. **You:** Create read-only API token, share it securely
 2. **Us:** Run collection + analysis in one pass
-3. **Delivery:** Markdown report + (future) Terraform via secure channel
+3. **Delivery:** Markdown report via secure channel
 4. **Cleanup:** We delete the token and collection file immediately
 
 **Turnaround:** Typically same business day; maximum 48 hours.
 
-**What you get back:** Same as Option 1 — detailed report plus (future) Terraform to fix the issues. See Option 1 workflow above for the Terraform review process.
+**What you get back:** Same as Option 1 — detailed report with findings, recommendations, and remediation steps.
 
 ---
 
