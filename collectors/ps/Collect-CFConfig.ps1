@@ -972,6 +972,46 @@ if ($ddosZones.Count -gt 0) {
     Write-Host "✅ HTTP DDoS Protection active on $($ddosZones.Count) zone(s)" -ForegroundColor Green
 }
 
+# Development Mode checks (CF-CACHE-002)
+$devModeZones = $collection.zones | Where-Object { 
+    $_.settings.development_mode -eq "on" 
+}
+if ($devModeZones.Count -gt 0) {
+    Write-Host "⚠️  $($devModeZones.Count) zone(s) have Development Mode ON (bypasses cache)" -ForegroundColor Yellow
+} else {
+    Write-Host "✅ Development Mode is OFF on all zones (cache active)" -ForegroundColor Green
+}
+
+# Under Attack Mode checks (CF-SEC-001)
+$attackModeZones = $collection.zones | Where-Object { 
+    $_.settings.security_level -eq "under_attack" 
+}
+if ($attackModeZones.Count -gt 0) {
+    Write-Host "⚠️  $($attackModeZones.Count) zone(s) in Under Attack Mode (challenges all visitors)" -ForegroundColor Yellow
+}
+
+# HTTP/2 checks (CF-PERF-001)
+$http2Zones = $collection.zones | Where-Object { 
+    $_.settings.http2 -eq "on" 
+}
+if ($http2Zones.Count -gt 0) {
+    Write-Host "✅ HTTP/2 enabled on $($http2Zones.Count) zone(s)" -ForegroundColor Green
+}
+$noHttp2Zones = $collection.zones | Where-Object { 
+    $_.settings.http2 -eq "off" 
+}
+if ($noHttp2Zones.Count -gt 0) {
+    Write-Host "⚠️  $($noHttp2Zones.Count) zone(s) have HTTP/2 disabled" -ForegroundColor Yellow
+}
+
+# HTTP/3 checks (CF-PERF-002)
+$http3Zones = $collection.zones | Where-Object { 
+    $_.settings.http3 -eq "on" 
+}
+if ($http3Zones.Count -gt 0) {
+    Write-Host "✅ HTTP/3 (QUIC) enabled on $($http3Zones.Count) zone(s)" -ForegroundColor Green
+}
+
 # Workers checks
 if ($collection.account.workers.scripts.Count -gt 0) {
     $routedScripts = $collection.account.workers.scripts | Where-Object { 

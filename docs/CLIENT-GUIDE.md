@@ -11,7 +11,7 @@
 This is a **strictly read-only** security configuration review tool for Cloudflare accounts. It:
 
 1. **Collects** your Cloudflare configuration through the public API
-2. **Analyzes** it against 35 security best-practice checks across 16 domains
+2. **Analyzes** it against 45 security best-practice checks across 18 domains
 3. **Produces** a detailed Markdown report where every finding cites official Cloudflare documentation
 4. **Generates Terraform code** (future) with hardened defaults to fix your findings — YOU review and apply it carefully
 
@@ -24,25 +24,28 @@ This is a **strictly read-only** security configuration review tool for Cloudfla
 
 ## What gets checked
 
-The tool evaluates **41 security checks** across these areas:
+The tool evaluates **45 security checks** across these areas:
 
 ### Security domains covered
 
 - **SSL/TLS:** Full(strict) encryption mode, minimum TLS 1.2+, HSTS enabled, certificate expiry
+- **Security Settings:** Under Attack Mode, Browser Integrity Check, Challenge Passage duration, Hotlink Protection
+- **Performance:** HTTP/2, HTTP/3, Brotli compression
 - **WAF:** Managed rulesets deployed and active, custom firewall rules with enforcement
-- **Rate Limiting:** Protection on authentication endpoints, legacy rate-limit migration
-- **Bot Management:** Verified bot handling, Turnstile widget inventory, enforcement gaps
+- **Rate Limiting:** Protection on authentication endpoints
+- **Bot Management:** Verified bot handling, enforcement gaps
 - **DDoS Protection:** HTTP DDoS managed rulesets not disabled
 - **Origin Security:** Authenticated Origin Pulls enabled, zone-level certificates preferred
 - **Client-Side Security:** Page Shield enabled for JavaScript monitoring
 - **DNS:** DNSSEC enabled, CAA records present, email security posture
-- **Cache:** HTML not cached aggressively by default
+- **Cache:** HTML not cached aggressively, Development Mode not left on, Browser Cache TTL appropriate, Cache Level matches zone purpose
 - **Workers:** Zombie scripts (deployed but unrouted), dangling routes
 - **Load Balancing:** Multiple origins per pool for failover, health check intervals
 - **Zero Trust Access:** Access policies on apps, bypass decision audit, MFA requirements
 - **Zero Trust Tunnels:** Public tunnel routes protected by Access applications
 - **AI Gateway:** Rate limits, authentication, logging, DLP policies, prompt guardrails
-- **Account Security:** 2FA enforcement, token expiry posture, member role concentration
+- **Account Security:** 2FA enforcement, API token hygiene
+- **Response Headers:** Security header preservation
 
 Each check produces one of these verdicts:
 
@@ -248,7 +251,7 @@ https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/
 
 ### Appendix
 
-- **What we checked** — Full list of 35 checks
+- **What we checked** — Full list of 45 checks
 - **What we did NOT collect** — Explicit list of data not recorded (request logs, Worker script contents, Access policy identities, etc.)
 - **How to act on findings** — Prioritization guidance
 

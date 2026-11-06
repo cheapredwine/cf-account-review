@@ -1,6 +1,6 @@
 # What cf-account-review Probes
 
-This document explains what the cf-account-review tool collects from your Cloudflare account and how it accesses that data. This applies to **both** the lite (public, 20 checks) and full (SE-assisted, 35 checks) rulebook tiers — see `docs/LITE-VS-FULL.md` for tier differences.
+This document explains what the cf-account-review tool collects from your Cloudflare account and how it accesses that data. This applies to **both** the lite (public, 23 checks) and full (SE-assisted, 45 checks) rulebook tiers — see `docs/LITE-VS-FULL.md` for tier differences.
 
 ## Read-only guarantee
 

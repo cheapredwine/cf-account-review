@@ -14,7 +14,7 @@ Thanks for asking about this! Here's everything you need to run a security revie
 
 ## What You're Getting
 
-A security assessment of your Cloudflare account against 35 best-practice checks across 16 different areas. Think of it like a health checkup — it reads your configuration (read-only, can't change anything), compares it to documented security standards, and tells you what's solid and what could be better.
+A security assessment of your Cloudflare account against 45 best-practice checks across 18 different areas. Think of it like a health checkup — it reads your configuration (read-only, can't change anything), compares it to documented security standards, and tells you what's solid and what could be better.
 
 I built this because we couldn't find any existing tools that did this for Cloudflare accounts. There's some good open-source prior art (FlareGuard for the check pattern, cloudflare-sec-inspector for the pass/warn/fail approach), but nothing with comprehensive coverage of the modern Cloudflare API. So I extended those patterns and added aggressive data redaction so you can safely hand me the output.
 
@@ -121,8 +121,8 @@ Just reply to this email with the JSON file attached. That's it.
 **☑️ You get TODAY (while the script runs and immediately after):**
 
 1. **Real-time security observations** (displayed on screen as the script runs):
-   - Quick pass/warn observations on major items
-   - Examples: "2FA is ON", "3 zones using Flexible SSL", "WAF deployed on 5 zones"
+   - Quick pass/warn observations on major items (16 check categories)
+   - Examples: "2FA is ON", "3 zones using Flexible SSL", "WAF deployed on 5 zones", "Development Mode OFF on all zones", "HTTP/2 enabled"
    - Non-confidential, high-signal findings you see right away
    - Think of it as a quick health check summary
 
@@ -133,7 +133,7 @@ Just reply to this email with the JSON file attached. That's it.
 
 **📊 You get in 24-48 hours (after I analyze your JSON):**
 - **Detailed Markdown report** with:
-  - All 35 checks evaluated (not just the highlights you saw on screen)
+  - All 45 checks evaluated (not just the highlights you saw on screen)
   - Severity ratings for each finding
   - Step-by-step remediation instructions
   - Links to Cloudflare docs justifying each recommendation
@@ -148,7 +148,7 @@ The immediate observations give you the "big picture" right away. The full repor
 I'll run the analyzer against your JSON and send you a detailed Markdown report:
 
 **What's in the report:**
-- Pass/Warn/Fail verdict for each of 35 checks
+- Pass/Warn/Fail verdict for each of 45 checks
 - Severity rating (high/medium/low) for every issue
 - Exact remediation steps ("go to X, change Y to Z")
 - Links to Cloudflare docs justifying each recommendation
@@ -178,25 +178,28 @@ The report cites official Cloudflare docs for everything, so you know exactly wh
 
 ---
 
-## The 35 Checks
+## The 45 Checks
 
 Quick summary of what gets evaluated:
 
 - **SSL/TLS** (5): Encryption mode, TLS version, HSTS, Always Use HTTPS, cert expiry
+- **Security Settings** (4): Under Attack Mode, Browser Integrity Check, Challenge Passage, Hotlink Protection
+- **Performance** (3): HTTP/2, HTTP/3, Brotli compression
 - **WAF** (3): Managed rulesets, custom rules, broad-skip audit
-- **Rate Limiting** (2): Login protection, legacy migration
-- **Bots** (3): Verified bot handling, Turnstile, enforcement gaps
+- **Rate Limiting** (1): Login protection
+- **Bots** (2): Verified bot handling, enforcement gaps
 - **DDoS** (1): HTTP DDoS protections active
 - **Origin Security** (2): Authenticated Origin Pulls, zone certs
 - **Page Shield** (1): JavaScript monitoring
-- **DNS** (4): DNSSEC, CAA, mail posture
-- **Cache** (1): HTML caching defaults
+- **DNS** (3): DNSSEC, CAA, mail posture
+- **Cache** (4): HTML caching defaults, Development Mode, Browser Cache TTL, Cache Level
 - **Workers** (2): Zombie scripts, dangling routes
 - **Load Balancing** (2): Multiple origins, health checks
-- **Zero Trust Access** (4): Policy coverage, bypass audit, MFA
+- **Zero Trust Access** (3): Policy coverage, bypass audit, MFA
 - **Zero Trust Tunnels** (1): Access protection
-- **AI Gateway** (2): Rate limits, auth
-- **Account Security** (1): 2FA enforcement, token expiry
+- **AI Gateway** (5): Rate limits, auth, logging, DLP, guardrails
+- **Account Security** (2): 2FA enforcement, API token hygiene
+- **Response Headers** (1): Security header preservation
 
 Full details in the attached `CLIENT-GUIDE.md`.
 
@@ -225,15 +228,15 @@ What I'd love in return is your honest feedback:
 
 **Then I take over:**
 - You send me the JSON file
-- I run it through the full 35-check rulebook engine
+- I run it through the full 45-check rulebook engine
 - You get the detailed analysis report in 24-48 hours (probably faster since you're first)
 
 **What you have right away:** 
-- Real-time security observations on screen (quick health check)
+- Real-time security observations on screen (quick health check covering 16 categories)
 - Complete config snapshot (JSON file on your disk)
 
 **What requires my analysis:** 
-- All 35 checks evaluated thoroughly (not just the highlights)
+- All 45 checks evaluated thoroughly (not just the highlights)
 - Severity ratings, remediation steps, compliance mappings
 - The full detailed report
 
