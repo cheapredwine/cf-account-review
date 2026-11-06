@@ -70,6 +70,14 @@ Chosen by broad category (user, 2026-11-04); scoped at report time via
       4.2, 6.4, 8.2, 10.2, 11.3). Report renderer includes compliance coverage
       summary table and per-check compliance badges. See docs/compliance-mapping.md
       for framework reference and mapping principles.
+- [x] Tiered rulebook (lite vs full) with --rulebook CLI flag.
+      Implemented: Added 'tier' field to Check interface; tagged all 35 checks
+      (20 lite = binary/obvious, 15 full = contextual/SE-assisted). CLI flag
+      --rulebook lite|full filters checks at analyze time (default: lite for
+      public use). Documented in LITE-SPLIT.md + docs/LITE-VS-FULL.md. Customer-
+      facing WHAT-WE-PROBE.md explains read-only guarantee and collection scope.
+      All 68 tests passing. Lite tier enables "first public Cloudflare config
+      scanner" positioning; full tier preserves SE differentiation.
 - [ ] Upstream-friendly: consider contributing the zone-setting check shapes back to
       FlareGuard (or citing cross-links in its README).
       **DEFERRED:** Community contribution; not customer-critical. Pursue only
