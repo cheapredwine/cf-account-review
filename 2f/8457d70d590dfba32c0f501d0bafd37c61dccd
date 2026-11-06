@@ -1,0 +1,19 @@
+customer-email.md
+  s_085795b0c63410::t_20721d3f34e704 13-15,41-43,51,55-57,168,172-175,192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2f8457d70d590dfba32c0f501d0bafd37c61dccd",
+  "prompts": {},
+  "sessions": {
+    "s_085795b0c63410": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_e5107cff3ffeRlVVV154SiicX8",
+        "model": "unknown"
+      },
+      "human_author": "Jason Sherron <jsherron@cloudflare.com>"
+    }
+  }
+}
