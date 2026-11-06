@@ -880,6 +880,149 @@ if (-not (Get-Variable IsWindows -ErrorAction SilentlyContinue) -or -not $IsWind
 }
 
 # ---------------------------------------------------------------------------
+# PHASE 6.5: IMMEDIATE FEEDBACK
+# ---------------------------------------------------------------------------
+Write-Host ""
+Write-Host "============================================================================" -ForegroundColor Cyan
+Write-Host "IMMEDIATE SECURITY OBSERVATIONS" -ForegroundColor Cyan
+Write-Host "============================================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Here's what we can see right away (full analysis in the detailed report):" -ForegroundColor Yellow
+Write-Host ""
+
+# Account-level checks
+if ($collection.account.settings.enforce_twofactor -eq $true) {
+    Write-Host "✅ 2FA enforcement is ON for your account" -ForegroundColor Green
+} else {
+    Write-Host "⚠️  2FA enforcement is OFF on your account" -ForegroundColor Yellow
+}
+
+# API token checks
+$expiredTokens = $collection.account.apiTokens | Where-Object { 
+    $_.status -eq "expired" -or ($_.expiresOn -and [datetime]$_.expiresOn -lt (Get-Date))
+}
+if ($expiredTokens.Count -gt 0) {
+    Write-Host "⚠️  $($expiredTokens.Count) expired API token(s) found" -ForegroundColor Yellow
+}
+
+$noExpiryTokens = $collection.account.apiTokens | Where-Object { -not $_.expiresOn }
+if ($noExpiryTokens.Count -gt 0) {
+    Write-Host "⚠️  $($noExpiryTokens.Count) API token(s) with no expiry date" -ForegroundColor Yellow
+}
+
+# Zone-level SSL/TLS checks
+$flexibleZones = $collection.zones | Where-Object { $_.settings.ssl -eq "flexible" }
+if ($flexibleZones.Count -gt 0) {
+    Write-Host "⚠️  $($flexibleZones.Count) zone(s) using Flexible SSL (not end-to-end encrypted)" -ForegroundColor Yellow
+}
+
+$fullStrictZones = $collection.zones | Where-Object { $_.settings.ssl -in @("full", "strict") }
+if ($fullStrictZones.Count -gt 0) {
+    Write-Host "✅ $($fullStrictZones.Count) zone(s) using Full/Strict SSL (end-to-end encryption)" -ForegroundColor Green
+}
+
+# TLS version checks
+$oldTlsZones = $collection.zones | Where-Object { 
+    $_.settings.min_tls_version -in @("1.0", "1.1")
+}
+if ($oldTlsZones.Count -gt 0) {
+    Write-Host "⚠️  $($oldTlsZones.Count) zone(s) still allow TLS 1.0/1.1 (deprecated)" -ForegroundColor Yellow
+} else {
+    Write-Host "✅ All zones require TLS 1.2+ (deprecated versions disabled)" -ForegroundColor Green
+}
+
+# DNSSEC checks
+$dnssecZones = $collection.zones | Where-Object { $_.dnssec.status -eq "active" }
+if ($dnssecZones.Count -gt 0) {
+    Write-Host "✅ DNSSEC enabled on $($dnssecZones.Count) zone(s)" -ForegroundColor Green
+}
+$noDnssecZones = $collection.zones | Where-Object { $_.dnssec.status -ne "active" }
+if ($noDnssecZones.Count -gt 0) {
+    Write-Host "⚠️  $($noDnssecZones.Count) zone(s) without DNSSEC" -ForegroundColor Yellow
+}
+
+# WAF checks
+$wafZones = $collection.zones | Where-Object { 
+    $_.waf.managedRulesets.Count -gt 0 
+}
+if ($wafZones.Count -gt 0) {
+    Write-Host "✅ Cloudflare Managed Rulesets deployed on $($wafZones.Count) zone(s)" -ForegroundColor Green
+}
+
+$noWafZones = $collection.zones | Where-Object { 
+    $_.waf.managedRulesets.Count -eq 0 
+}
+if ($noWafZones.Count -gt 0) {
+    Write-Host "⚠️  $($noWafZones.Count) zone(s) without WAF managed rulesets" -ForegroundColor Yellow
+}
+
+# Bot Management checks (if data available)
+$botManagementZones = $collection.zones | Where-Object { 
+    $_.botManagement.enabled -eq $true 
+}
+if ($botManagementZones.Count -gt 0) {
+    Write-Host "✅ Bot Management active on $($botManagementZones.Count) zone(s)" -ForegroundColor Green
+}
+
+# DDoS checks
+$ddosZones = $collection.zones | Where-Object { 
+    $_.ddos.managedRulesets.Count -gt 0 
+}
+if ($ddosZones.Count -gt 0) {
+    Write-Host "✅ HTTP DDoS Protection active on $($ddosZones.Count) zone(s)" -ForegroundColor Green
+}
+
+# Workers checks
+if ($collection.account.workers.scripts.Count -gt 0) {
+    $routedScripts = $collection.account.workers.scripts | Where-Object { 
+        $_.routes.Count -gt 0 
+    }
+    $zombieScripts = $collection.account.workers.scripts | Where-Object { 
+        $_.routes.Count -eq 0 
+    }
+    
+    if ($routedScripts.Count -gt 0) {
+        Write-Host "✅ $($routedScripts.Count) Worker script(s) deployed and routed" -ForegroundColor Green
+    }
+    
+    if ($zombieScripts.Count -gt 0) {
+        Write-Host "⚠️  $($zombieScripts.Count) Worker script(s) deployed but not routed (zombie scripts)" -ForegroundColor Yellow
+    }
+}
+
+# Access checks
+if ($collection.account.access.applications.Count -gt 0) {
+    Write-Host "✅ $($collection.account.access.applications.Count) Zero Trust Access application(s) configured" -ForegroundColor Green
+    
+    $bypassApps = $collection.account.access.applications | Where-Object { 
+        $_.decision -eq "bypass" -and $_.policyCount -eq 0 
+    }
+    if ($bypassApps.Count -gt 0) {
+        Write-Host "⚠️  $($bypassApps.Count) Access app(s) with bypass-all (no policies)" -ForegroundColor Yellow
+    }
+}
+
+# Tunnel checks
+if ($collection.account.tunnels.Count -gt 0) {
+    Write-Host "✅ $($collection.account.tunnels.Count) Zero Trust Tunnel(s) configured" -ForegroundColor Green
+}
+
+# Load Balancer checks
+$zonesWithLB = $collection.zones | Where-Object { $_.loadBalancers.Count -gt 0 }
+if ($zonesWithLB.Count -gt 0) {
+    $totalLBs = ($collection.zones | ForEach-Object { $_.loadBalancers.Count } | Measure-Object -Sum).Sum
+    Write-Host "✅ $totalLBs Load Balancer(s) configured across $($zonesWithLB.Count) zone(s)" -ForegroundColor Green
+}
+
+Write-Host ""
+Write-Host "📊 This is a quick overview — the full detailed report will include:" -ForegroundColor Cyan
+Write-Host "   • Severity ratings for each finding" -ForegroundColor Gray
+Write-Host "   • Step-by-step remediation instructions" -ForegroundColor Gray
+Write-Host "   • Links to official Cloudflare documentation" -ForegroundColor Gray
+Write-Host "   • Compliance mappings (SOC 2, PCI DSS)" -ForegroundColor Gray
+Write-Host ""
+
+# ---------------------------------------------------------------------------
 # PHASE 7: DONE
 # ---------------------------------------------------------------------------
 Write-Host ""

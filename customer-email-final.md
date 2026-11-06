@@ -90,9 +90,19 @@ If the link breaks for some reason, let me know and I'll send you the manual per
    - Writes `cloudflare-config-YYYYMMDD-HHMMSS.json` to disk
    - Takes ~5-10 minutes depending on how many zones you have
 
-**When it's done:** You have a complete snapshot of your Cloudflare configuration in JSON format, written to your disk. It's self-contained — all the data needed for analysis is in that one file.
+**When it's done:** 
 
-**☑️ What you get immediately:** The JSON file on your disk (complete config snapshot). This happens as soon as the script finishes — no waiting on me.
+The script shows you **immediate security observations on screen** while it runs — things like:
+- ✅ "2FA enforcement is ON for your account"
+- ⚠️ "3 zones using Flexible SSL (not end-to-end encrypted)"
+- ✅ "Cloudflare Managed Rulesets deployed on 5 zones"
+- ⚠️ "2 Worker scripts deployed but not routed (zombie scripts)"
+
+Then it writes the complete JSON file to your disk for the full detailed analysis.
+
+**☑️ What you get immediately:** 
+1. **Real-time feedback on screen** — quick overview of major findings (pass/warn observations)
+2. **JSON file on your disk** — complete config snapshot for detailed analysis
 
 ---
 
@@ -108,15 +118,28 @@ Just reply to this email with the JSON file attached. That's it.
 
 ## Two Deliverables: One Immediate, One After Analysis
 
-**☑️ You get TODAY (immediately after running the script):**
-- The JSON file on your disk (`cloudflare-config-YYYYMMDD-HHMMSS.json`)
-- Complete snapshot of your Cloudflare configuration
-- Self-contained — has all the data needed for analysis
-- You could even run the analyzer yourself if you wanted to (it's just data)
+**☑️ You get TODAY (while the script runs and immediately after):**
+
+1. **Real-time security observations** (displayed on screen as the script runs):
+   - Quick pass/warn observations on major items
+   - Examples: "2FA is ON", "3 zones using Flexible SSL", "WAF deployed on 5 zones"
+   - Non-confidential, high-signal findings you see right away
+   - Think of it as a quick health check summary
+
+2. **JSON file on your disk** (`cloudflare-config-YYYYMMDD-HHMMSS.json`):
+   - Complete snapshot of your Cloudflare configuration
+   - Self-contained — has all the data needed for detailed analysis
+   - You could even run the analyzer yourself if you wanted to (it's just data)
 
 **📊 You get in 24-48 hours (after I analyze your JSON):**
-- Detailed Markdown report with findings and remediation steps
-- This is what requires my work — the JSON is just data, turning it into actionable findings requires running it through the rulebook engine
+- **Detailed Markdown report** with:
+  - All 35 checks evaluated (not just the highlights you saw on screen)
+  - Severity ratings for each finding
+  - Step-by-step remediation instructions
+  - Links to Cloudflare docs justifying each recommendation
+  - Compliance mappings (SOC 2, PCI DSS)
+  
+The immediate observations give you the "big picture" right away. The full report is the deep dive with exact steps to fix everything.
 
 ---
 
@@ -197,16 +220,22 @@ What I'd love in return is your honest feedback:
 
 **About 20 minutes total on your end:**
 - 5 min: Create the API token (clickable link makes it fast)
-- 10 min: Review and run the script → **you get the JSON file immediately**
+- 10 min: Review and run the script → **you see immediate security observations on screen + get the JSON file**
 - 5 min: Reply with the JSON file
 
 **Then I take over:**
 - You send me the JSON file
-- I run it through the 35-check rulebook engine
+- I run it through the full 35-check rulebook engine
 - You get the detailed analysis report in 24-48 hours (probably faster since you're first)
 
-**What you have right away:** The complete config snapshot (JSON file on your disk)  
-**What requires my analysis:** Turning that data into findings, severity ratings, and remediation steps
+**What you have right away:** 
+- Real-time security observations on screen (quick health check)
+- Complete config snapshot (JSON file on your disk)
+
+**What requires my analysis:** 
+- All 35 checks evaluated thoroughly (not just the highlights)
+- Severity ratings, remediation steps, compliance mappings
+- The full detailed report
 
 ---
 
