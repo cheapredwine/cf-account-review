@@ -1,0 +1,21 @@
+customer-email.html
+  s_39d0fd203fbd53::t_2fda8aae7dfa46 1-251
+customer-email.md
+  s_39d0fd203fbd53::t_b50d492ff7cfdc 35,37-44,101-118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f4d8ecc8985dfbc72208e87685484b03b413b285",
+  "prompts": {},
+  "sessions": {
+    "s_39d0fd203fbd53": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_e4d200e72ffeGDN0SetH9RqsAt",
+        "model": "unknown"
+      },
+      "human_author": "Jason Sherron <jsherron@cloudflare.com>"
+    }
+  }
+}
