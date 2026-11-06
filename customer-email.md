@@ -41,9 +41,11 @@ This opens the Cloudflare dashboard with 31 read-only permissions pre-selected. 
 4. **Copy the token** (shown once)
 5. Save it securely (password manager)
 
-### Step 2: Run the Collection Script (~10 min)
+### Step 2: Download and Run the Collection Script (~10 min)
 
-**Attached files:**
+**📦 Download the review package:** https://github.com/cheapredwine/cf-account-review/releases/tag/v1.0.0
+
+This includes all 4 files you need:
 - `Collect-CFConfig.ps1` — The PowerShell collector
 - `WHAT-WE-PROBE.md` — What gets collected
 - `REDACTION-AND-EVALUATION.md` — How analysis works
@@ -134,12 +136,15 @@ Jason
 
 ---
 
-## Attached Files
+## Download Link
 
-1. **Collect-CFConfig.ps1** — PowerShell script (~300 lines, review first)
-2. **WHAT-WE-PROBE.md** — Collection scope
-3. **REDACTION-AND-EVALUATION.md** — Analysis on redacted data
-4. **CLIENT-GUIDE.md** — Full technical guide
+**📦 https://github.com/cheapredwine/cf-account-review/releases/tag/v1.0.0**
+
+Includes:
+1. `Collect-CFConfig.ps1` — PowerShell script (~300 lines, review first)
+2. `WHAT-WE-PROBE.md` — Collection scope
+3. `REDACTION-AND-EVALUATION.md` — Analysis on redacted data
+4. `CLIENT-GUIDE.md` — Full technical guide
 
 ---
 
