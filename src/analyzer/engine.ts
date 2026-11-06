@@ -12,6 +12,7 @@ export interface Check {
   id: string;
   name: string;
   domain: string;
+  tier: "lite" | "full"; // Binary checks (lite) vs contextual/SE-assisted checks (full)
   severity: "high" | "medium" | "low";
   type: string;
   applies?: { planTier?: "any" | "pro-plus" | "business-plus" | "enterprise" };

@@ -2,6 +2,7 @@
 #
 # Every check carries:
 #   id, name, domain, severity — the finding identity
+#   tier — "lite" (public, binary checks) or "full" (SE-assisted, contextual checks)
 #   applies.planTier — highest-confidence plan tier the check applies to
 #   evidence — which part of the collection the check reads (documented for customers)
 #   remediation — what to do about a fail
@@ -12,12 +13,19 @@
 # Verdict semantics:
 #   pass | warn | fail | manual | na — and INCOMPLETE OR UNREADABLE EVIDENCE
 #   CAN NEVER PASS. Missing data yields "manual", not "pass".
+#
+# Tier semantics:
+#   lite — Binary checks (boolean flags, numeric thresholds) with unambiguous pass/fail.
+#          No application context needed. Customer can self-remediate.
+#   full — Contextual checks requiring app/architecture knowledge, threat modeling, or
+#          compliance expertise. SE interpretation recommended.
 
 checks:
   # ------------------------------------------------------------------ SSL/TLS
   - id: CF-SSL-001
     name: SSL/TLS encryption mode is Full (strict)
     domain: ssl-tls
+    tier: lite
     severity: high
     type: zone_setting
     applies: { planTier: any }
@@ -33,6 +41,7 @@ checks:
   - id: CF-SSL-002
     name: Minimum TLS version is 1.2 or higher
     domain: ssl-tls
+    tier: lite
     severity: high
     type: zone_setting
     applies: { planTier: any }
@@ -47,6 +56,7 @@ checks:
   - id: CF-SSL-003
     name: HSTS is enabled
     domain: ssl-tls
+    tier: lite
     severity: medium
     type: zone_setting
     applies: { planTier: any }
@@ -63,6 +73,7 @@ checks:
   - id: CF-SSL-004
     name: Always Use HTTPS is enabled
     domain: ssl-tls
+    tier: lite
     severity: medium
     type: zone_setting
     applies: { planTier: any }
@@ -76,6 +87,7 @@ checks:
   - id: CF-SSL-005
     name: Custom certificates not expiring soon
     domain: ssl-tls
+    tier: lite
     severity: high
     type: cert_expiry
     applies: { planTier: any }
@@ -93,6 +105,7 @@ checks:
   - id: CF-WAF-001
     name: Managed WAF ruleset deployed
     domain: waf
+    tier: full
     severity: high
     type: phase_present
     applies: { planTier: pro-plus }
@@ -111,6 +124,7 @@ checks:
   - id: CF-WAF-002
     name: Custom WAF rules present for sensitive endpoints
     domain: waf
+    tier: full
     severity: medium
     type: phase_present
     applies: { planTier: any }
@@ -127,6 +141,7 @@ checks:
   - id: CF-WAF-003
     name: Broad skip rules are not neutralizing the WAF
     domain: waf
+    tier: full
     severity: high
     type: broad_skip_audit
     applies: { planTier: any }
@@ -143,6 +158,7 @@ checks:
   - id: CF-RL-001
     name: Rate limiting rule protects login endpoints
     domain: rate-limiting
+    tier: full
     severity: high
     type: ratelimit_login
     applies: { planTier: any }
@@ -162,6 +178,7 @@ checks:
   - id: CF-HDR-001
     name: Edge response transforms do not strip security headers
     domain: response-headers
+    tier: full
     severity: medium
     type: response_header_transform
     applies: { planTier: any }
@@ -179,6 +196,7 @@ checks:
   - id: CF-BOT-001
     name: Definite-bot block excludes verified bots
     domain: bots
+    tier: full
     severity: medium
     type: bot_rules
     applies: { planTier: pro-plus }
@@ -194,6 +212,7 @@ checks:
   - id: CF-BOT-002
     name: Bot management rules actually enforce (not skip-only)
     domain: bots
+    tier: full
     severity: high
     type: bot_rules
     applies: { planTier: pro-plus }
@@ -209,6 +228,7 @@ checks:
   - id: CF-TS-001
     name: Turnstile widgets have domains bound
     domain: bots
+    tier: lite
     severity: low
     type: turnstile
     applies: { planTier: any }
@@ -225,6 +245,7 @@ checks:
   - id: CF-ZT-001
     name: Access applications have policies attached
     domain: zero-trust
+    tier: full
     severity: high
     type: access_apps
     applies: { planTier: any }
@@ -239,6 +260,7 @@ checks:
   - id: CF-ZT-002
     name: Identity providers beyond one-time PIN configured
     domain: zero-trust
+    tier: lite
     severity: medium
     type: access_idps
     applies: { planTier: any }
@@ -253,6 +275,7 @@ checks:
   - id: CF-ZT-003
     name: Two-factor authentication enforced on the account
     domain: account-hygiene
+    tier: lite
     severity: high
     type: account_setting_flag
     applies: { planTier: any }
@@ -266,6 +289,7 @@ checks:
   - id: CF-IAM-001
     name: API tokens have expiry set
     domain: account-hygiene
+    tier: lite
     severity: medium
     type: token_expiry
     applies: { planTier: any }
@@ -281,6 +305,7 @@ checks:
   - id: CF-DNS-001
     name: DNSSEC enabled
     domain: dns
+    tier: lite
     severity: medium
     type: zone_setting
     applies: { planTier: any }
@@ -294,6 +319,7 @@ checks:
   - id: CF-DNS-002
     name: CAA records present
     domain: dns
+    tier: lite
     severity: low
     type: caa_present
     applies: { planTier: any }
@@ -307,6 +333,7 @@ checks:
   - id: CF-DNS-003
     name: MX and SPF/DMARC email posture recorded
     domain: dns
+    tier: full
     severity: low
     type: email_records
     applies: { planTier: any }
@@ -322,6 +349,7 @@ checks:
   - id: CF-WRK-001
     name: No zombie Workers (deployed, never routed)
     domain: workers
+    tier: lite
     severity: medium
     type: zombie_workers
     applies: { planTier: any }
@@ -336,6 +364,7 @@ checks:
   - id: CF-WRK-002
     name: Workers routes point to scripts that exist
     domain: workers
+    tier: lite
     severity: high
     type: zombie_workers
     applies: { planTier: any }
@@ -352,6 +381,7 @@ checks:
   - id: CF-LB-001
     name: Load balancer pools have multiple origins for failover
     domain: traffic
+    tier: lite
     severity: high
     type: lb_pool_health
     applies: { planTier: any }
@@ -367,6 +397,7 @@ checks:
   - id: CF-LB-002
     name: Load balancer monitors use appropriate intervals
     domain: traffic
+    tier: lite
     severity: medium
     type: lb_monitor_health
     applies: { planTier: any }
@@ -382,6 +413,7 @@ checks:
   - id: CF-AIG-001
     name: AI Gateways have rate limiting configured
     domain: ai-gateway
+    tier: lite
     severity: high
     type: aig_rate_limiting
     applies: { planTier: any }
@@ -396,6 +428,7 @@ checks:
   - id: CF-AIG-002
     name: AI Gateways have authentication enabled
     domain: ai-gateway
+    tier: lite
     severity: high
     type: aig_authentication
     applies: { planTier: any }
@@ -410,6 +443,7 @@ checks:
   - id: CF-AIG-003
     name: AI Gateways have log collection enabled
     domain: ai-gateway
+    tier: lite
     severity: medium
     type: aig_logging
     applies: { planTier: any }
@@ -424,6 +458,7 @@ checks:
   - id: CF-AIG-004
     name: AI Gateways have DLP policies configured
     domain: ai-gateway
+    tier: full
     severity: medium
     type: aig_dlp
     applies: { planTier: any }
@@ -439,6 +474,7 @@ checks:
   - id: CF-AIG-005
     name: AI Gateways have guardrails configured
     domain: ai-gateway
+    tier: full
     severity: medium
     type: aig_guardrails
     applies: { planTier: any }
@@ -455,6 +491,7 @@ checks:
   - id: CF-PS-001
     name: Page Shield (Client-side security) enabled
     domain: client-side-security
+    tier: full
     severity: medium
     type: page_shield_enabled
     applies: { planTier: business-plus }
@@ -471,6 +508,7 @@ checks:
   - id: CF-AOP-001
     name: Authenticated Origin Pulls enabled
     domain: origin-security
+    tier: lite
     severity: high
     type: authenticated_origin_pulls_enabled
     applies: { planTier: any }
@@ -486,6 +524,7 @@ checks:
   - id: CF-AOP-002
     name: Zone-level Authenticated Origin Pulls preferred
     domain: origin-security
+    tier: full
     severity: medium
     type: zone_level_aop_preferred
     applies: { planTier: any }
@@ -503,6 +542,7 @@ checks:
   - id: CF-DDOS-001
     name: HTTP DDoS managed ruleset not disabled
     domain: ddos
+    tier: lite
     severity: high
     type: ddos_not_disabled
     applies: { planTier: any }
@@ -518,6 +558,7 @@ checks:
   - id: CF-CACHE-001
     name: HTML not cached aggressively by default
     domain: cache
+    tier: full
     severity: medium
     type: html_cache_check
     applies: { planTier: any }
@@ -534,6 +575,7 @@ checks:
   - id: CF-TUNNEL-001
     name: Public tunnel routes protected by Access
     domain: zero-trust
+    tier: full
     severity: high
     type: tunnel_access_gap
     applies: { planTier: any }

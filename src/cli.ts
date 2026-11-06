@@ -33,7 +33,7 @@ import { SCHEMA_VERSION, collectionSchema, type Collection } from "./schema.js";
 function usage(): never {
   console.error(`Usage:
   cf-account-review collect  [--out output/collection.json] [--include-dns-content] [--include-ids]
-  cf-account-review analyze  <collection.json> [--checks findings/checks.yaml] [--out output/report.md] [--fail-on <severity>] [--domains <list>] [--zones <list>] [--compare-to <old-collection.json>] [--diff-only]
+  cf-account-review analyze  <collection.json> [--checks findings/checks.yaml] [--out output/report.md] [--fail-on <severity>] [--rulebook <tier>] [--domains <list>] [--zones <list>] [--compare-to <old-collection.json>] [--diff-only]
   cf-account-review schema   [--out collection.schema.json]
 
 Environment: CF_API_TOKEN for \`collect\`.
@@ -43,6 +43,7 @@ Flags (collect — Mode A only):
   --include-ids           Do not hash account/zone/resource IDs. For internal analysis with cross-reference needs.
 
 Flags (analyze):
+  --rulebook <tier>       Rulebook tier: "lite" (20 binary checks, public) or "full" (35 checks, SE-assisted). Default: lite.
   --fail-on <severity>    Exit 1 if findings at or above this severity exist (high|medium|low). Default: no exit code enforcement.
   --domains <list>        Comma-separated domain names to scope the report (see findings/checks.yaml). Default: all checks.
   --zones <list>          Comma-separated zone names to include (analyze only). Default: every collected zone.
@@ -62,6 +63,8 @@ function parseArgs(argv: string[]): Map<string, string> {
       args.set("checks", argv[++i] ?? "");
     } else if (a === "--fail-on") {
       args.set("fail-on", argv[++i] ?? "");
+    } else if (a === "--rulebook") {
+      args.set("rulebook", argv[++i] ?? "");
     } else if (a === "--domains") {
       args.set("domains", argv[++i] ?? "");
     } else if (a === "--zones") {
@@ -131,6 +134,7 @@ function cmdAnalyze(
   outArg: string | undefined,
   checksArg: string | undefined,
   failOnArg: string | undefined,
+  rulebookArg: string | undefined,
   domainsArg: string | undefined,
   zonesArg: string | undefined,
   compareArg: string | undefined,
@@ -148,11 +152,21 @@ function cmdAnalyze(
   const collection: Collection = parsed.data;
   const checksPath = resolve(checksArg ?? "findings/checks.yaml");
   const doc = parse(readFileSync(checksPath, "utf8")) as { checks?: Check[] };
-  const checks = doc.checks ?? [];
+  let checks = doc.checks ?? [];
   if (checks.length === 0) {
     console.error(`no checks found in ${checksPath}`);
     process.exit(1);
   }
+  // Tier filtering
+  const tier = rulebookArg ?? "lite"; // Default to lite (public)
+  if (tier !== "lite" && tier !== "full") {
+    console.error(`invalid --rulebook tier: ${tier} (must be "lite" or "full")`);
+    process.exit(2);
+  }
+  checks = checks.filter((c) => tier === "full" || c.tier === "lite");
+  console.log(
+    `rulebook tier: ${tier} (${checks.length} checks)`,
+  );
   let scopedChecks = checks;
   if (domainsArg !== undefined) {
     const domains = domainsArg
@@ -329,6 +343,7 @@ if (command === "collect") {
     args.get("out"),
     args.get("checks"),
     args.get("fail-on"),
+    args.get("rulebook"),
     args.get("domains"),
     args.get("zones"),
     args.get("compare-to"),
