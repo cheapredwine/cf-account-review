@@ -46,27 +46,41 @@ You'll run a PowerShell script **on your own machine** using your API token. The
 
 ## What Happens Next
 
-### Immediately (Today)
-1. I'll send you:
-   - The PowerShell collection script (`Collect-CFConfig.ps1`)
-   - Complete documentation showing exactly what gets probed
-   - The data privacy policy and redaction rules
+### Step 1: You Run the Collection Script (Today)
 
-2. **You review the script** — it's ~300 lines of readable PowerShell, no obfuscation
-3. You run the script on your side (5-10 minutes)
-4. You send me the generated JSON file
+I'll send you:
+- The PowerShell collection script (`Collect-CFConfig.ps1`)
+- Complete documentation showing exactly what gets probed
+- The data privacy policy and redaction rules
 
-### Within 24-48 Hours
-I analyze the JSON against the rulebook and send you back:
+You then:
+1. **Review the script** — it's ~300 lines of readable PowerShell, no obfuscation
+2. **Run it on your machine** (5-10 minutes) — prompts for your API token, never sends it anywhere
+3. **Get a JSON file immediately** — written to your disk, contains your redacted configuration
 
-1. **A detailed Markdown report** showing:
-   - **Pass/Warn/Fail verdicts** for each check
-   - **Severity ratings** (high/medium/low)
-   - **Exact remediation steps** for every finding
-   - **Citations to official Cloudflare documentation** justifying each recommendation
-   - **Compliance framework mappings** (SOC 2, PCI DSS) where applicable
+**What you have at this point:** A complete snapshot of your Cloudflare configuration in JSON format. This file is self-contained and includes all the data needed for analysis — you could even run the analyzer yourself if you wanted to.
 
-2. **(Future)** Terraform code with hardened defaults to fix the findings — you review and apply it carefully
+### Step 2: You Send Me the JSON File
+
+You send me **only the JSON file** — no tokens, no credentials, just the configuration snapshot.
+
+**Why this matters:** The collection and analysis are separate. Your API token was used locally on your machine and never left your environment. The file you're sending me contains no secrets.
+
+### Step 3: I Analyze and Return Results (24-48 Hours)
+
+I run the analyzer against your JSON and send you back:
+
+**A detailed Markdown report** showing:
+- **Pass/Warn/Fail verdicts** for each of the 35 checks
+- **Severity ratings** (high/medium/low) for every finding
+- **Exact remediation steps** with step-by-step instructions
+- **Citations to official Cloudflare documentation** justifying each recommendation
+- **Compliance framework mappings** (SOC 2, PCI DSS) where applicable
+- **Summary statistics** (X critical issues, Y warnings, Z passing checks)
+
+**What requires my analysis:** The JSON file is just data — turning it into actionable findings requires running it through the rulebook engine. That's what takes 24-48 hours (though likely faster since you're the first customer and I'm focused on this).
+
+**(Future)** I'll also generate Terraform code with hardened defaults to fix the findings — you review and apply it carefully.
 
 ---
 
@@ -171,8 +185,12 @@ If you're interested, reply to this email and I'll send you:
 
 **Estimated time commitment on your side:** 25-30 minutes total
 - **10 minutes:** Review the PowerShell script (you should inspect it before running)
-- **10 minutes:** Run the script (includes API token prompt)
-- **5 minutes:** Review and send the JSON file
+- **10 minutes:** Run the script (includes API token prompt) — **you get the JSON file immediately**
+- **5 minutes:** Review and send me the JSON file
+
+**What you get immediately:** The complete configuration snapshot in JSON format (written to your disk)
+
+**What I analyze on my end:** I run your JSON through the 35-check rulebook engine and return the Markdown report with findings, severity ratings, remediation steps, and compliance mappings (24-48 hours)
 
 Looking forward to helping you harden your Cloudflare configuration!
 
