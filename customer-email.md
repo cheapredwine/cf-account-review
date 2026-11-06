@@ -10,6 +10,9 @@ Hi [Customer Name],
 
 I'm excited to offer you something new: a **comprehensive security review of your Cloudflare configuration** — and you'll be the very first customer to use this tool.
 
+> ⚠️ **IMPORTANT: NOT OFFICIAL CLOUDFLARE SOFTWARE**  
+> This tool is not affiliated with or endorsed by Cloudflare, Inc. It's personal code I've developed for configuration reviews. **Please review the PowerShell script before running it** — it's ~300 lines of auditable code that you should inspect to verify it does what I'm describing.
+
 ## What This Is
 
 This is a **strictly read-only** security assessment tool that analyzes your Cloudflare account against 35 best-practice checks across 16 security domains. Think of it as a health checkup for your Cloudflare configuration — it looks at what you have configured, compares it to documented security best practices, and shows you exactly what's working well and what could be hardened.
@@ -35,7 +38,9 @@ The tool collects *configuration structure* (boolean flags, rule actions, enable
 
 ### 3. You Keep Full Control
 
-You'll run a shell script (PowerShell or bash) **on your own machine** using your API token. The token never leaves your environment. The script writes a single JSON file with your redacted configuration. That's what you send me — no tokens, no credentials, just the configuration snapshot.
+You'll run a PowerShell script **on your own machine** using your API token. The token never leaves your environment. The script writes a single JSON file with your redacted configuration. That's what you send me — no tokens, no credentials, just the configuration snapshot.
+
+**Before you run anything:** Review the PowerShell script. It's designed to be readable — no obfuscation, no compiled binaries, just straightforward API calls you can audit line by line.
 
 ---
 
@@ -43,12 +48,13 @@ You'll run a shell script (PowerShell or bash) **on your own machine** using you
 
 ### Immediately (Today)
 1. I'll send you:
-   - The collection script (PowerShell and bash versions — your choice)
+   - The PowerShell collection script (`Collect-CFConfig.ps1`)
    - Complete documentation showing exactly what gets probed
    - The data privacy policy and redaction rules
 
-2. You run the script on your side (5-10 minutes)
-3. You send me the generated JSON file
+2. **You review the script** — it's ~300 lines of readable PowerShell, no obfuscation
+3. You run the script on your side (5-10 minutes)
+4. You send me the generated JSON file
 
 ### Within 24-48 Hours
 I analyze the JSON against the rulebook and send you back:
@@ -159,11 +165,14 @@ In return, I'd love your feedback:
 
 If you're interested, reply to this email and I'll send you:
 
-1. The collection script (PowerShell or bash — let me know which you prefer)
+1. The PowerShell collection script (`Collect-CFConfig.ps1`)
 2. The complete documentation package
 3. My direct contact for any questions during the process
 
-**Estimated time commitment on your side:** 15-20 minutes total (10 minutes to run the script, 5 minutes to review and send the JSON file)
+**Estimated time commitment on your side:** 25-30 minutes total
+- **10 minutes:** Review the PowerShell script (you should inspect it before running)
+- **10 minutes:** Run the script (includes API token prompt)
+- **5 minutes:** Review and send the JSON file
 
 Looking forward to helping you harden your Cloudflare configuration!
 
@@ -180,4 +189,4 @@ Jason
 
 ---
 
-**P.S.** — The read-only guarantee isn't marketing copy. The tool is designed so that even if I wanted to modify your account, I physically couldn't — there's no code path for it, and automated tests enforce that on every commit. The shell script you'll run is ~300 lines of auditable bash/PowerShell that you can review yourself before running.
+**P.S.** — The read-only guarantee isn't marketing copy. The tool is designed so that even if I wanted to modify your account, I physically couldn't — there's no code path for it, and automated tests enforce that on every commit. The PowerShell script is ~300 lines of auditable code with no obfuscation — I expect you to review it before running, and I'm happy to answer questions about what any section does.
